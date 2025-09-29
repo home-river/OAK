@@ -1,0 +1,22 @@
+name: oak_vision
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.9
+  - numpy=1.24.3
+  - scipy=1.11.4
+  - opencv=4.8.1
+  - pyyaml=6.0.1
+  - pytest=7.4.3
+  - pytest-asyncio=0.21.1
+  - pip
+  - pip:
+    - depthai==2.24.0.0
+    - python-can==4.2.2
+    - structlog==23.2.0
+    - asyncio-mqtt==0.16.1
+    - pytest-mock==3.12.0
+    - black==23.11.0
+    - flake8==6.1.0
+    - mypy==1.7.1

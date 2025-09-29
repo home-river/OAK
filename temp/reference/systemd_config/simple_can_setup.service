@@ -1,0 +1,12 @@
+[Unit]
+Description=CAN Interface Setup
+After=network.target
+
+[Service]
+Type=oneshot
+ExecStart=/root/oak2/temp/systemd_config/simple_can_setup.sh
+RemainAfterExit=yes
+User=root
+
+[Install]
+WantedBy=multi-user.target

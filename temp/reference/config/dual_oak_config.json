@@ -1,0 +1,30 @@
+{
+  "config_version": "1.0.0",
+  "updated_at": "2025-09-01T13:48:35",
+  "filter": {
+    "type": "moving_average",
+    "window": 15
+  },
+  "devices": {
+    "19443010C1A21A1300": {
+      "alias": "oak_left",
+      "kinematics": {
+        "Tx": -1500.0,
+        "Ty": -900.0,
+        "Tz": 1200.0,
+        "Ry": 20.0,
+        "Rz": -30.0
+      }
+    },
+    "1944301091C41B1300": {
+      "alias": "oak_right",
+      "kinematics": {
+        "Tx": -1550.0,
+        "Ty": 880.0,
+        "Tz": 1200.0,
+        "Ry": 20.0,
+        "Rz": 32.0
+      }
+    }
+  }
+}
