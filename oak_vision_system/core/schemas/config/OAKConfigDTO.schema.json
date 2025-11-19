@@ -1,0 +1,57 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "oak_vision_system/core/schemas/config/OAKConfigDTO.schema.json",
+  "title": "OAKConfigDTO",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "model_path": { "type": ["string", "null"] },
+    "label_map": { "type": "array", "items": { "type": "string" } },
+    "num_classes": { "type": "integer", "minimum": 1, "maximum": 100 },
+    "confidence_threshold": { "type": "number", "minimum": 0.0, "maximum": 1.0 },
+    "nms_threshold": { "type": "number", "minimum": 0.0, "maximum": 1.0 },
+    "max_detections": { "type": "integer" },
+
+    "rgb_resolution": {
+      "type": "array",
+      "items": { "type": "integer" },
+      "minItems": 2,
+      "maxItems": 2
+    },
+    "preview_resolution": {
+      "type": "array",
+      "items": { "type": "integer" },
+      "minItems": 2,
+      "maxItems": 2
+    },
+    "hardware_fps": { "type": "integer", "minimum": 1, "maximum": 120 },
+    "usb2_mode": { "type": "boolean" },
+
+    "enable_depth": { "type": "boolean" },
+    "depth_resolution": {
+      "type": "array",
+      "items": { "type": "integer" },
+      "minItems": 2,
+      "maxItems": 2
+    },
+    "depth_min_threshold": { "type": "number" },
+    "depth_max_threshold": { "type": "number" },
+    "align_depth_to_rgb": { "type": "boolean" },
+    "median_filter": { "type": "integer", "enum": [3,5,7] },
+    "left_right_check": { "type": "boolean" },
+    "extended_disparity": { "type": "boolean" },
+    "subpixel": { "type": "boolean" },
+
+    "queue_max_size": { "type": "integer", "minimum": 1, "maximum": 30 },
+    "queue_blocking": { "type": "boolean" }
+  },
+  "required": [
+    "label_map", "num_classes", "confidence_threshold", "nms_threshold",
+    "rgb_resolution", "preview_resolution", "hardware_fps", "usb2_mode",
+    "enable_depth", "depth_resolution", "depth_min_threshold", "depth_max_threshold",
+    "align_depth_to_rgb", "median_filter", "left_right_check", "extended_disparity", "subpixel",
+    "queue_max_size", "queue_blocking"
+  ]
+}
+
+

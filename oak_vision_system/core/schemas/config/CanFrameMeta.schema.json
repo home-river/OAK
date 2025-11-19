@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "oak_vision_system/core/schemas/config/CanFrameMeta.schema.json",
+  "title": "CanFrameMeta",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "frame_id": { "type": "integer", "minimum": 0 },
+    "is_extended": { "type": "boolean" },
+    "comment": { "type": "string" }
+  },
+  "required": ["frame_id", "is_extended", "comment"]
+}
+
+

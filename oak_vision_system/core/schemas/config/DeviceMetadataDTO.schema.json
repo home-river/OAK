@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "oak_vision_system/core/schemas/config/DeviceMetadataDTO.schema.json",
+  "title": "DeviceMetadataDTO",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "mxid": { "type": "string" },
+    "product_name": { "type": ["string", "null"] },
+    "connection_status": { "type": "string", "enum": ["connected", "disconnected", "unknown"] },
+    "notes": { "type": ["string", "null"] },
+    "first_seen": { "type": "number" },
+    "last_seen": { "type": "number" }
+  },
+  "required": ["mxid", "connection_status", "first_seen", "last_seen"]
+}
+
+

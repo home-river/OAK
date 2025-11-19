@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "oak_vision_system/core/schemas/config/DisplayConfigDTO.schema.json",
+  "title": "DisplayConfigDTO",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "enable_display": { "type": "boolean" },
+    "default_display_mode": { "type": "string", "enum": ["rgb", "depth", "combined", "side_by_side"] },
+    "enable_fullscreen": { "type": "boolean" },
+    "window_width": { "type": "integer", "minimum": 320, "maximum": 3840 },
+    "window_height": { "type": "integer", "minimum": 240, "maximum": 2160 },
+    "window_position_x": { "type": "integer" },
+    "window_position_y": { "type": "integer" },
+    "target_fps": { "type": "integer", "minimum": 1, "maximum": 120 },
+    "enable_vsync": { "type": "boolean" },
+    "show_detection_boxes": { "type": "boolean" },
+    "show_labels": { "type": "boolean" },
+    "show_confidence": { "type": "boolean" },
+    "show_coordinates": { "type": "boolean" },
+    "show_fps": { "type": "boolean" },
+    "show_device_info": { "type": "boolean" },
+    "depth_colormap": { "type": "string", "enum": ["JET", "RAINBOW", "BONE", "TURBO", "HOT", "COOL"] },
+    "depth_alpha": { "type": "number", "minimum": 0.0, "maximum": 1.0 },
+    "normalize_depth": { "type": "boolean" },
+    "bbox_thickness": { "type": "integer", "minimum": 1, "maximum": 10 },
+    "bbox_color_by_label": { "type": "boolean" },
+    "text_scale": { "type": "number", "minimum": 0.3, "maximum": 2.0 }
+  },
+  "required": [
+    "enable_display", "default_display_mode", "enable_fullscreen",
+    "window_width", "window_height", "window_position_x", "window_position_y",
+    "target_fps", "enable_vsync",
+    "show_detection_boxes", "show_labels", "show_confidence", "show_coordinates", "show_fps", "show_device_info",
+    "depth_colormap", "depth_alpha", "normalize_depth",
+    "bbox_thickness", "bbox_color_by_label", "text_scale"
+  ]
+}
+
+

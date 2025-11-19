@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "oak_vision_system/core/schemas/config/CANConfigDTO.schema.json",
+  "title": "CANConfigDTO",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "enable_can": { "type": "boolean" },
+    "can_interface": { "type": "string" },
+    "can_channel": { "type": "string" },
+    "can_bitrate": { "type": "integer", "enum": [20000, 50000, 100000, 125000, 250000, 500000, 800000, 1000000] },
+    "send_timeout_ms": { "type": "integer" },
+    "receive_timeout_ms": { "type": "integer" },
+    "frame_ids": { "$ref": "./FrameIdConfigDTO.schema.json" }
+  },
+  "required": ["enable_can", "can_interface", "can_channel", "can_bitrate", "send_timeout_ms", "receive_timeout_ms", "frame_ids"]
+}
+
+
