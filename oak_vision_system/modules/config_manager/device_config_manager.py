@@ -184,8 +184,6 @@ class DeviceConfigManager:
         
         """
         # 1) 解析路径与策略
-        self.logger.debug("load_config 调用: validate=%s, config_path=%s, auto_create=%s",
-                          validate, config_path, auto_create)
         path = Path(config_path) if config_path else Path(self._config_path)
         if auto_create is None:
             auto_create = self._auto_create
@@ -193,6 +191,7 @@ class DeviceConfigManager:
         # 2) 不存在时处理
         if not path.exists():
             if not auto_create:
+                self.logger.error("配置文件不存在且未启用自动创建: %s", path)
                 raise ConfigNotFoundError(f"配置文件不存在: {path}")
             self.logger.info("配置文件不存在，将自动创建默认配置: %s", path)
             try:
@@ -224,11 +223,9 @@ class DeviceConfigManager:
                 self._last_modified = None
             try:
                 configure_logging(dto.system_config)
-                self.logger.info("已根据系统配置初始化日志: level=%s, to_file=%s",
-                                 getattr(dto.system_config, 'log_level', None),
-                                 getattr(dto.system_config, 'log_to_file', None))
             except Exception as e:
                 self.logger.error("初始化日志失败: %s", e, exc_info=True)
+            self.logger.info("配置已创建: path=%s", path)
             return True
 
         # 3) 读取 + 反序列化
@@ -237,6 +234,7 @@ class DeviceConfigManager:
             data = json.loads(raw)
             dto = DeviceManagerConfigDTO.from_dict(data)
         except (OSError, json.JSONDecodeError, ValueError) as e:
+            self.logger.error("配置读取/解析失败: %s, path=%s", e, path, exc_info=True)
             raise ConfigValidationError(f"配置读取/解析失败: {e}")
 
         # 4) 可选校验
@@ -256,12 +254,9 @@ class DeviceConfigManager:
             self._last_modified = None
         try:
             configure_logging(dto.system_config)
-            self.logger.info("配置已加载并完成日志初始化: path=%s, level=%s, to_file=%s",
-                             path,
-                             getattr(dto.system_config, 'log_level', None),
-                             getattr(dto.system_config, 'log_to_file', None))
         except Exception as e:
             self.logger.error("根据系统配置初始化日志失败: %s", e, exc_info=True)
+        self.logger.info("配置已加载: path=%s", path)
         return True
 
     
@@ -306,6 +301,7 @@ class DeviceConfigManager:
         try:
             output_path.parent.mkdir(parents=True, exist_ok=True)
         except OSError as e:
+            self.logger.error("创建配置目录失败: %s, path=%s", e, output_path.parent, exc_info=True)
             raise ConfigValidationError(f"创建配置目录失败: {e}")
         
         # 4. 原子写入
@@ -317,6 +313,7 @@ class DeviceConfigManager:
         except OSError as e:
             if temp_path.exists():
                 temp_path.unlink()
+            self.logger.error("保存配置文件失败: %s, path=%s", e, output_path, exc_info=True)
             raise ConfigValidationError(f"保存配置文件失败: {e}")
         
         # 5. 更新时间戳
@@ -324,7 +321,7 @@ class DeviceConfigManager:
             self._last_modified = output_path.stat().st_mtime
         except OSError:
             self._last_modified = None
-        self.logger.info("配置已保存: path=%s, bytes=%d", output_path, len(json_text.encode('utf-8')))
+        self.logger.info("配置已保存: path=%s", output_path)
         
         return True
             
@@ -421,11 +418,9 @@ class DeviceConfigManager:
         self._last_modified = time.time()
         try:
             configure_logging(default_config.system_config)
-            self.logger.info("默认配置已创建并完成日志初始化: roles=%d, devices=%d",
-                             len(default_config.oak_module.role_bindings),
-                             len(default_config.device_metadata))
         except Exception as e:
             self.logger.error("初始化日志失败: %s", e, exc_info=True)
+        self.logger.info("默认配置已创建")
         return True
 
     # ==================== 一.1 可运行配置管理（晋升与回滚） ====================
@@ -463,17 +458,21 @@ class DeviceConfigManager:
         # 验证通过：更新可运行快照
         self._runnable_config = self._config
         self._dirty = False
+        self.logger.info("已晋升当前草稿为可运行配置")
 
         if persist:
             path = Path(self._config_path)
             try:
                 path.parent.mkdir(parents=True, exist_ok=True)
-                path.write_text(self._runnable_config.to_json(indent=2), encoding="utf-8")
+                text = self._runnable_config.to_json(indent=2)
+                path.write_text(text, encoding="utf-8")
                 try:
                     self._last_modified = path.stat().st_mtime
                 except OSError:
                     self._last_modified = None
+                self.logger.info("已保存可运行配置: path=%s", path)
             except OSError as e:
+                self.logger.error("保存可运行配置失败: %s, path=%s", e, path, exc_info=True)
                 raise ConfigValidationError(f"保存可运行配置失败: {e}")
 
         return self._runnable_config
@@ -487,6 +486,7 @@ class DeviceConfigManager:
 
         self._config = self._runnable_config
         self._dirty = False
+        self.logger.info("已回档到最近的可运行配置快照")
         return self._config
     
     # ==================== 二、配置验证 ====================

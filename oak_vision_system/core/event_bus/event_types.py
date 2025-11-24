@@ -1,48 +1,36 @@
-"""
-事件类型定义
-"""
-
-from enum import Enum
-
-
 class EventType:
-    """事件类型常量定义"""
-    
-    # 数据采集模块事件
-    RAW_FRAME_DATA = "raw_frame_data"
-    RAW_DETECTION_DATA = "raw_detection_data"
-    DEVICE_STATUS_CHANGE = "device_status_change"
-    
-    # 数据调度器模块事件（对外发布）
-    PROCESSED_DISPLAY_DATA = "processed_display_data"    # 发送给显示模块
-    TARGET_COORDINATES = "target_coordinates"            # 发送给控制模块
-    
-    # 注意：数据调度器内部的处理步骤（滤波、修正等）不作为事件发布
-    # 这些是模块内部实现细节，应该在模块内部流动
-    
-    # 显示模块事件
-    DISPLAY_FRAME_READY = "display_frame_ready"
-    
-    # CAN通信模块事件
-    CAN_DATA_RECEIVED = "can_data_received"
-    CAN_DATA_SENT = "can_data_sent"
-    CAN_ERROR = "can_error"
-    
-    # 控制器模块事件
-    MOTION_COMMAND = "motion_command"
-    GRASP_COMMAND = "grasp_command"
-    SENSOR_FEEDBACK = "sensor_feedback"
-    
-    # 系统事件
-    SYSTEM_STATUS = "system_status"
-    PERFORMANCE_METRICS = "performance_metrics"
-    ERROR_ALERT = "error_alert"
+    """
+    事件类型枚举（用字符串常量即可，便于日志和跨模块引用）
+    """
 
+    # 摄像头 / 数据源相关
+    RAW_FRAME_DATA = "raw_frame_data"          # 数据源模块发布的原始帧（视频帧)
+    RAW_DETECTION_DATA = "raw_detection_data"  # 数据源模块发布的原始检测数据（检测数据）
+    CAMERA_HEARTBEAT = "camera_heartbeat"      # 可选：摄像头心跳/状态上报
 
-class Priority(Enum):
-    """事件优先级"""
-    LOW = 1
-    NORMAL = 2
-    HIGH = 3
-    CRITICAL = 4
+    # 数据处理相关
+    PROCESSED_DATA = "processed_data"          # 数据处理模块输出，用于显示模块
+    PROCESSING_ERROR = "processing_error"      # 可选：处理异常
 
+    # 显示相关
+    DISPLAY_RENDER = "display_render"          # 可选：通知显示模块渲染
+    DISPLAY_STATS = "display_stats"            # 可选：显示性能统计
+
+    # 系统状态 / 性能监控
+    PERFORMANCE_METRICS = "performance_metrics"  # 延迟、FPS 等统计
+
+    # 背压 / 流量控制
+    BACKPRESSURE_SIGNAL = "backpressure_signal"
+    """
+    背压控制信号，典型 payload 例如：
+    {
+        "action": "PAUSE" | "RESUME",
+        "source": "display" | "processor",
+        "reason": "queue_high" | "queue_low" | ...
+    }
+    """
+
+    # 其它业务事件（示例）
+    SYSTEM_START = "system_start"
+    SYSTEM_STOP = "system_stop"
+    SYSTEM_ERROR = "system_error"

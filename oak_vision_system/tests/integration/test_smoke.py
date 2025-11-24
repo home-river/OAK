@@ -19,8 +19,6 @@ from ...core.dto.detection_dto import (
     DeviceDetectionDataDTO,
     VideoFrameDTO,
     OAKDataCollectionDTO,
-    RawFrameDataEvent,
-    RawDetectionDataEvent
 )
 from ...core.dto.device_config_dto import (
     OAKConfigDTO,

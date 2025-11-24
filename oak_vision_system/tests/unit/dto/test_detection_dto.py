@@ -8,8 +8,6 @@
 - DeviceDetectionDataDTO: 单个设备的检测数据传输对象
 - VideoFrameDTO: 视频帧数据传输对象
 - OAKDataCollectionDTO: OAK数据采集模块综合数据传输对象
-- RawFrameDataEvent: 原始帧数据事件DTO
-- RawDetectionDataEvent: 原始检测数据事件DTO
 """
 
 import time
@@ -23,8 +21,6 @@ from oak_vision_system.core.dto import (
     DeviceDetectionDataDTO,
     VideoFrameDTO,
     OAKDataCollectionDTO,
-    RawFrameDataEvent,
-    RawDetectionDataEvent,
 )
 
 
@@ -187,6 +183,7 @@ class TestDeviceDetectionDataDTO:
         
         device_data = DeviceDetectionDataDTO(
             device_id="OAK_001",
+            frame_id=123,
             detections=[detection]
         )
         
@@ -320,69 +317,7 @@ class TestOAKDataCollectionDTO:
         assert len(collection.get_validation_errors()) > 0
 
 
-class TestRawFrameDataEvent:
-    """原始帧数据事件DTO测试套件"""
-    
-    def test_valid_frame_event_creation(self):
-        """测试创建有效的帧数据事件"""
-        rgb_frame = np.zeros((480, 640, 3), dtype=np.uint8)
-        video_frame = VideoFrameDTO(
-            device_id="OAK_001",
-            frame_id=123,
-            rgb_frame=rgb_frame
-        )
-        
-        event = RawFrameDataEvent(
-            device_id="OAK_001",
-            video_frame=video_frame
-        )
-        
-        assert event.validate() is True, \
-            f"验证失败: {event.get_validation_errors()}"
-        assert event.event_type == "raw_frame_data"
-        assert event.device_id == "OAK_001"
-        assert event.video_frame == video_frame
-        assert event.created_at is not None
-    
-    def test_invalid_frame_event_creation(self):
-        """测试创建无效的帧数据事件"""
-        event = RawFrameDataEvent(
-            device_id=""  # 空设备ID
-        )
-        
-        assert event.validate() is False
-        assert len(event.get_validation_errors()) > 0
-
-
-class TestRawDetectionDataEvent:
-    """原始检测数据事件DTO测试套件"""
-    
-    def test_valid_detection_event_creation(self):
-        """测试创建有效的检测数据事件"""
-        device_data = DeviceDetectionDataDTO(
-            device_id="OAK_001"
-        )
-        
-        event = RawDetectionDataEvent(
-            device_id="OAK_001",
-            detection_data=device_data
-        )
-        
-        assert event.validate() is True, \
-            f"验证失败: {event.get_validation_errors()}"
-        assert event.event_type == "raw_detection_data"
-        assert event.device_id == "OAK_001"
-        assert event.detection_data == device_data
-        assert event.created_at is not None
-    
-    def test_invalid_detection_event_creation(self):
-        """测试创建无效的检测数据事件"""
-        event = RawDetectionDataEvent(
-            device_id=""  # 空设备ID
-        )
-        
-        assert event.validate() is False
-        assert len(event.get_validation_errors()) > 0
+ 
 
 
 class TestDTOIntegration:
@@ -430,6 +365,7 @@ class TestDTOIntegration:
         
         device_data = DeviceDetectionDataDTO(
             device_id="OAK_001",
+            frame_id=123,
             detections=[detection]
         )
         

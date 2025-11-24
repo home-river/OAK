@@ -509,16 +509,16 @@ class DeviceMatchManager:
         if not can_start:
             # 不能启动的情况
             if result.result_type == MatchResultType.INVALID_CONFIG:
-                self.logger.error("配置错误，无法启动")
+                self.logger.error("验证过程中发现配置错误，无法启动")
                 issues.append("配置错误，无法启动")
                 issues.extend(result.errors)
             elif result.result_type == MatchResultType.NO_MATCH:
-                self.logger.error("没有任何设备匹配到角色")
+                self.logger.error("验证过程中发现没有任何设备匹配到角色")
                 issues.append("没有任何设备匹配到角色")
         else:
             # 可以启动，但如果是部分匹配需要添加警告
             if result.result_type == MatchResultType.PARTIAL_MATCH:
-                self.logger.warning("部分角色未匹配 (%d 个)", len(result.unmatched_bindings))
+                self.logger.warning("验证过程中发现部分角色未匹配 (%d 个)", len(result.unmatched_bindings))
                 issues.append(f"警告：部分角色未匹配 ({len(result.unmatched_bindings)} 个)")
                 for binding in result.unmatched_bindings:
                     issues.append(f"  - 缺失角色: {binding.role.value}")

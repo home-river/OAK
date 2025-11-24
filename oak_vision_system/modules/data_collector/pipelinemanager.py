@@ -3,8 +3,6 @@ import depthai as dai
 
 from oak_vision_system.core.dto import (
     VideoFrameDTO,
-    RawFrameDataEvent,
-    RawDetectionDataEvent,
     DeviceDetectionDataDTO,
     DetectionDTO,
 )
@@ -62,12 +60,12 @@ class PipelineManager:
             xoutRgb = pipeline.create(dai.node.XLinkOut)
             xoutNN = pipeline.create(dai.node.XLinkOut)
             xoutDepth = pipeline.create(dai.node.XLinkOut)
-            nnNetworkOut = pipeline.create(dai.node.XLinkOut)
+            # nnNetworkOut = pipeline.create(dai.node.XLinkOut)
             
             xoutRgb.setStreamName("rgb")
             xoutNN.setStreamName("detections")
             xoutDepth.setStreamName("depth")
-            nnNetworkOut.setStreamName("nnNetwork")
+            # nnNetworkOut.setStreamName("nnNetwork")
             
             # 配置相机
             stage = "camera_config"
@@ -112,12 +110,12 @@ class PipelineManager:
             spatialDetectionNetwork.out.link(xoutNN.input)
             stereo.depth.link(spatialDetectionNetwork.inputDepth)
             spatialDetectionNetwork.passthroughDepth.link(xoutDepth.input)
-            spatialDetectionNetwork.outNetwork.link(nnNetworkOut.input)
+            # spatialDetectionNetwork.outNetwork.link(nnNetworkOut.input)
             self.logger.info("pipeline创建完成")
             self.pipeline = pipeline
         except Exception as e:
             self.pipeline = None
-            self.logger.exception("create_pipeline: 失败，阶段=%s, 错误=%s", stage, e)
+            self.logger.exception("create_pipeline 失败，阶段=%s", stage)
             raise RuntimeError(f"create_pipeline 失败（阶段={stage}）") from e
 
         
@@ -142,11 +140,11 @@ class PipelineManager:
             stage = "xlink_creation"
             xoutRgb = pipeline.create(dai.node.XLinkOut)
             xoutNN = pipeline.create(dai.node.XLinkOut)
-            nnNetworkOut = pipeline.create(dai.node.XLinkOut)
+            # nnNetworkOut = pipeline.create(dai.node.XLinkOut)
             
             xoutRgb.setStreamName("rgb")
             xoutNN.setStreamName("detections")
-            nnNetworkOut.setStreamName("nnNetwork")
+            # nnNetworkOut.setStreamName("nnNetwork")
             
             # 配置相机
             stage = "camera_config"
@@ -190,15 +188,28 @@ class PipelineManager:
             # camRgb.preview.link(xoutRgb.input)
             spatialDetectionNetwork.out.link(xoutNN.input)
             stereo.depth.link(spatialDetectionNetwork.inputDepth)
-            spatialDetectionNetwork.outNetwork.link(nnNetworkOut.input)
+            # spatialDetectionNetwork.outNetwork.link(nnNetworkOut.input)
             self.logger.info("pipeline创建完成（无深度输出）")
             self.pipeline = pipeline
         except Exception as e:
             self.pipeline = None
-            self.logger.exception("create_pipeline_with_no_depth_output: 失败，阶段=%s, 错误=%s", stage, e)
+            self.logger.exception("create_pipeline_with_no_depth_output 失败，阶段=%s", stage)
             raise RuntimeError(f"create_pipeline_with_no_depth_output 失败（阶段={stage}）") from e
         
     def get_pipeline(self):
+        """
+        获取已创建的 pipeline 实例。
+
+        如果 pipeline 尚未初始化，则抛出异常。
+        此方法用于外部获取当前 PipelineManager 管理的 pipeline 对象。
+
+        Returns:
+            depthai.Pipeline: 已初始化的 pipeline 实例。
+
+        Raises:
+            RuntimeError: 如果 pipeline 尚未创建。
+            TypeError: 如果 pipeline 类型异常。
+        """
         if self.pipeline is None:
             msg = "Pipeline 尚未创建。请先调用 create_pipeline() 或 create_pipeline_with_no_depth_output()。"
             self.logger.error(msg)
@@ -255,7 +266,7 @@ class PipelineManager:
         if result is None:
             # 使用默认值并记录警告
             self.logger.warning(
-                f"不支持的 RGB 分辨率 {self.config.rgb_resolution}，使用默认 1080P"
+                "不支持的 RGB 分辨率 %s，使用默认 1080P", self.config.rgb_resolution
             )
             return dai.ColorCameraProperties.SensorResolution.THE_1080_P
         
@@ -292,7 +303,7 @@ class PipelineManager:
         if result is None:
             # 使用默认值并记录警告
             self.logger.warning(
-                f"不支持的中值滤波核大小 {self.config.median_filter}，使用默认 5x5"
+                "不支持的中值滤波核大小 %s，使用默认 5x5", self.config.median_filter
             )
             return dai.MedianFilter.KERNEL_5x5
         
@@ -314,7 +325,7 @@ class PipelineManager:
         if result is None:
             # 使用默认值并记录警告
             self.logger.warning(
-                f"不支持的深度分辨率 {self.config.depth_resolution}，使用默认 400P"
+                "不支持的深度分辨率 %s，使用默认 400P", self.config.depth_resolution
             )
             return dai.MonoCameraProperties.SensorResolution.THE_400_P
         

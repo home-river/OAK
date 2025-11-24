@@ -170,10 +170,6 @@ class TestEventBusErrorHandling:
         assert count == 1  # 只有good_handler成功
         assert received == ["test"]
         
-        # 验证统计信息
-        stats = event_bus.get_stats()
-        assert stats['total_errors'] == 1
-
 
 class TestEventBusThreadSafety:
     """线程安全性测试"""
@@ -224,31 +220,6 @@ class TestEventBusThreadSafety:
         
         # 验证：应该收到50条消息（5个线程 × 10条消息）
         assert len(received) == 50
-
-
-class TestEventBusStatistics:
-    """统计信息测试"""
-    
-    def test_stats_tracking(self):
-        """测试：统计信息跟踪"""
-        event_bus = EventBus()
-        
-        received_count = [0]
-        
-        def handler(data):
-            received_count[0] += 1
-        
-        event_bus.subscribe(EventType.RAW_FRAME_DATA, handler)
-        event_bus.subscribe(EventType.RAW_FRAME_DATA, handler)
-        
-        # 发布多个事件
-        for i in range(5):
-            event_bus.publish(EventType.RAW_FRAME_DATA, f"data{i}")
-        
-        stats = event_bus.get_stats()
-        assert stats['total_published'] == 5
-        assert stats['total_delivered'] == 10  # 2个订阅者 × 5条消息
-        assert stats['total_errors'] == 0
 
 
 class TestGlobalEventBus:

@@ -30,8 +30,6 @@ from .detection_dto import (
     DeviceDetectionDataDTO,
     VideoFrameDTO,
     OAKDataCollectionDTO,
-    RawFrameDataEvent,
-    RawDetectionDataEvent,
 )
 
 # 配置相关的DTO已迁移到 config_dto 子包
@@ -60,8 +58,6 @@ __all__ = [
     "DeviceDetectionDataDTO",
     "VideoFrameDTO",
     "OAKDataCollectionDTO",
-    "RawFrameDataEvent",
-    "RawDetectionDataEvent",
     
     # 版本信息
     "__version__",

@@ -57,11 +57,12 @@
                   └──────────────────────┘
                              │
                              ▼
-                  ┌──────────────────────┐
-                  │ RawFrameDataEvent     │
-                  │ RawDetectionDataEvent │
-                  │ (事件总线传输)         │
-                  └──────────────────────┘
+                 ┌─────────────────────────────┐
+                 │ EventBus 事件总线            │
+                 │ 直接传输:                    │
+                 │ - VideoFrameDTO              │
+                 │ - DeviceDetectionDataDTO     │
+                 └─────────────────────────────┐
 ```
 
 ---
@@ -241,46 +242,14 @@ class OAKDataCollectionDTO(BaseDTO):
 
 ---
 
-### 7. RawFrameDataEvent - 原始帧数据事件
+### 7. 事件总线传输载荷说明（更新）
 
-**用途**：通过事件总线传输视频帧
+自本版本起，不再定义 `RawFrameDataEvent` 与 `RawDetectionDataEvent` 包装类型。
+事件总线的负载直接使用 DTO：
+- RAW_FRAME_DATA: `VideoFrameDTO`
+- RAW_DETECTION_DATA: `DeviceDetectionDataDTO`
 
-```python
-@dataclass(frozen=True)
-class RawFrameDataEvent(BaseDTO):
-    device_id: str                       # 设备ID
-    frame: np.ndarray                    # 原始帧数据
-    frame_type: str                      # 帧类型
-    timestamp: float                     # 时间戳
-```
-
-**使用场景**：
-- 事件总线数据传输
-- 显示模块订阅
-- 录像模块订阅
-- 低延迟传输
-
----
-
-### 8. RawDetectionDataEvent - 原始检测数据事件
-
-**用途**：通过事件总线传输检测结果
-
-```python
-@dataclass(frozen=True)
-class RawDetectionDataEvent(BaseDTO):
-    device_id: str                       # 设备ID
-    detections: Tuple[DetectionDTO, ...] # 检测结果
-    timestamp: float                     # 时间戳
-```
-
-**使用场景**：
-- 事件总线数据传输
-- 数据调度器订阅
-- 控制模块订阅
-- 解耦模块依赖
-
----
+这样可以减少一层封装，降低开销并简化类型体系。
 
 ## 🔄 数据流转示例
 
@@ -312,13 +281,8 @@ collection = OAKDataCollectionDTO(
     timestamp=time.time()
 )
 
-# 4. 发布到事件总线
-event = RawDetectionDataEvent(
-    device_id="left",
-    detections=(detection,),
-    timestamp=time.time()
-)
-event_bus.publish(EventType.RAW_DETECTION, event)
+# 4. 发布到事件总线（直接发布 DTO）
+event_bus.publish(EventType.RAW_DETECTION_DATA, device_data)
 ```
 
 ---
@@ -389,10 +353,8 @@ detections: List[DetectionDTO]
 ### 3. 零拷贝设计
 ```python
 # ✅ 直接传递引用（零拷贝）
-event = RawFrameDataEvent(
-    frame=frame,  # 传递引用，不复制
-    ...
-)
+# 直接用 VideoFrameDTO 作为事件负载
+event_bus.publish(EventType.RAW_FRAME_DATA, video_frame)
 
 # ⚠️ 注意：不要在多处修改同一frame
 ```

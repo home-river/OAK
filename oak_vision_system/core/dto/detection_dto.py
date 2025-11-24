@@ -8,8 +8,6 @@
 - DeviceDetectionDataDTO: 单个设备的检测数据传输对象
 - VideoFrameDTO: 视频帧数据传输对象
 - OAKDataCollectionDTO: OAK数据采集模块综合数据传输对象
-- RawFrameDataEvent: 原始帧数据事件DTO
-- RawDetectionDataEvent: 原始检测数据事件DTO
 """
 
 import math
@@ -185,6 +183,36 @@ class DetectionDTO(BaseDTO):
             timestamp_ms = int(self.created_at * 1000)
             detection_id = f"{self.label}_{timestamp_ms}_{str(uuid.uuid4())[:8]}"
             object.__setattr__(self, 'detection_id', detection_id)
+    
+    def with_detection_id(self, detection_id: str) -> 'DetectionDTO':
+        """
+        返回一个新的 DetectionDTO 实例，带有指定的 detection_id。
+        
+        用于目标追踪场景，可以为同一个目标在不同帧中设置相同的 detection_id。
+        由于 DetectionDTO 是不可变对象，此方法返回新实例而不修改原对象。
+        
+        Args:
+            detection_id: 新的检测唯一标识符
+        
+        Returns:
+            DetectionDTO: 带有新 detection_id 的新实例
+        
+        Example:
+            >>> # 创建检测结果
+            >>> detection = DetectionDTO(
+            ...     label="durian",
+            ...     confidence=0.95,
+            ...     bbox=bbox,
+            ...     spatial_coordinates=coords
+            ... )
+            >>> 
+            >>> # 为追踪目标设置固定的ID
+            >>> tracked_detection = detection.with_detection_id("track_object_123")
+            >>> 
+            >>> # 或者覆盖自动生成的ID
+            >>> custom_detection = detection.with_detection_id("custom_id_456")
+        """
+        return self.with_updates(detection_id=detection_id)
 
 
 @dataclass(frozen=True)
@@ -407,62 +435,7 @@ class OAKDataCollectionDTO(BaseDTO):
     def has_device_data(self, device_id: str) -> bool:
         """检查是否有指定设备的数据"""
         return device_id in self.available_devices
-
+ 
 
 # 事件数据DTO
-@dataclass(frozen=True)
-class RawFrameDataEvent(BaseDTO):
-    """原始帧数据事件DTO"""
-    
-    event_type: str = field(default="raw_frame_data", init=False)
-    device_id: str = ""
-    video_frame: Optional[VideoFrameDTO] = None
-    # 注意：时间戳使用继承的 created_at 字段
-    
-    def _validate_data(self) -> List[str]:
-        """事件数据验证"""
-        errors = []
-        
-        # 验证设备ID
-        errors.extend(validate_string_length(
-            self.device_id, 'device_id', min_length=1, max_length=100
-        ))
-        
-        # 验证视频帧
-        if self.video_frame is not None and not isinstance(self.video_frame, VideoFrameDTO):
-            errors.append("video_frame必须为VideoFrameDTO类型")
-        
-        return errors
-    
-    def _post_init_hook(self) -> None:
-        """初始化后钩子，设置默认值"""
-        pass  # 使用继承的 created_at 字段，无需额外初始化
-
-
-@dataclass(frozen=True)
-class RawDetectionDataEvent(BaseDTO):
-    """原始检测数据事件DTO"""
-    
-    event_type: str = field(default="raw_detection_data", init=False)
-    device_id: str = ""
-    detection_data: Optional[DeviceDetectionDataDTO] = None
-    # 注意：时间戳使用继承的 created_at 字段
-    
-    def _validate_data(self) -> List[str]:
-        """事件数据验证"""
-        errors = []
-        
-        # 验证设备ID
-        errors.extend(validate_string_length(
-            self.device_id, 'device_id', min_length=1, max_length=100
-        ))
-        
-        # 验证检测数据
-        if self.detection_data is not None and not isinstance(self.detection_data, DeviceDetectionDataDTO):
-            errors.append("detection_data必须为DeviceDetectionDataDTO类型")
-        
-        return errors
-    
-    def _post_init_hook(self) -> None:
-        """初始化后钩子，设置默认值"""
-        pass  # 使用继承的 created_at 字段，无需额外初始化
+ 

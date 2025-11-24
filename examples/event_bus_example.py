@@ -17,7 +17,6 @@ from oak_vision_system.core.dto.detection_dto import (
     BoundingBoxDTO,
     SpatialCoordinatesDTO,
     DeviceDetectionDataDTO,
-    RawDetectionDataEvent
 )
 
 
@@ -56,7 +55,6 @@ def example1_basic_usage():
     print("\n再次发布事件...")
     event_bus.publish(EventType.RAW_FRAME_DATA, {"frame_id": 2, "data": "test_frame2"})
     
-    print(f"\n统计信息: {event_bus.get_stats()}")
 
 
 def example2_real_world_scenario():
@@ -79,10 +77,10 @@ def example2_real_world_scenario():
                 self.handle_detection_data
             )
         
-        def handle_detection_data(self, event: RawDetectionDataEvent):
+        def handle_detection_data(self, data: DeviceDetectionDataDTO):
             """处理检测数据"""
             self.received_count += 1
-            detection_data = event.detection_data
+            detection_data = data
             
             print(f"\n[显示模块] 收到检测数据:")
             print(f"  设备ID: {detection_data.device_id}")
@@ -122,15 +120,9 @@ def example2_real_world_scenario():
                 detections=[detection]
             )
             
-            # 创建事件
-            event = RawDetectionDataEvent(
-                device_id=device_id,
-                detection_data=device_data
-            )
-            
             # 发布到事件总线
             print(f"\n[数据采集模块] 发布检测数据: frame_id={frame_id}")
-            self.event_bus.publish(EventType.RAW_DETECTION_DATA, event)
+            self.event_bus.publish(EventType.RAW_DETECTION_DATA, device_data)
     
     # 创建模块
     display_module = DisplayModule(event_bus)
@@ -246,7 +238,6 @@ def example4_error_isolation():
     count = event_bus.publish(EventType.RAW_FRAME_DATA, "test_data")
     
     print(f"\n成功调用的订阅者数量: {count}")
-    print(f"统计信息: {event_bus.get_stats()}")
     print("\n注意：处理器2抛出异常，但处理器1和3仍然正常工作！")
 
 

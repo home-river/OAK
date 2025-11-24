@@ -1,304 +1,292 @@
-"""
-事件总线核心实现
-
-高性能的发布-订阅（Pub-Sub）事件总线，用于模块间异步通信。
-
-设计特点：
-1. 同步执行：在发布者线程中直接调用订阅者回调（不使用独立线程）
-2. 线程安全：使用锁保护订阅者列表
-3. 错误隔离：单个订阅者异常不影响其他订阅者
-4. 性能优化：针对15fps实时系统优化
-
-性能目标：
-- 事件分发延迟：< 5ms
-- 支持并发订阅/发布
-- CPU占用：< 5%（15fps场景）
-"""
-
 import logging
 import threading
-import uuid
-from typing import Callable, Dict, List, Optional, Any
-from dataclasses import dataclass, field
-from collections import defaultdict
+import time
+from dataclasses import dataclass
+from enum import IntEnum
+from typing import Any, Callable, Dict, List, Optional
+from concurrent.futures import ThreadPoolExecutor, Future
 
-from .event_types import Priority
+
+logger = logging.getLogger(__name__)
 
 
-# 订阅信息数据类
+# =========================
+# 优先级定义
+# =========================
+class Priority(IntEnum):
+    HIGH = 3
+    NORMAL = 2
+    LOW = 1
+
+
+# =========================
+# 订阅对象
+# =========================
 @dataclass
 class Subscription:
-    """订阅信息"""
+    """
+    单个订阅关系
+    """
     subscription_id: str
     event_type: str
     callback: Callable[[Any], None]
     priority: Priority = Priority.NORMAL
-    
-    def __hash__(self):
-        return hash(self.subscription_id)
+    filter_func: Optional[Callable[[Any], bool]] = None
+
+    # 新增：订阅者名称，用于记录订阅者名称
+    subscriber_name: Optional[str] = None
+
+    # 健康状态（可选，用于统计，逻辑简单化）
+    total_calls: int = 0
+    error_count: int = 0
+
+    def should_deliver(self, data: Any) -> bool:
+        """
+        通过过滤函数判断是否需要投递该事件给此订阅者。
+        有过滤函数时先经过过滤，否则直接投递。
+        """
+        if self.filter_func is None:
+            return True
+        try:
+            return bool(self.filter_func(data))
+        except Exception:
+            # 过滤函数异常时，为了安全起见仍然投递
+            logger.exception(
+                "订阅过滤函数执行异常，仍然投递事件: subscription_id=%s",
+                self.subscription_id,
+            )
+            return True
 
 
+# =========================
+# 事件总线实现
+# =========================
 class EventBus:
     """
-    事件总线核心类
-    
-    提供线程安全的发布-订阅机制，用于模块间解耦通信。
-    
-    使用示例：
-        >>> event_bus = EventBus()
-        >>> 
-        >>> # 订阅事件
-        >>> def handler(data):
-        ...     print(f"收到数据: {data}")
-        >>> 
-        >>> sub_id = event_bus.subscribe("raw_frame_data", handler)
-        >>> 
-        >>> # 发布事件
-        >>> event_bus.publish("raw_frame_data", frame_data)
-        >>> 
-        >>> # 取消订阅
-        >>> event_bus.unsubscribe(sub_id)
+    同步事件总线，支持：
+    - 订阅/取消订阅
+    - 同步发布
+    - 简单优先级（高优先级订阅者先执行）
+    - 流量控制（按事件类型开关）
+    - 统计信息（发布数/投递数/错误数/在途事件）
+    - 可选：异步发布（后台线程池）
     """
-    
-    def __init__(self):
-        """初始化事件总线"""
-        # 订阅者映射：event_type -> List[Subscription]
-        self._subscriptions: Dict[str, List[Subscription]] = defaultdict(list)
-        
-        # 线程锁：保护订阅者列表
+
+    _instance = None
+    _instance_lock = threading.Lock()
+
+    def __init__(self) -> None:
+        # event_type -> List[Subscription]
+        self._subscriptions: Dict[str, List[Subscription]] = {}
+
+        # 线程安全锁
         self._lock = threading.RLock()
-        
-        # 日志
-        self._logger = logging.getLogger(__name__)
-        
-        # 统计信息
-        self._stats = {
-            'total_published': 0,
-            'total_delivered': 0,
-            'total_errors': 0
-        }
-        
-        self._logger.info("事件总线已初始化")
-    
+
+        # 流量控制：某些事件类型可以临时禁用（例如背压时暂停 RAW_FRAME_DATA）
+        self._flow_control: Dict[str, bool] = {}
+
+        # 可选：异步发布线程池（懒初始化）
+        self._async_executor: Optional[ThreadPoolExecutor] = None
+
+    # -------- 单例接口（可选） --------
+    @classmethod
+    def get_instance(cls) -> "EventBus":
+        """
+        全局单例（如果你项目里已经有单例逻辑，可以替换/删除）
+        """
+        if cls._instance is None:
+            with cls._instance_lock:
+                if cls._instance is None:
+                    cls._instance = cls()
+        return cls._instance
+
+    # -------- 订阅相关 --------
     def subscribe(
         self,
         event_type: str,
         callback: Callable[[Any], None],
-        priority: Priority = Priority.NORMAL
+        priority: Priority = Priority.NORMAL,
+        filter_func: Optional[Callable[[Any], bool]] = None,
+        subscriber_name: Optional[str] = None,
     ) -> str:
         """
-        订阅事件
-        
-        Args:
-            event_type: 事件类型（来自EventType类）
-            callback: 回调函数，接收一个参数（事件数据）
-            priority: 优先级（暂未实现优先级排序）
-            
-        Returns:
-            str: 订阅ID，用于取消订阅
-            
-        Example:
-            >>> def my_handler(data):
-            ...     print(data)
-            >>> sub_id = event_bus.subscribe("raw_frame_data", my_handler)
+        订阅某个事件类型，返回 subscription_id。
+
+        :param event_type: 事件类型字符串
+        :param callback:   回调函数，形如 fn(data) -> None
+        :param priority:   优先级，高优先级先执行
+        :param filter_func: 可选过滤函数，形如 fn(data) -> bool
         """
-        # 生成唯一订阅ID
-        subscription_id = str(uuid.uuid4())
-        
-        # 创建订阅信息
-        subscription = Subscription(
+        if subscriber_name is None:
+            owner = getattr(callback, "__self__",None)
+            if owner is not None:
+                subscriber_name = f"{type(owner).__name__}.{callback.__name__}"
+        else:
+            subscriber_name = callback.__name__
+        subscription_id = f"{event_type}:{id(callback)}:{time.time_ns()}"
+        sub = Subscription(
             subscription_id=subscription_id,
             event_type=event_type,
             callback=callback,
-            priority=priority
+            priority=priority,
+            filter_func=filter_func,
         )
-        
-        # 线程安全地添加订阅
+
         with self._lock:
-            self._subscriptions[event_type].append(subscription)
-            
-            self._logger.debug(
-                f"新订阅: event_type={event_type}, "
-                f"subscription_id={subscription_id}, "
-                f"total_subscribers={len(self._subscriptions[event_type])}"
+            if event_type not in self._subscriptions:
+                self._subscriptions[event_type] = []
+            self._subscriptions[event_type].append(sub)
+
+            # 按优先级排序（值越大优先级越高）
+            self._subscriptions[event_type].sort(
+                key=lambda s: s.priority, reverse=True
             )
-        
+
+        logger.info(
+            "订阅事件: event_type=%s, subscription_id=%s, priority=%s, subscriber_name=%s",
+            event_type,
+            subscription_id,
+            priority.name,
+            subscriber_name,
+        )
         return subscription_id
-    
+
     def unsubscribe(self, subscription_id: str) -> bool:
         """
-        取消订阅
-        
-        Args:
-            subscription_id: 订阅ID（由subscribe()返回）
-            
-        Returns:
-            bool: True表示成功取消，False表示订阅不存在
-            
-        Example:
-            >>> event_bus.unsubscribe(sub_id)
+        根据 subscription_id 取消订阅。
+
+        :return: 是否成功取消
         """
         with self._lock:
-            # 遍历所有事件类型，查找并移除订阅
-            for event_type, subscriptions in self._subscriptions.items():
-                for subscription in subscriptions:
-                    if subscription.subscription_id == subscription_id:
-                        subscriptions.remove(subscription)
-                        
-                        self._logger.debug(
-                            f"取消订阅: event_type={event_type}, "
-                            f"subscription_id={subscription_id}"
-                        )
-                        return True
-        
-        self._logger.warning(f"订阅不存在: subscription_id={subscription_id}")
-        return False
-    
+            removed = False
+            for event_type, subs in list(self._subscriptions.items()):
+                new_list = [s for s in subs if s.subscription_id != subscription_id]
+                if len(new_list) != len(subs):
+                    self._subscriptions[event_type] = new_list
+                    removed = True
+
+                    logger.info(
+                        "取消订阅: event_type=%s, subscription_id=%s",
+                        event_type,
+                        subscription_id,
+                    )
+
+            return removed
+
+    # -------- 流量控制（背压用） --------
+    def set_flow_control(self, event_type: str, enabled: bool) -> None:
+        """
+        设置指定事件类型是否被流量控制（禁止发布）。
+
+        对于背压方案，可以在收到背压事件时：
+        - set_flow_control(EventType.RAW_FRAME_DATA, True)  暂停推送
+        - set_flow_control(EventType.RAW_FRAME_DATA, False) 恢复推送
+        """
+        with self._lock:
+            self._flow_control[event_type] = enabled
+
+        logger.info(
+            "设置流量控制: event_type=%s, enabled=%s",
+            event_type,
+            enabled,
+        )
+
+    def is_flow_controlled(self, event_type: str) -> bool:
+        """
+        某事件类型是否被流量控制（禁止发布）。
+        """
+        with self._lock:
+            return self._flow_control.get(event_type, False)
+
+    # -------- 发布事件（同步） --------
     def publish(
         self,
         event_type: str,
         data: Any,
-        priority: Priority = Priority.NORMAL
+        priority: Priority = Priority.NORMAL,
     ) -> int:
         """
-        发布事件
-        
-        在当前线程中同步调用所有订阅者的回调函数。
-        单个订阅者的异常不会影响其他订阅者。
-        
-        Args:
-            event_type: 事件类型
-            data: 事件数据（通常是DTO对象）
-            priority: 优先级（暂未使用）
-            
-        Returns:
-            int: 成功调用的订阅者数量
-            
-        Example:
-            >>> event_bus.publish("raw_frame_data", frame_dto)
+        同步发布事件，立即在当前线程调用所有订阅者回调。
+        （暂时未使用优先级）
+
+        :return: 成功投递的订阅者数量
         """
-        # 更新统计
-        self._stats['total_published'] += 1
-        
-        # 获取订阅者列表（线程安全）
-        with self._lock:
-            subscriptions = self._subscriptions.get(event_type, []).copy()
-        
-        # 如果没有订阅者，直接返回
-        if not subscriptions:
-            self._logger.debug(f"无订阅者: event_type={event_type}")
+        # 流量控制检查（例如底层背压时关闭某类事件）
+        if self.is_flow_controlled(event_type):
+            logger.debug("事件被流量控制丢弃: event_type=%s", event_type)
             return 0
-        
-        # 调用所有订阅者
-        success_count = 0
-        for subscription in subscriptions:
+
+        with self._lock:
+            subscribers = list(self._subscriptions.get(event_type, []))
+
+        delivered = 0
+
+        # 遍历订阅者（已按优先级排序）
+        for sub in subscribers:
+            # 过滤逻辑
+            if not sub.should_deliver(data):
+                continue
+
+            sub.total_calls += 1
+
             try:
-                # 同步调用回调函数
-                subscription.callback(data)
-                success_count += 1
-                self._stats['total_delivered'] += 1
-                
-            except Exception as e:
-                # 错误隔离：单个订阅者异常不影响其他订阅者
-                self._stats['total_errors'] += 1
-                self._logger.error(
-                    f"订阅者回调异常: "
-                    f"event_type={event_type}, "
-                    f"subscription_id={subscription.subscription_id}, "
-                    f"error={str(e)}",
-                    exc_info=True
+                sub.callback(data)
+                delivered += 1
+
+            except Exception:
+                sub.error_count += 1
+                logger.exception(
+                    "订阅回调执行异常: event_type=%s, subscription_id=%s, subscriber_name=%s",
+                    event_type,
+                    sub.subscription_id,
+                    sub.subscriber_name,
                 )
-        
-        return success_count
-    
-    def get_subscriber_count(self, event_type: str) -> int:
+
+        return delivered
+    # -------- 异步发布（可选） --------
+    def publish_async(
+        self,
+        event_type: str,
+        data: Any,
+        priority: Priority = Priority.NORMAL,
+    ) -> Future:
         """
-        获取指定事件类型的订阅者数量
-        
-        Args:
-            event_type: 事件类型
-            
-        Returns:
-            int: 订阅者数量
+        异步发布事件：在后台线程池中执行 publish，
+        调用方无需等待订阅者处理完成。
+
+        注意：如果你的使用场景非常追求可控的执行顺序，
+        或对线程数量敏感，可以不用这个方法。
         """
         with self._lock:
-            return len(self._subscriptions.get(event_type, []))
-    
-    def get_all_event_types(self) -> List[str]:
+            if self._async_executor is None:
+                self._async_executor = ThreadPoolExecutor(
+                    max_workers=4, thread_name_prefix="EventBusWorker"
+                )
+
+            executor = self._async_executor
+
+        return executor.submit(self.publish, event_type, data, priority)
+
+    # -------- 调试用 --------
+    def list_subscriptions(self, event_type: Optional[str] = None) -> List[Dict[str, Any]]:
         """
-        获取所有已订阅的事件类型
-        
-        Returns:
-            List[str]: 事件类型列表
-        """
-        with self._lock:
-            return list(self._subscriptions.keys())
-    
-    def get_stats(self) -> Dict[str, int]:
-        """
-        获取统计信息
-        
-        Returns:
-            Dict[str, int]: 统计数据
-        """
-        return self._stats.copy()
-    
-    def clear_all_subscriptions(self):
-        """
-        清除所有订阅（主要用于测试）
-        
-        警告：此操作会清除所有订阅者，谨慎使用！
+        调试用：列出当前注册的订阅关系。
+        :param event_type: 如果指定，只返回该事件类型的订阅，否则返回全部
         """
         with self._lock:
-            self._subscriptions.clear()
-            self._logger.warning("已清除所有订阅")
-    
-    def __repr__(self) -> str:
-        """字符串表示"""
-        with self._lock:
-            total_subscriptions = sum(
-                len(subs) for subs in self._subscriptions.values()
-            )
-        
-        return (
-            f"EventBus("
-            f"event_types={len(self._subscriptions)}, "
-            f"total_subscriptions={total_subscriptions}, "
-            f"published={self._stats['total_published']}, "
-            f"delivered={self._stats['total_delivered']}, "
-            f"errors={self._stats['total_errors']}"
-            f")"
-        )
-
-
-# 全局单例（可选）
-_global_event_bus: Optional[EventBus] = None
-
-
-def get_global_event_bus() -> EventBus:
-    """
-    获取全局事件总线单例
-    
-    Returns:
-        EventBus: 全局事件总线实例
-        
-    Example:
-        >>> from core.event_bus import get_global_event_bus
-        >>> event_bus = get_global_event_bus()
-        >>> event_bus.subscribe(...)
-    """
-    global _global_event_bus
-    
-    if _global_event_bus is None:
-        _global_event_bus = EventBus()
-    
-    return _global_event_bus
-
-
-def reset_global_event_bus():
-    """
-    重置全局事件总线（主要用于测试）
-    """
-    global _global_event_bus
-    _global_event_bus = None
-
+            result: List[Dict[str, Any]] = []
+            for et, subs in self._subscriptions.items():
+                if event_type is not None and et != event_type:
+                    continue
+                for s in subs:
+                    result.append(
+                        {
+                            "event_type": et,
+                            "subscription_id": s.subscription_id,
+                            "subscriber_name": s.subscriber_name,
+                            "priority": s.priority.name,
+                            "total_calls": s.total_calls,
+                            "error_count": s.error_count,
+                        }
+                    )
+            return result
