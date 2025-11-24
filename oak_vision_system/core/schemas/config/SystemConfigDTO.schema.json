@@ -1,0 +1,33 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "oak_vision_system/core/schemas/config/SystemConfigDTO.schema.json",
+  "title": "SystemConfigDTO",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "log_level": { "type": "string", "enum": ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"] },
+    "log_to_file": { "type": "boolean" },
+    "log_file_path": { "type": ["string", "null"] },
+    "log_max_size_mb": { "type": "integer", "minimum": 1, "maximum": 1000 },
+    "log_backup_count": { "type": "integer", "minimum": 1, "default": 7 },
+    "log_rotate_mode": { "type": "string", "enum": ["time", "size"], "default": "time" },
+    "log_rotate_when": { "type": "string", "enum": ["S", "M", "H", "D", "MIDNIGHT", "W0", "W1", "W2", "W3", "W4", "W5", "W6"], "default": "MIDNIGHT" },
+    "log_rotate_interval": { "type": "integer", "minimum": 1, "maximum": 10000, "default": 1 },
+    "log_rotate_utc": { "type": "boolean", "default": false },
+
+    "enable_profiling": { "type": "boolean" },
+    "max_worker_threads": { "type": "integer", "minimum": 1, "maximum": 32 },
+
+    "auto_reconnect": { "type": "boolean" },
+    "reconnect_interval": { "type": "number", "minimum": 0.5, "maximum": 60.0 },
+    "max_reconnect_attempts": { "type": "integer", "minimum": 1, "maximum": 100 },
+    "graceful_shutdown_timeout": { "type": "number" }
+  },
+  "required": [
+    "log_level", "log_to_file", "log_file_path", "log_max_size_mb", "log_backup_count",
+    "enable_profiling", "max_worker_threads",
+    "auto_reconnect", "reconnect_interval", "max_reconnect_attempts", "graceful_shutdown_timeout"
+  ]
+}
+
+

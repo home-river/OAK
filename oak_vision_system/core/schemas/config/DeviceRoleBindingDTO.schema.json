@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "oak_vision_system/core/schemas/config/DeviceRoleBindingDTO.schema.json",
+  "title": "DeviceRoleBindingDTO",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "role": { "type": "string", "enum": ["left_camera", "right_camera", "unknown"] },
+    "historical_mxids": { "type": "array", "items": { "type": "string" }, "maxItems": 5 },
+    "active_mxid": { "type": ["string", "null"] },
+    "last_active_mxid": { "type": ["string", "null"] }
+  },
+  "required": ["role", "historical_mxids"]
+}
+
+

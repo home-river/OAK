@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "oak_vision_system/core/schemas/config/FilterConfigDTO.schema.json",
+  "title": "FilterConfigDTO",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "filter_type": { "type": "string", "enum": ["moving_average", "kalman", "lowpass", "median"] },
+    "moving_average_config": { "$ref": "#/$defs/MovingAverageFilterConfigDTO" },
+    "kalman_config": { "$ref": "#/$defs/KalmanFilterConfigDTO" },
+    "lowpass_config": { "$ref": "#/$defs/LowpassFilterConfigDTO" },
+    "median_config": { "$ref": "#/$defs/MedianFilterConfigDTO" }
+  },
+  "required": ["filter_type"],
+  "$defs": {
+    "MovingAverageFilterConfigDTO": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "window_size": { "type": "integer", "minimum": 1, "maximum": 50 },
+        "weighted": { "type": "boolean" }
+      },
+      "required": ["window_size", "weighted"]
+    },
+    "KalmanFilterConfigDTO": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "kalman_gain": { "type": "number", "minimum": 0.0, "maximum": 1.0 },
+        "process_noise": { "type": "number", "minimum": 0.0, "maximum": 10.0 },
+        "measurement_noise": { "type": "number", "minimum": 0.0, "maximum": 10.0 }
+      },
+      "required": ["kalman_gain", "process_noise", "measurement_noise"]
+    },
+    "LowpassFilterConfigDTO": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "cutoff_frequency": { "type": "number", "minimum": 0.1, "maximum": 100.0 }
+      },
+      "required": ["cutoff_frequency"]
+    },
+    "MedianFilterConfigDTO": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "window_size": { "type": "integer", "minimum": 3 }
+      },
+      "required": ["window_size"]
+    }
+  }
+}
+
+

@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "oak_vision_system/core/schemas/config/CoordinateTransformConfigDTO.schema.json",
+  "title": "CoordinateTransformConfigDTO",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "role": { "type": "string", "enum": ["left_camera", "right_camera", "unknown"] },
+    "translation_x": { "type": "number" },
+    "translation_y": { "type": "number" },
+    "translation_z": { "type": "number" },
+    "roll": { "type": "number" },
+    "pitch": { "type": "number" },
+    "yaw": { "type": "number" },
+    "calibration_date": { "type": ["string", "null"] },
+    "calibration_method": { "type": ["string", "null"], "enum": ["manual", "auto", null] }
+  },
+  "required": ["role"]
+}
+
+

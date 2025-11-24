@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "oak_vision_system/core/schemas/config/DataProcessingConfigDTO.schema.json",
+  "title": "DataProcessingConfigDTO",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "coordinate_transforms": {
+      "type": "object",
+      "additionalProperties": { "$ref": "./CoordinateTransformConfigDTO.schema.json" },
+      "propertyNames": { "type": "string", "enum": ["left_camera", "right_camera", "unknown"] }
+    },
+    "filter_config": { "$ref": "./FilterConfigDTO.schema.json" },
+    "enable_data_logging": { "type": "boolean" },
+    "processing_thread_priority": { "type": "integer" },
+    "person_timeout_seconds": { "type": "number", "minimum": 0.1, "maximum": 60.0 }
+  },
+  "required": ["coordinate_transforms", "filter_config", "enable_data_logging", "processing_thread_priority", "person_timeout_seconds"]
+}
+
+

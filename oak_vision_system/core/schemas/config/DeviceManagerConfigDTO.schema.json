@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "oak_vision_system/core/schemas/config/DeviceManagerConfigDTO.schema.json",
+  "title": "DeviceManagerConfigDTO",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "config_version": { "type": "string" },
+    "oak_module": { "$ref": "./OAKModuleConfigDTO.schema.json" },
+    "data_processing_config": { "$ref": "./DataProcessingConfigDTO.schema.json" },
+    "can_config": { "$ref": "./CANConfigDTO.schema.json" },
+    "display_config": { "$ref": "./DisplayConfigDTO.schema.json" },
+    "system_config": { "$ref": "./SystemConfigDTO.schema.json" }
+  },
+  "required": ["config_version", "oak_module", "data_processing_config", "can_config", "display_config", "system_config"]
+}
+
+

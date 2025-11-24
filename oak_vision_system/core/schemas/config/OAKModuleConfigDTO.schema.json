@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "oak_vision_system/core/schemas/config/OAKModuleConfigDTO.schema.json",
+  "title": "OAKModuleConfigDTO",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "hardware_config": { "$ref": "./OAKConfigDTO.schema.json" },
+    "role_bindings": {
+      "type": "object",
+      "additionalProperties": { "$ref": "./DeviceRoleBindingDTO.schema.json" },
+      "propertyNames": {
+        "type": "string",
+        "enum": ["left_camera", "right_camera", "unknown"]
+      }
+    },
+    "device_metadata": {
+      "type": "object",
+      "additionalProperties": { "$ref": "./DeviceMetadataDTO.schema.json" }
+    }
+  },
+  "required": ["hardware_config", "role_bindings", "device_metadata"]
+}
+
+
