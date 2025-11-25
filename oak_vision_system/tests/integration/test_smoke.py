@@ -60,7 +60,7 @@ class TestDetectionDTOSmokeTest:
         coords = SpatialCoordinatesDTO(x=100.0, y=200.0, z=300.0)
         
         detection = DetectionDTO(
-            label="durian",
+            label=1,
             confidence=0.95,
             bbox=bbox,
             spatial_coordinates=coords
@@ -69,9 +69,7 @@ class TestDetectionDTOSmokeTest:
         assert detection.validate(), \
             f"检测对象验证失败: {detection.get_validation_errors()}"
         
-        # 验证自动生成的detection_id
-        assert detection.detection_id is not None
-        assert "durian" in detection.detection_id
+        # 不再生成 detection_id
         
         print("✅ DetectionDTO 冒烟测试通过")
     
@@ -80,7 +78,7 @@ class TestDetectionDTOSmokeTest:
         bbox = BoundingBoxDTO(xmin=0.1, ymin=0.2, xmax=0.8, ymax=0.9)
         coords = SpatialCoordinatesDTO(x=100.0, y=200.0, z=300.0)
         detection = DetectionDTO(
-            label="durian",
+            label=1,
             confidence=0.95,
             bbox=bbox,
             spatial_coordinates=coords
@@ -98,7 +96,7 @@ class TestDetectionDTOSmokeTest:
         
         # 验证便捷方法
         assert device_data.detection_count == 1
-        assert len(device_data.get_detections_by_label("durian")) == 1
+        assert len(device_data.get_detections_by_class_id(1)) == 1
         
         print("✅ DeviceDetectionDataDTO 冒烟测试通过")
     
@@ -112,9 +110,7 @@ class TestDetectionDTOSmokeTest:
         video_frame = VideoFrameDTO(
             device_id="test_device_001",
             frame_id=42,
-            rgb_frame=rgb_frame,
-            frame_width=640,
-            frame_height=480
+            rgb_frame=rgb_frame
         )
         
         assert video_frame.validate(), \
@@ -133,7 +129,7 @@ class TestDetectionDTOSmokeTest:
         bbox = BoundingBoxDTO(xmin=0.1, ymin=0.2, xmax=0.8, ymax=0.9)
         coords = SpatialCoordinatesDTO(x=100.0, y=200.0, z=300.0)
         detection = DetectionDTO(
-            label="durian",
+            label=1,
             confidence=0.95,
             bbox=bbox,
             spatial_coordinates=coords
@@ -149,9 +145,7 @@ class TestDetectionDTOSmokeTest:
         video_frame = VideoFrameDTO(
             device_id="test_device_001",
             frame_id=42,
-            rgb_frame=np.zeros((480, 640, 3), dtype=np.uint8),
-            frame_width=640,
-            frame_height=480
+            rgb_frame=np.zeros((480, 640, 3), dtype=np.uint8)
         )
         
         collection = OAKDataCollectionDTO(
@@ -274,7 +268,7 @@ class TestBatchValidation:
                     z=300.0 + frame_idx * 5
                 )
                 detection = DetectionDTO(
-                    label="durian",
+                    label=1,
                     confidence=0.95,
                     bbox=bbox,
                     spatial_coordinates=coords
@@ -328,7 +322,7 @@ class TestBatchValidation:
                     z=300.0 + frame_idx * 5
                 )
                 detection = DetectionDTO(
-                    label="durian",
+                    label=1,
                     confidence=0.95,
                     bbox=bbox,
                     spatial_coordinates=coords
@@ -358,7 +352,7 @@ class TestInvalidDataDetection:
         
         # 创建置信度超出范围的检测对象
         detection = DetectionDTO(
-            label="durian",
+            label=1,
             confidence=1.5,  # 无效：超出范围
             bbox=bbox,
             spatial_coordinates=coords
@@ -384,13 +378,13 @@ class TestInvalidDataDetection:
         
         print("✅ 无效边界框检测正确")
     
-    def test_invalid_empty_label_detection(self):
-        """测试：检测空标签"""
+    def test_invalid_negative_class_id_detection(self):
+        """测试：检测无效的类别ID（负数）"""
         bbox = BoundingBoxDTO(xmin=0.1, ymin=0.2, xmax=0.8, ymax=0.9)
         coords = SpatialCoordinatesDTO(x=100.0, y=200.0, z=300.0)
         
         detection = DetectionDTO(
-            label="",  # 无效：空标签
+            label=-1,  # 无效：负ID
             confidence=0.95,
             bbox=bbox,
             spatial_coordinates=coords

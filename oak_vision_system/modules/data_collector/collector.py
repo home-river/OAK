@@ -14,6 +14,7 @@ OAK数据采集模块，负责启动OAK设备的pipeline并采集数据，发布
 """
 from __future__ import annotations
 from typing import Optional, Dict, Any, Union, List
+import threading
 from oak_vision_system.modules.data_collector.pipelinemanager import PipelineManager
 from oak_vision_system.core.dto import VideoFrameDTO, DeviceDetectionDataDTO
 from oak_vision_system.core.dto.config_dto.oak_module_config_dto import OAKModuleConfigDTO
@@ -25,6 +26,7 @@ from oak_vision_system.core.dto.detection_dto import (
 from oak_vision_system.core.event_bus import EventBus, EventType
 import logging
 import depthai as dai
+import threading
 
 
 
@@ -37,12 +39,24 @@ class OAKDataCollector:
         self.event_bus = event_bus or EventBus.get_instance()
         # 使用配置中的角色绑定（DeviceRoleBindingDTO）初始化running字典
         self.running: Dict[DeviceRoleBindingDTO, bool] = self._init_running_from_config()
+        self._worker_threads: Dict[DeviceRoleBindingDTO, threading.Thread] = {}
+        self._running_lock = threading.Lock()
         self.logger = logging.getLogger(__name__)
         
         # 帧计数器（按设备绑定管理）
         self._frame_counters: Dict[DeviceRoleBindingDTO, int] = {}
         for binding in self.running.keys():
             self._frame_counters[binding] = 0
+
+    def _set_running_state(self, binding: DeviceRoleBindingDTO, value: bool) -> None:
+        """线程安全地更新设备运行状态"""
+        with self._running_lock:
+            self.running[binding] = value
+
+    def _is_running(self, binding: DeviceRoleBindingDTO) -> bool:
+        """线程安全地读取设备运行状态"""
+        with self._running_lock:
+            return self.running.get(binding, False)
 
     def _init_running_from_config(self) -> Dict[DeviceRoleBindingDTO, bool]:
         """
@@ -68,14 +82,17 @@ class OAKDataCollector:
         """
         初始化 DepthAI Pipeline。
 
-        使用PipelineManager的create_pipeline_with_no_depth_output方法创建pipeline。
+        根据配置中的 enable_depth_output 决定使用哪个方法创建pipeline。
         创建后的pipeline对象将被保存在self._pipeline中。
 
         Raises:
             RuntimeError: 管线创建失败时抛出异常
         """
-        self.pipeline_manager.create_pipeline_with_no_depth_output()
-        self._pipeline = self.pipeline_manager.get_pipeline()
+        enable_depth_output = self.config.hardware_config.enable_depth_output
+        if enable_depth_output:
+            self.pipeline_manager.create_pipeline()
+        else:
+            self.pipeline_manager.create_pipeline_with_no_depth_output()
 
 
 
@@ -89,10 +106,11 @@ class OAKDataCollector:
             self.logger.error(f"不支持的数据类型: {type(data)}")
             raise ValueError(f"不支持的数据类型: {type(data)}")
 
-    def _assemble_frame_data_event(
+    def _assemble_frame_data(
         self,
         device_binding: DeviceRoleBindingDTO,
-        frame_data: dai.ImgFrame
+        rgb_frame: dai.ImgFrame,
+        depth_frame: Optional[dai.ImgFrame] = None
     ) -> Optional[VideoFrameDTO]:
         """
         组装原始视频帧数据 DTO。
@@ -101,13 +119,28 @@ class OAKDataCollector:
 
         Args:
             device_binding: 设备角色绑定信息
-            frame_data: DepthAI 的 ImgFrame 对象（RGB 帧）
+            rgb_frame: DepthAI 的 ImgFrame 对象（RGB 帧）
+            depth_frame: DepthAI 的 ImgFrame 对象（深度帧），可选
+                        如果配置中 enable_depth_output=True，则此参数必须提供
         
         Returns:
             VideoFrameDTO 对象，如果转换失败返回 None
         """
-        if frame_data is None:
+        enable_depth_output = self.config.hardware_config.enable_depth_output
+        
+        # RGB 帧是必需的
+        if rgb_frame is None:
+            self.logger.warning("RGB帧为空，无法组装帧数据: device=%s", device_binding.role.value)
             return None
+        
+        # 如果启用了深度，则必须提供深度数据
+        if enable_depth_output:
+            if depth_frame is None:
+                self.logger.warning(
+                    "启用深度模式但未提供深度数据: device=%s",
+                    device_binding.role.value
+                )
+                return None
         
         try:
             # 获取设备ID
@@ -120,21 +153,42 @@ class OAKDataCollector:
             frame_id = self._frame_counters.get(device_binding, 0)
             
             # 从 DepthAI ImgFrame 转换为 OpenCV 格式
-            cv_frame = frame_data.getCvFrame()
+            cv_frame = rgb_frame.getCvFrame()
             if cv_frame is None:
                 self.logger.warning("无法从 ImgFrame 获取 OpenCV 帧: device=%s", device_binding.role.value)
                 return None
             
-            # 获取帧尺寸
-            frame_height, frame_width = cv_frame.shape[:2]
+            
+            # 处理深度数据（如果启用）
+            depth_frame_data = None
+            if enable_depth_output:
+                # 此时 depth_frame 已经确保不为 None（前面已检查）
+                try:
+                    # 从 DepthAI ImgFrame 获取深度数据（numpy.ndarray，uint16，单位：毫米）
+                    depth_frame_data = depth_frame.getFrame()
+                    if depth_frame_data is None:
+                        self.logger.warning(
+                            "无法从深度 ImgFrame 获取深度数据: device=%s",
+                            device_binding.role.value
+                        )
+                        # 如果深度数据获取失败，返回 None（因为配置要求启用深度）
+                        return None
+                except Exception as e:
+                    self.logger.error(
+                        "获取深度数据失败: device=%s, error=%s",
+                        device_binding.role.value,
+                        e
+                    )
+                    # 如果深度数据获取失败，返回 None（因为配置要求启用深度）
+                    return None
+            # 如果未启用深度，depth_frame_data 保持为 None，即使传入了 depth_frame 也不会使用
             
             # 创建 VideoFrameDTO
             video_frame = VideoFrameDTO(
                 device_id=device_id,
                 frame_id=frame_id,
                 rgb_frame=cv_frame,
-                frame_width=frame_width,
-                frame_height=frame_height
+                depth_frame=depth_frame_data
             )
             
             # 更新帧计数器（在成功创建 DTO 后）
@@ -150,7 +204,7 @@ class OAKDataCollector:
             )
             return None
 
-    def _assemble_detection_data_event(
+    def _assemble_detection_data(
         self,
         device_binding: DeviceRoleBindingDTO,
         detections_data: dai.SpatialImgDetections
@@ -180,14 +234,8 @@ class OAKDataCollector:
             # 获取当前帧ID（与视频帧同步，使用上次的帧ID）
             frame_id = max(0, self._frame_counters.get(device_binding, 0) - 1)
             
-            # 获取设备别名
-            device_alias = None
-            if device_id in self.config.device_metadata:
-                metadata = self.config.device_metadata[device_id]
-                device_alias = getattr(metadata, 'alias', None)
-            
-            # 获取标签映射
-            label_map = self.config.hardware_config.label_map
+            # 获取设备别名（使用角色枚举的value）
+            device_alias = device_binding.role.value
             
             # 转换检测结果列表
             detections_list: List[DetectionDTO] = []
@@ -195,66 +243,34 @@ class OAKDataCollector:
             for detection in detections_data.detections:
                 try:
                     # 提取边界框坐标
-                    xmin = float(detection.xmin)
-                    ymin = float(detection.ymin)
-                    xmax = float(detection.xmax)
-                    ymax = float(detection.ymax)
+                    # dai.SpatialImgDetection 的 xmin/ymin/xmax/ymax 已为 float 类型，无需强制转换
                     
-                    # 验证边界框有效性
-                    if xmin >= xmax or ymin >= ymax:
-                        self.logger.warning(
-                            "无效的边界框坐标: xmin=%.2f, ymin=%.2f, xmax=%.2f, ymax=%.2f",
-                            xmin, ymin, xmax, ymax
-                        )
-                        continue
                     
                     # 创建边界框 DTO
                     bbox = BoundingBoxDTO(
-                        xmin=xmin,
-                        ymin=ymin,
-                        xmax=xmax,
-                        ymax=ymax
+                        xmin=detection.xmin,
+                        ymin=detection.ymin,
+                        xmax=detection.xmax,
+                        ymax=detection.ymax
                     )
                     
                     # 提取空间坐标（毫米单位）
-                    spatial_x = float(detection.spatialCoordinates.x)
-                    spatial_y = float(detection.spatialCoordinates.y)
-                    spatial_z = float(detection.spatialCoordinates.z)
-                    
                     # 创建空间坐标 DTO
                     spatial_coords = SpatialCoordinatesDTO(
-                        x=spatial_x,
-                        y=spatial_y,
-                        z=spatial_z
+                        x=detection.spatialCoordinates.x,
+                        y=detection.spatialCoordinates.y,
+                        z=detection.spatialCoordinates.z
                     )
                     
-                    # 获取标签名称
-                    label_index = int(detection.label) if hasattr(detection, 'label') else 0
-                    if 0 <= label_index < len(label_map):
-                        label = label_map[label_index]
-                    else:
-                        self.logger.warning(
-                            "标签索引超出范围: index=%d, label_map_size=%d, 使用默认标签",
-                            label_index,
-                            len(label_map)
-                        )
-                        label = "unknown"
+                    # 获取类别ID
+                    label = detection.label if hasattr(detection, 'label') else 0
                     
-                    # 获取置信度
-                    confidence = float(detection.confidence)
                     
-                    # 验证置信度范围
-                    if not (0.0 <= confidence <= 1.0):
-                        self.logger.warning(
-                            "置信度超出范围 [0,1]: %.4f, 已限制",
-                            confidence
-                        )
-                        confidence = max(0.0, min(1.0, confidence))
                     
                     # 创建 DetectionDTO
                     detection_dto = DetectionDTO(
                         label=label,
-                        confidence=confidence,
+                        confidence=detection.confidence,
                         bbox=bbox,
                         spatial_coordinates=spatial_coords
                     )
@@ -291,6 +307,16 @@ class OAKDataCollector:
 
     def _start_OAK_with_device(self,device_binding:DeviceRoleBindingDTO) -> None:
 
+        """
+        通过使用device_binding中的MXid启动OAK设备，组装视频帧和数据帧并发布，开启OAK检测循环。
+
+        Args:
+            device_binding: 设备角色绑定信息
+
+        Raises:
+            ValueError: 设备未绑定MXid，无法启动采集
+            RuntimeError: 启动OAK设备失败
+        """
         if self.pipeline_manager.pipeline is None:
             self._init_pipeline()
             self.logger.warning("Pipeline 尚未创建，已使用默认创建pipeline")
@@ -303,35 +329,50 @@ class OAKDataCollector:
         pipeline = self.pipeline_manager.pipeline
         device_info = dai.DeviceInfo(device_binding.active_mxid)
         usb_mode = self.config.hardware_config.usb2_mode
-        self.running[device_binding] = True
+        enable_depth_output = self.config.hardware_config.enable_depth_output
+        queue_max_size = self.config.hardware_config.queue_max_size
+        queue_blocking = self.config.hardware_config.queue_blocking
+        self._set_running_state(device_binding, True)
         try:
             with dai.Device(pipeline,device_info,usb2Mode=usb_mode) as device:
-                previewQueue = device.getOutputQueue(name="rgb", maxSize=4, blocking=False)
-                detectionNNQueue = device.getOutputQueue(name="detections", maxSize=4, blocking=False)
+                rgbQueue = device.getOutputQueue(name="rgb", maxSize=queue_max_size, blocking=queue_blocking)
+                detectionsQueue = device.getOutputQueue(name="detections", maxSize=queue_max_size, blocking=queue_blocking)
+                
+                # 根据配置决定是否创建深度队列
+                depthQueue = None
+                if enable_depth_output:
+                    depthQueue = device.getOutputQueue(name="depth", maxSize=queue_max_size, blocking=queue_blocking)
 
-
-                while self.running[device_binding]:
-                    previewFrame = previewQueue.get()
-                    detectionFrame = detectionNNQueue.get()
-                    # 组装并发布视频帧
-                    frame_dto = self._assemble_frame_data_event(device_binding, previewFrame)
+                while self._is_running(device_binding):
+                    rgbFrame = rgbQueue.get()
+                    detectionFrame = detectionsQueue.get()
+                    
+                    # 获取深度数据（如果启用）
+                    depthFrame = None
+                    if enable_depth_output and depthQueue is not None:
+                        try:
+                            depthFrame = depthQueue.get()
+                        except Exception as e:
+                            self.logger.warning(
+                                "获取深度数据失败: device=%s, error=%s",
+                                device_binding.role.value,
+                                e
+                            )
+                    # 组装视频帧数据
+                    frame_dto = self._assemble_frame_data(device_binding, rgbFrame, depthFrame)
+                    # 组装检测数据
+                    detection_dto = self._assemble_detection_data(device_binding, detectionFrame)
+                    # 发布视频帧和检测数据
                     if frame_dto is not None:
                         self._publish_data(frame_dto)
-                    # 组装并发布检测数据
-                    detection_dto = self._assemble_detection_data_event(device_binding, detectionFrame)
                     if detection_dto is not None:
-                        self._publish_data(detection_dto)
-                
+                        self._publish_data(detection_dto)        
 
                 
         
         except Exception as e:
             self.logger.exception(f"启动OAK设备{device_binding.role}失败: {e}")
             raise RuntimeError(f"启动OAK设备{device_binding.role}失败: {e}")
-
-        # 使用私有方法组装RawFrameDataEvent和RawDetectionDataEvent
-
-        # 内部使用事件发布逻辑发布数据帧和视频帧（使用私有方法）
 
 
     
@@ -340,8 +381,35 @@ class OAKDataCollector:
 
     def start(self) -> bool:
         """启动采集流程（仅定义接口）"""
-        pass
+        # 先做一遍启动的检查
+
+        # 然后遍历binding，启动对应的设备
+        self._worker_threads.clear()
+        for binding in self.running.keys():
+            if not binding.active_mxid:
+                continue
+            t = threading.Thread(
+                target=self._start_OAK_with_device,
+                args=(binding,),
+                name=f"OAKWorker-{binding.role.value}",
+                daemon=True,
+            )
+            t.start()
+            self._worker_threads[binding] = t
+        return True
 
     def stop(self) -> None:
-        """停止采集流程并释放资源（仅定义接口）"""
-        pass
+        """停止所有设备的采集流程"""
+        for binding in list(self.running.keys()):
+            self._set_running_state(binding, False)
+        for binding, thread in list(self._worker_threads.items()):
+            if thread.is_alive():
+                try:
+                    thread.join()
+                except RuntimeError as e:
+                    self.logger.warning(
+                        "等待设备线程退出失败: device=%s, error=%s",
+                        binding.role.value,
+                        e
+                    )
+        self._worker_threads.clear()

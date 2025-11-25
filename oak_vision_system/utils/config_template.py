@@ -103,7 +103,7 @@ def template_OAKConfigDTO() -> OAKConfigDTO:
         usb2_mode=True,                           # 是否启用USB2兼容模式
 
         # ===== 深度相关 =====
-        enable_depth=True,                        # 是否启用深度信息
+        enable_depth_output=True,                        # 是否启用深度信息
         depth_resolution=(640, 480),              # 深度视图分辨率
         depth_min_threshold=400.0,                # 深度最小阈值（单位:mm）
         depth_max_threshold=6000.0,               # 深度最大阈值（单位:mm）
@@ -322,8 +322,9 @@ def template_DeviceManagerConfigDTO(devices: List[DeviceMetadataDTO]) -> DeviceM
     """
     return DeviceManagerConfigDTO(
         config_version="2.0.0",
-        oak_module_config=template_OAKModuleConfigDTO(devices),
+        oak_module=template_OAKModuleConfigDTO(devices),
         data_processing_config=template_DataProcessingConfigDTO(),
         can_config=template_CANConfigDTO(),
         display_config=template_DisplayConfigDTO(),
+        system_config=template_SystemConfigDTO(),
     )

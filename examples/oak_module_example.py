@@ -40,7 +40,7 @@ def example_2_complete_oak_module():
         confidence_threshold=0.7,
         hardware_fps=30,
         rgb_resolution=(1920, 1080),
-        enable_depth=True,
+        enable_depth_output=True,
         queue_max_size=4,
     )
     

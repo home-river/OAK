@@ -12,9 +12,9 @@
 
 import math
 import time
-import uuid
 from dataclasses import dataclass, field
 from typing import Optional, Any, Dict, List
+import numpy as np
 
 from .base_dto import (
     BaseDTO,
@@ -146,11 +146,10 @@ class BoundingBoxDTO(BaseDTO):
 class DetectionDTO(BaseDTO):
     """单个检测结果数据传输对象"""
     
-    label: str  # 检测物体标签
+    label: int  # 检测物体标签
     confidence: float  # 检测置信度 (0.0-1.0)
     bbox: BoundingBoxDTO  # 边界框信息
     spatial_coordinates: SpatialCoordinatesDTO  # 空间坐标信息
-    detection_id: Optional[str] = None  # 检测唯一标识符
     # 注意：时间戳使用继承的 created_at 字段
     
     def _validate_data(self) -> List[str]:
@@ -158,8 +157,8 @@ class DetectionDTO(BaseDTO):
         errors = []
         
         # 验证标签
-        errors.extend(validate_string_length(
-            self.label, 'label', min_length=1, max_length=100
+        errors.extend(validate_numeric_range(
+            self.label, 'label', min_value=0
         ))
         
         # 验证置信度
@@ -177,42 +176,8 @@ class DetectionDTO(BaseDTO):
         return errors
     
     def _post_init_hook(self) -> None:
-        """初始化后钩子，如果detection_id为None则生成基于标签和时间戳的唯一ID"""
-        if self.detection_id is None:
-            # 生成基于标签和时间戳的唯一ID，使用继承的created_at字段
-            timestamp_ms = int(self.created_at * 1000)
-            detection_id = f"{self.label}_{timestamp_ms}_{str(uuid.uuid4())[:8]}"
-            object.__setattr__(self, 'detection_id', detection_id)
-    
-    def with_detection_id(self, detection_id: str) -> 'DetectionDTO':
-        """
-        返回一个新的 DetectionDTO 实例，带有指定的 detection_id。
-        
-        用于目标追踪场景，可以为同一个目标在不同帧中设置相同的 detection_id。
-        由于 DetectionDTO 是不可变对象，此方法返回新实例而不修改原对象。
-        
-        Args:
-            detection_id: 新的检测唯一标识符
-        
-        Returns:
-            DetectionDTO: 带有新 detection_id 的新实例
-        
-        Example:
-            >>> # 创建检测结果
-            >>> detection = DetectionDTO(
-            ...     label="durian",
-            ...     confidence=0.95,
-            ...     bbox=bbox,
-            ...     spatial_coordinates=coords
-            ... )
-            >>> 
-            >>> # 为追踪目标设置固定的ID
-            >>> tracked_detection = detection.with_detection_id("track_object_123")
-            >>> 
-            >>> # 或者覆盖自动生成的ID
-            >>> custom_detection = detection.with_detection_id("custom_id_456")
-        """
-        return self.with_updates(detection_id=detection_id)
+        """初始化后钩子，无需额外初始化"""
+        pass
 
 
 @dataclass(frozen=True)
@@ -266,8 +231,8 @@ class DeviceDetectionDataDTO(BaseDTO):
         """检测结果数量"""
         return len(self.detections) if self.detections else 0
     
-    def get_detections_by_label(self, label: str) -> List[DetectionDTO]:
-        """根据标签筛选检测结果"""
+    def get_detections_by_class_id(self, label: int) -> List[DetectionDTO]:
+        """根据类别ID筛选检测结果"""
         if not self.detections:
             return []
         return [det for det in self.detections if det.label == label]
@@ -277,15 +242,6 @@ class DeviceDetectionDataDTO(BaseDTO):
         if not self.detections:
             return []
         return [det for det in self.detections if det.confidence >= threshold]
-    
-    def get_detection_by_id(self, detection_id: str) -> Optional[DetectionDTO]:
-        """根据ID获取检测结果"""
-        if not self.detections:
-            return None
-        for detection in self.detections:
-            if detection.detection_id == detection_id:
-                return detection
-        return None
 
 
 @dataclass(frozen=True)
@@ -294,10 +250,8 @@ class VideoFrameDTO(BaseDTO):
     
     device_id: str  # 设备ID
     frame_id: int  # 帧ID
-    rgb_frame: Optional[Any] = None  # RGB图像数据 (numpy.ndarray)
-    depth_frame: Optional[Any] = None  # 深度图像数据 (numpy.ndarray)
-    frame_width: Optional[int] = None  # 帧宽度
-    frame_height: Optional[int] = None  # 帧高度
+    rgb_frame: Optional[np.ndarray] = None  # RGB图像数据 (numpy.ndarray)
+    depth_frame: Optional[np.ndarray] = None  # 深度图像数据 (numpy.ndarray)
     # 注意：时间戳使用继承的 created_at 字段
     
     def _validate_data(self) -> List[str]:
@@ -313,17 +267,6 @@ class VideoFrameDTO(BaseDTO):
         errors.extend(validate_numeric_range(
             self.frame_id, 'frame_id', min_value=0
         ))
-        
-        # 验证帧尺寸（可选）
-        if self.frame_width is not None:
-            errors.extend(validate_numeric_range(
-                self.frame_width, 'frame_width', min_value=1, max_value=10000
-            ))
-        
-        if self.frame_height is not None:
-            errors.extend(validate_numeric_range(
-                self.frame_height, 'frame_height', min_value=1, max_value=10000
-            ))
         
         # 验证至少有一种帧数据
         if self.rgb_frame is None and self.depth_frame is None:
@@ -348,8 +291,13 @@ class VideoFrameDTO(BaseDTO):
     @property
     def frame_size(self) -> Optional[tuple[int, int]]:
         """帧尺寸 (width, height)"""
-        if self.frame_width is not None and self.frame_height is not None:
-            return (self.frame_width, self.frame_height)
+        # 优先使用 RGB 帧，否则使用深度帧
+        if self.rgb_frame is not None and isinstance(self.rgb_frame, np.ndarray):
+            h, w = self.rgb_frame.shape[:2]
+            return (int(w), int(h))
+        if self.depth_frame is not None and isinstance(self.depth_frame, np.ndarray):
+            h, w = self.depth_frame.shape[:2]
+            return (int(w), int(h))
         return None
 
 

@@ -66,7 +66,7 @@ class OAKConfigDTO(BaseConfigDTO):
     
     # ========== 深度计算配置 ==========
     # 深度感知参数
-    enable_depth: bool = False  # 是否启用深度图绘制功能
+    enable_depth_output: bool = False  # 是否启用深度图绘制功能
     depth_resolution: Tuple[int, int] = (640, 400)  # 深度图分辨率，深度相机分辨率
     depth_min_threshold: float = 400.0   # 最小有效深度(mm)
     depth_max_threshold: float = 6000.0  # 最大有效深度(mm)

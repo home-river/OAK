@@ -27,7 +27,7 @@
     "hardware_fps": { "type": "integer", "minimum": 1, "maximum": 120 },
     "usb2_mode": { "type": "boolean" },
 
-    "enable_depth": { "type": "boolean" },
+    "enable_depth_output": { "type": "boolean" },
     "depth_resolution": {
       "type": "array",
       "items": { "type": "integer" },
@@ -48,7 +48,7 @@
   "required": [
     "label_map", "num_classes", "confidence_threshold", "nms_threshold",
     "rgb_resolution", "preview_resolution", "hardware_fps", "usb2_mode",
-    "enable_depth", "depth_resolution", "depth_min_threshold", "depth_max_threshold",
+    "enable_depth_output", "depth_resolution", "depth_min_threshold", "depth_max_threshold",
     "align_depth_to_rgb", "median_filter", "left_right_check", "extended_disparity", "subpixel",
     "queue_max_size", "queue_blocking"
   ]

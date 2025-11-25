@@ -45,7 +45,7 @@ def create_example_config():
         usb2_mode=True,
         
         # 深度计算
-        enable_depth=True,
+        enable_depth_output=True,
         depth_resolution=(640, 480),
         depth_min_threshold=400.0,
         depth_max_threshold=6000.0,

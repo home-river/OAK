@@ -119,7 +119,7 @@ class TestDetectionDTO:
         coords = SpatialCoordinatesDTO(x=100.0, y=50.0, z=300.0)
         
         detection = DetectionDTO(
-            label="apple",
+            label=1,
             confidence=0.95,
             bbox=bbox,
             spatial_coordinates=coords
@@ -127,11 +127,10 @@ class TestDetectionDTO:
         
         assert detection.validate() is True, \
             f"验证失败: {detection.get_validation_errors()}"
-        assert detection.label == "apple"
+        assert detection.label == 1
         assert detection.confidence == 0.95
         assert detection.bbox == bbox
         assert detection.spatial_coordinates == coords
-        assert detection.detection_id is not None  # 应该自动生成
         assert detection.created_at is not None  # 应该自动生成
     
     def test_invalid_detection_creation(self):
@@ -141,7 +140,7 @@ class TestDetectionDTO:
         
         # 置信度超出范围
         detection = DetectionDTO(
-            label="apple",
+            label=1,
             confidence=1.5,  # 无效的置信度
             bbox=bbox,
             spatial_coordinates=coords
@@ -175,7 +174,7 @@ class TestDeviceDetectionDataDTO:
         bbox = BoundingBoxDTO(xmin=10.0, ymin=20.0, xmax=100.0, ymax=80.0)
         coords = SpatialCoordinatesDTO(x=100.0, y=50.0, z=300.0)
         detection = DetectionDTO(
-            label="apple",
+            label=1,
             confidence=0.95,
             bbox=bbox,
             spatial_coordinates=coords
@@ -188,8 +187,8 @@ class TestDeviceDetectionDataDTO:
         )
         
         assert device_data.detection_count == 1
-        assert len(device_data.get_detections_by_label("apple")) == 1
-        assert len(device_data.get_detections_by_label("orange")) == 0
+        assert len(device_data.get_detections_by_class_id(1)) == 1
+        assert len(device_data.get_detections_by_class_id(2)) == 0
         assert len(device_data.get_high_confidence_detections(0.9)) == 1
         assert len(device_data.get_high_confidence_detections(0.99)) == 0
     
@@ -215,9 +214,7 @@ class TestVideoFrameDTO:
         frame = VideoFrameDTO(
             device_id="OAK_001",
             frame_id=123,
-            rgb_frame=rgb_frame,
-            frame_width=640,
-            frame_height=480
+            rgb_frame=rgb_frame
         )
         
         assert frame.validate() is True, \
@@ -276,7 +273,7 @@ class TestOAKDataCollectionDTO:
         bbox = BoundingBoxDTO(xmin=10.0, ymin=20.0, xmax=100.0, ymax=80.0)
         coords = SpatialCoordinatesDTO(x=100.0, y=50.0, z=300.0)
         detection = DetectionDTO(
-            label="apple",
+            label=1,
             confidence=0.95,
             bbox=bbox,
             spatial_coordinates=coords

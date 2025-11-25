@@ -284,7 +284,7 @@ def demonstrate_dto_features():
         pipeline_type=PipelineType.COMBINED,
         input_resolution=(416, 416),
         confidence_threshold=0.6,
-        enable_depth=True,
+        enable_depth_output=True,
         config_params={"custom_param": "demo_value"}
     )
     

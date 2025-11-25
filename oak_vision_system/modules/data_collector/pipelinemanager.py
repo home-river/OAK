@@ -18,7 +18,7 @@ from oak_vision_system.utils.logging_utils import configure_logging
 """
 class PipelineManager:
     def __init__(self, config: OAKConfigDTO,
-                 enable_depth_output:Optional[bool]=True,
+                 enable_depth_output:Optional[bool]=None, # 如果为None，则根据config中的enable_depth决定
                  system_config: Optional[SystemConfigDTO] = None):
         self.config = config
         self.rgb_resolution = self._convert_rgb_resolution()
@@ -33,10 +33,16 @@ class PipelineManager:
 
     def __post_init__(self):
         # 创建pipeline
+        self.enable_depth_output = self.__resolve_enable_depth_output()
         if self.enable_depth_output:
             self.create_pipeline()
         else:
             self.create_pipeline_with_no_depth_output()
+
+    def __resolve_enable_depth_output(self) -> bool:
+        if self.enable_depth_output is not None:
+            return self.enable_depth_output
+        return getattr(self.config, "enable_depth_output", False)
 
 
     def create_pipeline(self):

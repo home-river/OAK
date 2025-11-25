@@ -210,7 +210,8 @@ class DeviceConfigManager:
                     raise ConfigValidationError("; ".join(errors))
             # 2.3 写盘并入内存
             try:
-                path.write_text(dto.to_json(indent=2), encoding="utf-8")
+                json_text = dto.to_json(indent=2)
+                self._atomic_write_json(path, json_text)
             except OSError as e:
                 raise ConfigValidationError(f"写入配置文件失败: {e}")
             self._config = dto
@@ -259,8 +260,18 @@ class DeviceConfigManager:
         self.logger.info("配置已加载: path=%s", path)
         return True
 
+    def _atomic_write_json(self, output_path: Path, json_text: str) -> None:
+        temp_path = output_path.with_suffix('.tmp')
+        try:
+            temp_path.write_text(json_text, encoding='utf-8')
+            temp_path.replace(output_path)
+        except OSError as e:
+            if temp_path.exists():
+                temp_path.unlink()
+            raise e
+
     
-    def save_config(self) -> bool:
+    def save_config(self, *, validate: bool = True) -> bool:
         """
         将内存中的可运行配置保存到JSON文件
         
@@ -291,32 +302,34 @@ class DeviceConfigManager:
             self.logger.error("当前无可运行配置可保存，请先调用 promote_runnable_if_valid() 晋升")
             raise ConfigValidationError("当前无可运行配置可保存，请先调用 promote_runnable_if_valid() 晋升")
         
-        # 2. 确定路径
+        # 2. 可选兜底校验
+        if validate:
+            ok_all, errs_all = run_all_validations(self._runnable_config, include_runtime_checks=False)
+            if not ok_all:
+                raise ConfigValidationError("; ".join(errs_all))
+
+        # 3. 确定路径
         if self._config_path is None:
             self._config_path = str(self.DEFAULT_CONFIG_DIR / self.DEFAULT_CONFIG_FILE)
         
         output_path = Path(self._config_path)
         
-        # 3. 确保目录存在
+        # 4. 确保目录存在
         try:
             output_path.parent.mkdir(parents=True, exist_ok=True)
         except OSError as e:
             self.logger.error("创建配置目录失败: %s, path=%s", e, output_path.parent, exc_info=True)
             raise ConfigValidationError(f"创建配置目录失败: {e}")
         
-        # 4. 原子写入
+        # 5. 原子写入
         json_text = self._runnable_config.to_json(indent=2)
-        temp_path = output_path.with_suffix('.tmp')
         try:
-            temp_path.write_text(json_text, encoding='utf-8')
-            temp_path.replace(output_path)
+            self._atomic_write_json(output_path, json_text)
         except OSError as e:
-            if temp_path.exists():
-                temp_path.unlink()
             self.logger.error("保存配置文件失败: %s, path=%s", e, output_path, exc_info=True)
             raise ConfigValidationError(f"保存配置文件失败: {e}")
         
-        # 5. 更新时间戳
+        # 6. 更新时间戳
         try:
             self._last_modified = output_path.stat().st_mtime
         except OSError:
@@ -325,6 +338,61 @@ class DeviceConfigManager:
         
         return True
             
+
+    def save_as(self, output_path: str, *, validate: bool = True, set_as_default: bool = True) -> bool:
+        
+        """
+        保存当前“可运行配置”到指定路径，并可选择设为默认配置路径。
+
+        Args:
+            output_path (str): 保存配置文件的目标路径。
+            validate (bool): 保存前是否进行配置校验（默认为 True）。
+            set_as_default (bool): 是否将此路径设置为默认配置路径（默认为 True）。
+
+        Returns:
+            bool: 保存是否成功。
+
+        Raises:
+            ConfigValidationError: 如无可运行配置，或校验失败，或保存文件过程出错。
+
+        Example:
+            # 保存当前配置到 'my_config.json' 并设为默认
+            manager.save_as('my_config.json', set_as_default=True)
+        """
+        
+        if self._runnable_config is None:
+            self.logger.error("当前无可运行配置可保存，请先调用 promote_runnable_if_valid() 晋升")
+            raise ConfigValidationError("当前无可运行配置可保存，请先调用 promote_runnable_if_valid() 晋升")
+
+        if validate:
+            ok_all, errs_all = run_all_validations(self._runnable_config, include_runtime_checks=False)
+            if not ok_all:
+                raise ConfigValidationError("; ".join(errs_all))
+
+        path = Path(output_path)
+        try:
+            path.parent.mkdir(parents=True, exist_ok=True)
+        except OSError as e:
+            self.logger.error("创建配置目录失败: %s, path=%s", e, path.parent, exc_info=True)
+            raise ConfigValidationError(f"创建配置目录失败: {e}")
+
+        text = self._runnable_config.to_json(indent=2)
+        try:
+            self._atomic_write_json(path, text)
+        except OSError as e:
+            self.logger.error("保存配置文件失败: %s, path=%s", e, path, exc_info=True)
+            raise ConfigValidationError(f"保存配置文件失败: {e}")
+
+        try:
+            self._last_modified = path.stat().st_mtime
+        except OSError:
+            self._last_modified = None
+
+        if set_as_default:
+            self._config_path = str(path)
+
+        self.logger.info("配置已保存: path=%s", path)
+        return True
 
     
     def get_config(self) -> DeviceManagerConfigDTO:
@@ -465,7 +533,7 @@ class DeviceConfigManager:
             try:
                 path.parent.mkdir(parents=True, exist_ok=True)
                 text = self._runnable_config.to_json(indent=2)
-                path.write_text(text, encoding="utf-8")
+                self._atomic_write_json(path, text)
                 try:
                     self._last_modified = path.stat().st_mtime
                 except OSError:
@@ -546,7 +614,8 @@ class DeviceConfigManager:
         # 1) 设备发现
         discovered_devices = devices if devices is not None else OAKDeviceDiscovery.discover_devices()
         if not discovered_devices:
-            raise ConfigValidationError("未发现任何可用设备，无法创建默认配置")
+            logging.getLogger(__name__).warning("未发现任何可用设备，将创建空设备配置")
+            discovered_devices = []
         # 2) 创建默认配置
         default_config = template_DeviceManagerConfigDTO(discovered_devices)
         # 3) 字段内部验证
