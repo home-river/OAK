@@ -1,10 +1,11 @@
 import logging
+import os
 import threading
 import time
 from dataclasses import dataclass
 from enum import IntEnum
 from typing import Any, Callable, Dict, List, Optional
-from concurrent.futures import ThreadPoolExecutor, Future
+from concurrent.futures import ThreadPoolExecutor, Future, wait as futures_wait
 
 
 logger = logging.getLogger(__name__)
@@ -44,10 +45,16 @@ class Subscription:
         """
         通过过滤函数判断是否需要投递该事件给此订阅者。
         有过滤函数时先经过过滤，否则直接投递。
+
+        return：
+            True: 需要投递
+            False: 不需要投递
         """
+        # 如果没有过滤函数，则直接投递
         if self.filter_func is None:
             return True
         try:
+            # 执行过滤函数
             return bool(self.filter_func(data))
         except Exception:
             # 过滤函数异常时，为了安全起见仍然投递
@@ -63,19 +70,19 @@ class Subscription:
 # =========================
 class EventBus:
     """
-    同步事件总线，支持：
+    并行事件总线，支持：
     - 订阅/取消订阅
-    - 同步发布
+    - 并行发布（订阅者并行执行，提升多核利用率）
     - 简单优先级（高优先级订阅者先执行）
     - 流量控制（按事件类型开关）
     - 统计信息（发布数/投递数/错误数/在途事件）
-    - 可选：异步发布（后台线程池）
+    - 可选：同步/异步模式（wait_all 参数）
     """
 
     _instance = None
     _instance_lock = threading.Lock()
 
-    def __init__(self) -> None:
+    def __init__(self, max_workers: Optional[int] = None) -> None:
         # event_type -> List[Subscription]
         self._subscriptions: Dict[str, List[Subscription]] = {}
 
@@ -85,8 +92,16 @@ class EventBus:
         # 流量控制：某些事件类型可以临时禁用（例如背压时暂停 RAW_FRAME_DATA）
         self._flow_control: Dict[str, bool] = {}
 
-        # 可选：异步发布线程池（懒初始化）
-        self._async_executor: Optional[ThreadPoolExecutor] = None
+        # 并行执行线程池（动态配置大小）
+        if max_workers is None:
+            # IO密集型场景建议2倍核心数
+            cpu_count = os.cpu_count() or 4
+            max_workers = cpu_count * 2
+        # 创建线程池
+        self._executor = ThreadPoolExecutor(
+            max_workers=max_workers,
+            thread_name_prefix="EventBusWorker"
+        )
 
     # -------- 单例接口（可选） --------
     @classmethod
@@ -117,21 +132,28 @@ class EventBus:
         :param priority:   优先级，高优先级先执行
         :param filter_func: 可选过滤函数，形如 fn(data) -> bool
         """
+        # 获取订阅者名称
         if subscriber_name is None:
             owner = getattr(callback, "__self__",None)
             if owner is not None:
                 subscriber_name = f"{type(owner).__name__}.{callback.__name__}"
         else:
             subscriber_name = callback.__name__
+
+        # 生成 subscription_id
         subscription_id = f"{event_type}:{id(callback)}:{time.time_ns()}"
+
+        # 创建订阅对象
         sub = Subscription(
             subscription_id=subscription_id,
             event_type=event_type,
             callback=callback,
             priority=priority,
             filter_func=filter_func,
+            subscriber_name=subscriber_name,
         )
 
+        # 添加订阅对象到订阅列表
         with self._lock:
             if event_type not in self._subscriptions:
                 self._subscriptions[event_type] = []
@@ -142,6 +164,7 @@ class EventBus:
                 key=lambda s: s.priority, reverse=True
             )
 
+        # 记录订阅事件
         logger.info(
             "订阅事件: event_type=%s, subscription_id=%s, priority=%s, subscriber_name=%s",
             event_type,
@@ -149,6 +172,8 @@ class EventBus:
             priority.name,
             subscriber_name,
         )
+
+        # 返回 subscription_id
         return subscription_id
 
     def unsubscribe(self, subscription_id: str) -> bool:
@@ -198,17 +223,45 @@ class EventBus:
         with self._lock:
             return self._flow_control.get(event_type, False)
 
-    # -------- 发布事件（同步） --------
+    # -------- 辅助方法：安全调用订阅者 --------
+    def _safe_call(self, sub: Subscription, data: Any) -> bool:
+        """
+        安全调用订阅者回调，捕获异常并更新统计信息。
+
+        :param sub: 订阅对象
+        :param data: 事件数据
+        :return: 是否成功执行
+        """
+        try:
+            sub.callback(data)
+            return True
+        except Exception:
+            sub.error_count += 1
+            logger.exception(
+                "订阅回调执行异常: event_type=%s, subscription_id=%s, subscriber_name=%s",
+                sub.event_type,
+                sub.subscription_id,
+                sub.subscriber_name,
+            )
+            return False
+
+    # -------- 发布事件（并行执行） --------
     def publish(
         self,
         event_type: str,
         data: Any,
         priority: Priority = Priority.NORMAL,
+        wait_all: bool = False,
+        timeout: Optional[float] = None,
     ) -> int:
         """
-        同步发布事件，立即在当前线程调用所有订阅者回调。
-        （暂时未使用优先级）
+        并行发布事件，所有订阅者回调在线程池中并行执行。
 
+        :param event_type: 事件类型
+        :param data: 事件数据
+        :param priority: 优先级（暂未使用）
+        :param wait_all: 是否等待所有订阅者完成（True=同步模式，False=异步模式）
+        :param timeout: 等待超时时间（秒），仅在 wait_all=True 时有效
         :return: 成功投递的订阅者数量
         """
         # 流量控制检查（例如底层背压时关闭某类事件）
@@ -216,34 +269,58 @@ class EventBus:
             logger.debug("事件被流量控制丢弃: event_type=%s", event_type)
             return 0
 
+        # 获取订阅者列表
         with self._lock:
             subscribers = list(self._subscriptions.get(event_type, []))
 
+        # 过滤并准备有效的订阅者
+        valid_subs = []
+        for sub in subscribers:
+            if sub.should_deliver(data):
+                sub.total_calls += 1
+                valid_subs.append(sub)
+
+        if not valid_subs:
+            return 0
+
+        # 并行提交所有订阅者任务到线程池
+        futures = []
+        for sub in valid_subs:
+            future = self._executor.submit(self._safe_call, sub, data)
+            futures.append(future)
+
         delivered = 0
 
-        # 遍历订阅者（已按优先级排序）
-        for sub in subscribers:
-            # 过滤逻辑
-            if not sub.should_deliver(data):
-                continue
+        if wait_all:
+            # 同步模式：等待所有订阅者完成
+            if timeout is None:
+                timeout = 5.0  # 默认5秒超时
+            # 等待所有订阅者完成
+            done, not_done = futures_wait(futures, timeout=timeout)
+            
+            # 统计成功执行的订阅者数量
+            for f in done:
+                try:
+                    if f.result() is True:
+                        delivered += 1
+                except Exception:
+                    # 异常已在 _safe_call 中处理，这里只统计
+                    pass
 
-            sub.total_calls += 1
-
-            try:
-                sub.callback(data)
-                delivered += 1
-
-            except Exception:
-                sub.error_count += 1
-                logger.exception(
-                    "订阅回调执行异常: event_type=%s, subscription_id=%s, subscriber_name=%s",
+            if not_done:
+                logger.warning(
+                    "事件分发超时: event_type=%s, 超时订阅者数量=%d, 超时时间=%.1fs",
                     event_type,
-                    sub.subscription_id,
-                    sub.subscriber_name,
+                    len(not_done),
+                    timeout,
                 )
+        else:
+            # 异步模式：fire-and-forget，不等待完成
+            # 注意：这里无法立即知道成功数量，返回提交的任务数
+            delivered = len(futures)
 
         return delivered
-    # -------- 异步发布（可选） --------
+    # -------- 异步发布（便捷方法） --------
     def publish_async(
         self,
         event_type: str,
@@ -251,21 +328,17 @@ class EventBus:
         priority: Priority = Priority.NORMAL,
     ) -> Future:
         """
-        异步发布事件：在后台线程池中执行 publish，
+        异步发布事件：在后台线程池中执行 publish(wait_all=False)，
         调用方无需等待订阅者处理完成。
 
-        注意：如果你的使用场景非常追求可控的执行顺序，
-        或对线程数量敏感，可以不用这个方法。
+        这是 publish(wait_all=False) 的便捷方法，保持向后兼容。
+
+        :return: Future 对象，可用于查询执行状态
         """
-        with self._lock:
-            if self._async_executor is None:
-                self._async_executor = ThreadPoolExecutor(
-                    max_workers=4, thread_name_prefix="EventBusWorker"
-                )
+        return self._executor.submit(
+            self.publish, event_type, data, priority, wait_all=False
+        )
 
-            executor = self._async_executor
-
-        return executor.submit(self.publish, event_type, data, priority)
 
     # -------- 调试用 --------
     def list_subscriptions(self, event_type: Optional[str] = None) -> List[Dict[str, Any]]:
