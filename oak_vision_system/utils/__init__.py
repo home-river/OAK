@@ -32,6 +32,9 @@ from .logging_utils import (
     setup_exception_logger,
 )
 
+# 自定义数据结构
+from .data_structures.Queue import OverflowQueue
+
 __all__ = [
     'build_oak_to_xyz_homogeneous',
     'build_translation_homogeneous',
@@ -54,5 +57,6 @@ __all__ = [
     'configure_logging',
     'attach_exception_logger',
     'setup_exception_logger',
+    'OverflowQueue',
 ]
 

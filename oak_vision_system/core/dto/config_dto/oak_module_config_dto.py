@@ -55,6 +55,7 @@ class OAKModuleConfigDTO(BaseConfigDTO):
     
     # ========== 设备绑定配置 ==========
     role_bindings: Dict[DeviceRole, DeviceRoleBindingDTO] = field(default_factory=dict)
+    # mxid + 设备元数据
     device_metadata: Dict[str, DeviceMetadataDTO] = field(default_factory=dict)
     
     def _validate_data(self) -> List[str]:
