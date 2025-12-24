@@ -17,6 +17,11 @@ from typing import Optional, Dict, Union, List
 import threading
 import time
 from oak_vision_system.modules.data_collector.pipelinemanager import PipelineManager
+from oak_vision_system.core.backpressure import (
+    BackpressureState,
+    BackpressureAction,
+    BackpressureEventPayload,
+)
 from oak_vision_system.core.dto import (
     SpatialCoordinatesDTO,
     BoundingBoxDTO,
@@ -26,7 +31,7 @@ from oak_vision_system.core.dto import (
 )
 from oak_vision_system.core.dto.config_dto.oak_module_config_dto import OAKModuleConfigDTO
 from oak_vision_system.core.dto.config_dto import DeviceRoleBindingDTO
-from oak_vision_system.core.event_bus import EventBus, EventType
+from oak_vision_system.core.event_bus import EventBus, EventType, get_event_bus
 import logging
 import depthai as dai
 
@@ -38,16 +43,33 @@ class OAKDataCollector:
         """初始化采集器，注入 PipelineManager、事件总线与系统配置"""
         self.config = config
         self.pipeline_manager = PipelineManager(config.hardware_config)
-        self.event_bus = event_bus or EventBus.get_instance()
+        self.event_bus = event_bus or get_event_bus()
         self.running: Dict[str, bool] = self._init_running_from_config()
         self._worker_threads: Dict[str, threading.Thread] = {}
         self._running_lock = threading.Lock()
         self.logger = logging.getLogger(__name__)
+
+        # 背压配置
+        self._bp_lock = threading.Lock()
+        self._bp_action = BackpressureAction.NORMAL
+
+        fps = getattr(self.config.hardware_config, "hardware_fps", 20)
+        fps = max(1, int(fps))
+
+        # 时间闸门（单位：秒）
+        self._pause_min_interval_s = 1.0 / fps          # PAUSE = 暂停
+        self._pressure_time_interval_s = 2.0 / fps        # THROTTLE = 半速
+
+        self._gate_lock = threading.Lock()
+        self._next_allowed_ts: Dict[str, float] = {}
+
+        self._init_subscribers()
         
         # 帧计数器（按设备绑定管理）
         self._frame_counters: Dict[str, int] = {}
         for role in self.running.keys():
             self._frame_counters[role] = 0
+            self._next_allowed_ts[role] = 0.0
 
     def _set_running_state(self, binding: DeviceRoleBindingDTO | str, value: bool) -> None:
         """线程安全地更新设备运行状态"""
@@ -93,6 +115,19 @@ class OAKDataCollector:
         else:
             self.pipeline_manager.create_pipeline_with_no_depth_output()
 
+    def _init_subscribers(self) -> None:
+        """
+        初始化内部订阅
+
+        当前订阅包括：
+        订阅背压事件
+        """
+        self.event_bus.subscribe(EventType.BACKPRESSURE_SIGNAL, self._handle_backpressure_signal)
+    
+    def _handle_backpressure_signal(self, event: BackpressureEventPayload) -> None:
+        """处理背压事件"""
+        with self._bp_lock:
+            self._bp_action = event.action
 
 
     def _publish_data(self, data: Union[VideoFrameDTO, DeviceDetectionDataDTO]) -> None:
@@ -233,7 +268,7 @@ class OAKDataCollector:
             # 获取设备ID
             device_id = device_binding.active_mxid
             if device_id is None:
-                self.logger.error("设备ID为空，无法组装检测数据: %s", device_binding.role.value)
+                self.logger.error("设备ID为空，无法组装检测数据: %s", device_binding.role)
                 return None
             
             # 使用硬件序列号；若不可用则回退到最近的视频帧ID
@@ -355,6 +390,38 @@ class OAKDataCollector:
                     depth_queue = device.getOutputQueue(name="depth", maxSize=queue_max_size, blocking=queue_blocking)
 
                 while self._is_running(device_binding):
+                    # 背压处理：根据当前系统压力（由 BACKPRESSURE_SIGNAL 事件更新）动态调整采样行为
+                    # - NORMAL   : 正常频率采样
+                    # - THROTTLE : 降低采样频率，减轻后端处理压力
+                    # - PAUSE    : 暂停采样，只做最小休眠，不再从队列取新数据
+                    with self._bp_lock:
+                        action = self._bp_action
+                    if action == BackpressureAction.PAUSE:
+                        # 处于 PAUSE 状态时，不再继续后续处理，直接按最小间隔 sleep
+                        time.sleep(self._pause_min_interval_s)
+                        continue
+
+                    # interval_s 表示当前循环允许的采样间隔（秒）
+                    # NORMAL 下为 _pause_min_interval_s；THROTTLE 下使用更大的 _pressure_time_interval_s 以实现限流
+                    interval_s = self._pause_min_interval_s
+                    if action == BackpressureAction.THROTTLE:
+                        interval_s = self._pressure_time_interval_s
+
+                    # 时间闸门：为每个设备角色维护“下一次允许拉取/处理数据的时间戳”
+                    now_ts = time.time()
+                    role_key = device_binding.role.value
+                    # 读出当前角色的下一次允许时间戳；若尚未设置，则默认 0.0（立即允许）
+                    with self._gate_lock:
+                        next_allowed_ts = self._next_allowed_ts.get(role_key, 0.0)
+                    if now_ts < next_allowed_ts:
+                        # 若当前时间尚未到达下一允许时间，则睡眠剩余时间并跳过本轮循环，从而实现节流
+                        time.sleep(next_allowed_ts - now_ts)
+                        continue
+                    # 已到允许时间：更新该角色的下一次允许时间 = 当前时间 + interval_s
+                    # 不同角色使用独立的 key，实现“按设备角色维度”的节流控制
+                    with self._gate_lock:
+                        self._next_allowed_ts[role_key] = now_ts + interval_s
+
                     # 使用 tryGet() 非阻塞获取数据，避免 stop() 后线程阻塞在 get() 上
                     rgb_frame = rgb_queue.tryGet()
                     det_frame = detections_queue.tryGet()

@@ -79,15 +79,14 @@ class EventBus:
     - 可选：同步/异步模式（wait_all 参数）
     """
 
-    _instance = None
-    _instance_lock = threading.Lock()
-
     def __init__(self, max_workers: Optional[int] = None) -> None:
         # event_type -> List[Subscription]
         self._subscriptions: Dict[str, List[Subscription]] = {}
 
         # 线程安全锁
         self._lock = threading.RLock()
+
+        self._closed = False
 
         # 流量控制：某些事件类型可以临时禁用（例如背压时暂停 RAW_FRAME_DATA）
         self._flow_control: Dict[str, bool] = {}
@@ -103,17 +102,10 @@ class EventBus:
             thread_name_prefix="EventBusWorker"
         )
 
-    # -------- 单例接口（可选） --------
+    # -------- 单例接口（兼容旧调用） --------
     @classmethod
     def get_instance(cls) -> "EventBus":
-        """
-        全局单例（如果你项目里已经有单例逻辑，可以替换/删除）
-        """
-        if cls._instance is None:
-            with cls._instance_lock:
-                if cls._instance is None:
-                    cls._instance = cls()
-        return cls._instance
+        return get_event_bus()
 
     # -------- 订阅相关 --------
     def subscribe(
@@ -132,6 +124,10 @@ class EventBus:
         :param priority:   优先级，高优先级先执行
         :param filter_func: 可选过滤函数，形如 fn(data) -> bool
         """
+        with self._lock:
+            if self._closed:
+                raise RuntimeError("EventBus 已关闭，无法订阅事件。")
+
         # 获取订阅者名称
         if subscriber_name is None:
             owner = getattr(callback, "__self__",None)
@@ -183,6 +179,8 @@ class EventBus:
         :return: 是否成功取消
         """
         with self._lock:
+            if self._closed:
+                return False
             removed = False
             for event_type, subs in list(self._subscriptions.items()):
                 new_list = [s for s in subs if s.subscription_id != subscription_id]
@@ -264,6 +262,10 @@ class EventBus:
         :param timeout: 等待超时时间（秒），仅在 wait_all=True 时有效
         :return: 成功投递的订阅者数量
         """
+        with self._lock:
+            if self._closed:
+                return 0
+
         # 流量控制检查（例如底层背压时关闭某类事件）
         if self.is_flow_controlled(event_type):
             logger.debug("事件被流量控制丢弃: event_type=%s", event_type)
@@ -320,6 +322,7 @@ class EventBus:
             delivered = len(futures)
 
         return delivered
+
     # -------- 异步发布（便捷方法） --------
     def publish_async(
         self,
@@ -335,9 +338,29 @@ class EventBus:
 
         :return: Future 对象，可用于查询执行状态
         """
+        with self._lock:
+            if self._closed:
+                f: Future = Future()
+                f.set_result(0)
+                return f
+
         return self._executor.submit(
             self.publish, event_type, data, priority, wait_all=False
         )
+
+
+    def close(self, wait: bool = True, cancel_pending: bool = False) -> None:
+        with self._lock:
+            if self._closed:
+                return
+            self._closed = True
+            self._subscriptions.clear()
+            self._flow_control.clear()
+
+        try:
+            self._executor.shutdown(wait=wait, cancel_futures=cancel_pending)
+        except TypeError:
+            self._executor.shutdown(wait=wait)
 
 
     # -------- 调试用 --------
@@ -363,3 +386,110 @@ class EventBus:
                         }
                     )
             return result
+
+
+# =========================
+# 全局单例管理
+# =========================
+# 全局 EventBus 单例实例
+_event_bus_instance: Optional[EventBus] = None
+# 线程锁，用于保护单例初始化的线程安全
+_event_bus_lock = threading.Lock()
+# 记录初始化时的 max_workers 参数，用于防止重复初始化时参数不一致
+_event_bus_init_max_workers: Optional[int] = None
+
+
+def initialize_event_bus(max_workers: Optional[int] = None) -> EventBus:
+    """
+    初始化全局 EventBus 单例实例。
+
+    如果已经初始化过，则返回现有实例。如果尝试使用不同的 max_workers 参数
+    重复初始化，将抛出 RuntimeError。
+
+    :param max_workers: 线程池最大工作线程数，None 时使用默认值（CPU核心数 * 2）
+    :return: EventBus 实例
+    :raises RuntimeError: 当尝试使用不同的 max_workers 重复初始化时
+    """
+    global _event_bus_instance
+    global _event_bus_init_max_workers
+
+    with _event_bus_lock:
+        if _event_bus_instance is None:
+            _event_bus_instance = EventBus(max_workers=max_workers)
+            _event_bus_init_max_workers = max_workers
+            return _event_bus_instance
+
+        if max_workers is not None and _event_bus_init_max_workers != max_workers:
+            raise RuntimeError(
+                "EventBus 已初始化，禁止使用不同 max_workers 重复初始化。"
+            )
+
+        return _event_bus_instance
+
+
+def get_event_bus() -> EventBus:
+    """
+    获取全局 EventBus 单例实例。
+
+    如果尚未初始化，则自动使用默认参数初始化。
+
+    :return: EventBus 实例
+    """
+    if _event_bus_instance is None:
+        return initialize_event_bus()
+    return _event_bus_instance
+
+
+def reset_event_bus() -> None:
+    """
+    重置全局 EventBus 单例实例。
+
+    将单例实例和初始化参数重置为 None，主要用于测试场景。
+    注意：重置后需要重新调用 initialize_event_bus() 或 get_event_bus() 来创建新实例。
+    """
+    global _event_bus_instance
+    global _event_bus_init_max_workers
+
+    with _event_bus_lock:
+        _event_bus_instance = None
+        _event_bus_init_max_workers = None
+
+
+def get_global_event_bus() -> EventBus:
+    """
+    获取全局 EventBus 单例实例（get_event_bus 的别名）。
+
+    提供此函数以保持 API 的一致性，实际功能与 get_event_bus() 相同。
+
+    :return: EventBus 实例
+    """
+    return get_event_bus()
+
+
+def reset_global_event_bus() -> None:
+    """
+    重置全局 EventBus 单例实例（reset_event_bus 的别名）。
+
+    提供此函数以保持 API 的一致性，实际功能与 reset_event_bus() 相同。
+    """
+    reset_event_bus()
+
+
+def shutdown_event_bus(
+    *,
+    wait: bool = True,
+    cancel_pending: bool = False,
+    reset_instance: bool = True,
+) -> None:
+    global _event_bus_instance
+    global _event_bus_init_max_workers
+
+    with _event_bus_lock:
+        if _event_bus_instance is None:
+            return
+
+        _event_bus_instance.close(wait=wait, cancel_pending=cancel_pending)
+
+        if reset_instance:
+            _event_bus_instance = None
+            _event_bus_init_max_workers = None

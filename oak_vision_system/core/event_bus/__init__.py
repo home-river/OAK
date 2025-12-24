@@ -25,17 +25,25 @@
 from .event_bus import (
     EventBus,
     Subscription,
+    Priority,
+    initialize_event_bus,
+    get_event_bus,
+    reset_event_bus,
+    shutdown_event_bus,
     get_global_event_bus,
     reset_global_event_bus
 )
-from .event_types import EventType, Priority
+from .event_types import EventType
 
 __all__ = [
     'EventBus',
     'Subscription',
     'EventType',
     'Priority',
+    'initialize_event_bus',
+    'get_event_bus',
+    'reset_event_bus',
+    'shutdown_event_bus',
     'get_global_event_bus',
     'reset_global_event_bus'
 ]
-
