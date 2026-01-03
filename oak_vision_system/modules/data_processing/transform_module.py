@@ -160,6 +160,36 @@ class CoordinateTransfomer:
         trans_h = points @ self.trans_matrices[mxid].T
 
         return trans_h[:,:3]
+
+
+
+
+    def get_trans_matrices(self,mxid: str, detections: list[DetectionDTO]) -> np.ndarray:
+        """
+        将检测数据转换为齐次坐标矩阵返回
+        
+        args:
+            mxid: str，设备ID，用于区分设备
+            detections: list[DetectionDTO]，需要被转换的检测数据
+        return:
+            np.ndarray，转换后的坐标矩阵
+        """
+        points_h = self._matrix_helper(detections)
+        trans_points = self.transform_points_batch(mxid, points_h)
+        return trans_points
+
+
+
+
+
+
+
+
+
+
+
+
+    # ------------暂弃接口-------
     
     def assemble_detection(self,detection_data:DeviceDetectionDataDTO,matrics:np.ndarray) -> DeviceDetectionDataDTO:
         """
@@ -170,6 +200,7 @@ class CoordinateTransfomer:
             matrics: np.ndarray，转换后的坐标矩阵
         """
         new_detections:list[DetectionDTO] = []
+        # 对nparray迭代时，按行返回
         for detection, row in zip(detection_data.detections,matrics):
             new_Coord = SpatialCoordinatesDTO(row[0],row[1],row[2])
             label, conf, bbox = detection.label, detection.confidence, detection.bbox

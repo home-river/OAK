@@ -6,6 +6,9 @@ from collections import deque
 
 from oak_vision_system.core.dto.detection_dto import SpatialCoordinatesDTO, BoundingBoxDTO
 
+import numpy as np
+Coord3 = tuple[float, float, float]
+
 
 class BaseSpatialFilter(ABC):
     """
@@ -20,11 +23,12 @@ class BaseSpatialFilter(ABC):
             queue_maxsize: 历史数据队列的最大容量
         """
         # 使用 deque 自动处理溢出（单线程场景性能更好）
-        self._queue: deque[SpatialCoordinatesDTO] = deque(maxlen=queue_maxsize)
+        self._queue: deque[Coord3] = deque(maxlen=queue_maxsize)
         self._maxsize: int = queue_maxsize
         
         # 当前滤波结果
         self._current_value: Optional[SpatialCoordinatesDTO] = None
+
         
         # IOU 信息
         self._current_bbox: Optional[BoundingBoxDTO] = None
@@ -34,7 +38,7 @@ class BaseSpatialFilter(ABC):
         self._max_missed_count: int = max_missed_count
 
     @property
-    def queue(self) -> deque[SpatialCoordinatesDTO]:
+    def queue(self) -> deque[Coord3]:
         """历史数据队列"""
         return self._queue
     
@@ -80,7 +84,7 @@ class BaseSpatialFilter(ABC):
 
     def input(
         self, 
-        value: SpatialCoordinatesDTO, 
+        values: np.ndarray, 
         iou_info: Optional[BoundingBoxDTO] = None
     ) -> Optional[SpatialCoordinatesDTO]:
         """
@@ -96,14 +100,20 @@ class BaseSpatialFilter(ABC):
         # 重置未匹配计数器
         self._missed_count = 0
 
+        coord: Coord3 = (float(values[0]), float(values[1]), float(values[2]))
+
+        old_value: Optional[Coord3] = None
+        if len(self._queue) == self._maxsize:
+            old_value = self._queue[0]
+
         # deque 会自动处理溢出（移除最旧元素）
-        self._queue.append(value)
+        self._queue.append(coord)
         
         # 保存当前的 IOU 信息
         self._current_bbox = iou_info
         
         # 更新内部状态（由子类实现具体滤波逻辑）
-        self._update_state(value, iou_info)
+        self._update_state(coord, iou_info, old_value)
         
         # 返回最新滤波结果（直接访问内部属性）
         return self._current_value
@@ -111,8 +121,9 @@ class BaseSpatialFilter(ABC):
     @abstractmethod
     def _update_state(
         self, 
-        value: SpatialCoordinatesDTO, 
-        iou_info: Optional[BoundingBoxDTO]
+        value: Coord3, 
+        iou_info: Optional[BoundingBoxDTO],
+        old_value: Optional[Coord3]
     ) -> None:
         """更新滤波器内部状态（子类实现）"""
         ...
@@ -121,6 +132,7 @@ class BaseSpatialFilter(ABC):
         """重置滤波器状态"""
         self._queue.clear()
         self._current_value = None
+        self._current_coord = None
         self._current_bbox = None
         self._missed_count = 0
 
@@ -160,8 +172,9 @@ class MovingAverageFilter(BaseSpatialFilter):
     
     def _update_state(
         self, 
-        value: SpatialCoordinatesDTO, 
-        iou_info: Optional[BoundingBoxDTO] = None
+        value: Coord3, 
+        iou_info: Optional[BoundingBoxDTO] = None,
+        old_value: Optional[Coord3] = None
     ) -> None:
         """更新滤波状态 - 使用递推公式 O(1) 复杂度"""
         # 如果队列为空，重置状态
@@ -175,35 +188,37 @@ class MovingAverageFilter(BaseSpatialFilter):
         
         # 定期重新精确计算（防止浮点误差累积）
         if self._update_count % self._recalc_interval == 0:
-            self._sum_x = sum(coord.x for coord in self._queue)
-            self._sum_y = sum(coord.y for coord in self._queue)
-            self._sum_z = sum(coord.z for coord in self._queue)
+            self._sum_x = sum(coord[0] for coord in self._queue)
+            self._sum_y = sum(coord[1] for coord in self._queue)
+            self._sum_z = sum(coord[2] for coord in self._queue)
             self._size = len(self._queue)
         else:
             # 递推更新（快速路径）
             # 如果窗口已满，减去被移除的旧值
             if self._size == self._maxsize:
-                # deque 在 append 时已经移除了最旧元素
-                # 我们需要在 append 之前获取最旧值，但已经来不及了
-                # 所以这里使用当前队列的第一个元素（它是次旧的）
-                oldest = self._queue[0]
-                self._sum_x -= oldest.x
-                self._sum_y -= oldest.y
-                self._sum_z -= oldest.z
+                if old_value is not None:
+                    self._sum_x -= old_value[0]
+                    self._sum_y -= old_value[1]
+                    self._sum_z -= old_value[2]
             else:
                 # 窗口未满，递增大小
                 self._size += 1
             
             # 加上新值
-            self._sum_x += value.x
-            self._sum_y += value.y
-            self._sum_z += value.z
+            self._sum_x += value[0]
+            self._sum_y += value[1]
+            self._sum_z += value[2]
         
         # O(1) 计算平均值（使用内部维护的大小）
+        self._current_coord = (
+            self._sum_x / self._size,
+            self._sum_y / self._size,
+            self._sum_z / self._size,
+        )
         self._current_value = SpatialCoordinatesDTO(
-            x=self._sum_x / self._size,
-            y=self._sum_y / self._size,
-            z=self._sum_z / self._size
+            x=self._current_coord[0],
+            y=self._current_coord[1],
+            z=self._current_coord[2]
         )
     
     def reset(self) -> None:
@@ -255,8 +270,9 @@ class WeightedMovingAverageFilter(BaseSpatialFilter):
     
     def _update_state(
         self, 
-        value: SpatialCoordinatesDTO, 
-        iou_info: Optional[BoundingBoxDTO] = None
+        value: Coord3, 
+        iou_info: Optional[BoundingBoxDTO] = None,
+        old_value: Optional[Coord3] = None
     ) -> None:
         """更新滤波状态 - 使用线性递增权重计算加权平均"""
         if not self._queue:
@@ -271,12 +287,13 @@ class WeightedMovingAverageFilter(BaseSpatialFilter):
             weights = self._weights
         
         # 提取坐标并计算加权平均
-        avg_x = sum(coord.x * w for coord, w in zip(self._queue, weights))
-        avg_y = sum(coord.y * w for coord, w in zip(self._queue, weights))
-        avg_z = sum(coord.z * w for coord, w in zip(self._queue, weights))
+        avg_x = sum(coord[0] * w for coord, w in zip(self._queue, weights))
+        avg_y = sum(coord[1] * w for coord, w in zip(self._queue, weights))
+        avg_z = sum(coord[2] * w for coord, w in zip(self._queue, weights))
         
+        self._current_coord = (avg_x, avg_y, avg_z)
         self._current_value = SpatialCoordinatesDTO(
-            x=avg_x,
-            y=avg_y,
-            z=avg_z
+            x=self._current_coord[0],
+            y=self._current_coord[1],
+            z=self._current_coord[2]
         )
