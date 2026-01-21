@@ -70,6 +70,3 @@ class ConnectionStatus(Enum):
 class FilterType(Enum):
     """滤波器类型枚举"""
     MOVING_AVERAGE = "moving_average"  # 滑动平均滤波（默认推荐）
-    KALMAN = "kalman"
-    LOWPASS = "lowpass"
-    MEDIAN = "median"

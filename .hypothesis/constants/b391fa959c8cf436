@@ -1,0 +1,4 @@
+# file: D:\pythonWork\graspWithVision\OAK\oak_vision_system\core\dto\data_processing_dto.py
+# hypothesis_version: 6.150.2
+
+[0.0, 1.0, 100, 101, 'bbox必须为np.ndarray类型', 'bbox必须为数值数组', 'bbox的shape必须为(N,4)', 'bbox的行数必须与labels长度一致', 'confidence必须为浮点数组', 'coords必须为数值数组', 'coords的shape必须为(N,3)', 'detections必须为列表类型', 'device_alias', 'device_id', 'frame_id', 'labels中的值必须非负', 'labels必须为整数数组', 'labels的shape必须为(N,)', 'state_label必须为列表类型']

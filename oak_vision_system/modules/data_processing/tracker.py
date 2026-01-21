@@ -9,7 +9,7 @@ from scipy.optimize import linear_sum_assignment
 class BaseTracker(ABC):
     """目标跟踪器抽象基类"""
     
-    def __init__(self, iou_threshold: float = 0.3):
+    def __init__(self, iou_threshold: float = 0.5):
         self.threshold = iou_threshold
     
     @abstractmethod

@@ -1,0 +1,4 @@
+# file: D:\pythonWork\graspWithVision\OAK\oak_vision_system\core\dto\detection_dto.py
+# hypothesis_version: 6.150.2
+
+[0.0, 0.5, 1.0, 100, 'collection_id', 'confidence', 'detections', 'detections必须为列表类型', 'device_alias', 'device_id', 'devices_data', 'devices_data必须为字典类型', 'frame_id', 'label', 'video_frames', 'video_frames必须为字典类型', 'x', 'xmax', 'xmin', 'y', 'ymax', 'ymin', 'z']

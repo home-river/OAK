@@ -23,6 +23,8 @@ from .base_dto import (
     validate_string_length,
 )
 
+from .transport_dto import TransportDTO
+
 from .detection_dto import (
     SpatialCoordinatesDTO,
     BoundingBoxDTO,
@@ -42,6 +44,7 @@ __version__ = "1.0.0"
 __all__ = [
     # 基类
     "BaseDTO",
+    "TransportDTO",
     
     # 异常类
     "DTOValidationError",

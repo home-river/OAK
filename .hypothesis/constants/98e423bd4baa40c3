@@ -1,0 +1,4 @@
+# file: D:\pythonWork\graspWithVision\OAK\oak_vision_system\modules\config_manager\device_discovery.py
+# hypothesis_version: 6.150.2
+
+['=', 'BOOTED', 'BOOTLOADER', 'CONNECTED', 'UNBOOTED', 'X_LINK_', 'mxid', 'unknown', '发现OAK设备 %d 台', '处理设备 %s 时出错: %s', '开始发现OAK设备', '未发现任何可用的OAK设备', '未发现任何设备', '未找到任何可用设备。', '未知', '检测到候选设备数量: %d', '获取产品名称失败: %s', '设备[%s] 产品名: %s']

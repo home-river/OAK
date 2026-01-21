@@ -1,0 +1,4 @@
+# file: D:\pythonWork\graspWithVision\OAK\oak_vision_system\modules\data_processing\filter_base.py
+# hypothesis_version: 6.150.2
+
+[0.0, '_current_bbox', '_current_value', '_max_missed_count', '_missed_count', '_next_recalc', '_queue', '_queue_maxsize', '_recalc_interval', 'active_state']

@@ -1,0 +1,4 @@
+# file: D:\pythonWork\graspWithVision\OAK\oak_vision_system\modules\data_processing\tracker.py
+# hypothesis_version: 6.150.2
+
+[1e-06, 0.5, 'greedy', 'hungarian']

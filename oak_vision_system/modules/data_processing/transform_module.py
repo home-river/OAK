@@ -2,13 +2,7 @@
 坐标变换模块
 用于提供快速的坐标变换方法的工具类
 
-可选：
-1. 传入DeviceDetectionDataDTO，
-    - 通过get_trans_detection方法直接返回转换后的DeviceDetectionDataDTO
-
-    
-2. 传入list[DetectionDTO]和mxid，
-    - 通过get_trans_batch方法直接返回转换后的list[DetectionDTO]
+调用get_trans_matrices方法，传入mxid和detections，返回转换后的坐标矩阵。
 """
 
 from .trans_utils import (build_oak_to_xyz_homogeneous, 
@@ -89,7 +83,7 @@ class CoordinateTransfomer:
         
         for mxid, calibration in self.calibrations.items():
             # 初始化4x4单位矩阵（齐次变换矩阵）
-            trans_matrices[mxid] = np.eye(4)
+            trans_matrices[mxid] = np.eye(4, dtype=np.float32)
             
             # 构建OAK坐标系到XYZ坐标系的基准变换矩阵
             T_oak_to_xyz = build_oak_to_xyz_homogeneous()
@@ -104,79 +98,38 @@ class CoordinateTransfomer:
             T_trans = build_translation_homogeneous(
                 calibration.translation_x, 
                 calibration.translation_y, 
-                calibration.translation_z
+                calibration.translation_z,
+                right_multiply=True,
             )
             
             # 组合所有变换：先旋转（pitch -> yaw），再平移，最后应用基准变换
             # 矩阵乘法顺序：从右到左依次应用变换
-            T_total = T_trans @ R_yaw @ R_pitch @ T_oak_to_xyz
+            T_total = (T_trans @ R_yaw @ R_pitch @ T_oak_to_xyz).astype(
+                np.float32, copy=False
+            )
             trans_matrices[mxid] = T_total
         
         return trans_matrices
 
 
 
-    def _matrix_helper(self,Detections: list[DetectionDTO]) -> np.ndarray:
+    def transform_coordinates(self, mxid: str, coords_homogeneous: np.ndarray) -> np.ndarray:
         """
-        用于批量转换检测结果坐标为矩阵的内部方法
-
-        args:
-            Detections: list[DetectionDTO]，需要被转换的检测数据
-        return:
-            np.ndarray，转换后的坐标矩阵
-        """
-        if len(Detections) == 0:
-            return np.empty((0, 4), dtype=np.float32)
-
-        points_h = np.asarray(
-            [
-                [
-                    float(det.spatial_coordinates.x),
-                    float(det.spatial_coordinates.y),
-                    float(det.spatial_coordinates.z),
-                    1.0,
-                ]
-                for det in Detections
-            ],
-            dtype=np.float32,
-        )
-
-        return points_h
-
-
-    def transform_points_batch(self, mxid: str, points: np.ndarray) -> np.ndarray:
-        """
-        批量将多个点从OAK设备坐标系变换到自定义坐标系
+        将齐次坐标从OAK设备坐标系变换到自定义坐标系
         
         Args:
             mxid: 设备ID（用于查找对应的变换矩阵）
-            points: 输入点集，形状为(N, 4)的numpy数组
-                    N为点的数量，每行为一个点的坐标
-                    - (N, 4): 齐次坐标 [x, y, z, 1]
+            coords_homogeneous: 齐次坐标矩阵，形状为 (N, 4)，每行为 [x, y, z, 1]
         
         Returns:
-            np.ndarray: 变换后的点集，形状与输入相同
+            np.ndarray: 变换后的坐标，形状为 (N, 3)
         """
-        trans_h = points @ self.trans_matrices[mxid].T
-
-        return trans_h[:,:3]
-
-
-
-
-    def get_trans_matrices(self,mxid: str, detections: list[DetectionDTO]) -> np.ndarray:
-        """
-        将检测数据转换为齐次坐标矩阵返回
+        if len(coords_homogeneous) == 0:
+            return np.empty((0, 3), dtype=np.float32)
         
-        args:
-            mxid: str，设备ID，用于区分设备
-            detections: list[DetectionDTO]，需要被转换的检测数据
-        return:
-            np.ndarray，转换后的坐标矩阵
-        """
-        points_h = self._matrix_helper(detections)
-        trans_points = self.transform_points_batch(mxid, points_h)
-        return trans_points
+        # 直接进行矩阵变换
+        trans_h = coords_homogeneous @ self.trans_matrices[mxid].T
+        return trans_h[:, :3]
 
 
 

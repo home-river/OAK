@@ -6,7 +6,6 @@
 
 import time
 from dataclasses import dataclass, field
-from tkinter.tix import MAX
 from typing import List, Optional
 
 from ..base_dto import validate_string_length

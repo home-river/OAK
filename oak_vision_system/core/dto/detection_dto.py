@@ -16,16 +16,12 @@ from dataclasses import dataclass, field
 from typing import Optional, Any, Dict, List
 import numpy as np
 
-from .base_dto import (
-    BaseDTO,
-    validate_required_fields,
-    validate_numeric_range,
-    validate_string_length,
-)
+from .transport_dto import TransportDTO
+from .base_dto import validate_required_fields, validate_numeric_range, validate_string_length
 
 
 @dataclass(frozen=True)
-class SpatialCoordinatesDTO(BaseDTO):
+class SpatialCoordinatesDTO(TransportDTO):
     """空间坐标数据传输对象"""
     
     x: float  # X轴坐标 (mm)
@@ -80,7 +76,7 @@ class SpatialCoordinatesDTO(BaseDTO):
 
 
 @dataclass(frozen=True)
-class BoundingBoxDTO(BaseDTO):
+class BoundingBoxDTO(TransportDTO):
     """边界框数据传输对象"""
     
     xmin: float  # 左上角X坐标
@@ -143,7 +139,7 @@ class BoundingBoxDTO(BaseDTO):
 
 
 @dataclass(frozen=True)
-class DetectionDTO(BaseDTO):
+class DetectionDTO(TransportDTO):
     """单个检测结果数据传输对象"""
     
     label: int  # 检测物体标签
@@ -181,13 +177,13 @@ class DetectionDTO(BaseDTO):
 
 
 @dataclass(frozen=True)
-class DeviceDetectionDataDTO(BaseDTO):
+class DeviceDetectionDataDTO(TransportDTO):
     """单个设备的检测数据传输对象"""
     
     device_id: str  # 设备唯一标识符（MXid）
     frame_id: int  # 帧ID（主要标识符，用于与视频帧同步）
     device_alias: Optional[str] = None  # 设备别名
-    detections: Optional[List[DetectionDTO]] = None  # 检测结果列表
+    detections: List[DetectionDTO] = field(default_factory=list)  # 检测结果列表
     # 注意：时间戳使用继承的 created_at 字段，无需重复定义
     
     def _validate_data(self) -> List[str]:
@@ -211,41 +207,31 @@ class DeviceDetectionDataDTO(BaseDTO):
         ))
         
         # 验证检测结果列表
-        if self.detections is not None:
-            if not isinstance(self.detections, list):
-                errors.append("detections必须为列表类型")
-            else:
-                for i, detection in enumerate(self.detections):
-                    if not isinstance(detection, DetectionDTO):
-                        errors.append(f"detections[{i}]必须为DetectionDTO类型")
+        if not isinstance(self.detections, list):
+            errors.append("detections必须为列表类型")
+        else:
+            for i, detection in enumerate(self.detections):
+                if not isinstance(detection, DetectionDTO):
+                    errors.append(f"detections[{i}]必须为DetectionDTO类型")
         
         return errors
-    
-    def _post_init_hook(self) -> None:
-        """初始化后钩子, 如果detections为None则设置默认值"""
-        if self.detections is None:
-            object.__setattr__(self, 'detections', [])
     
     @property
     def detection_count(self) -> int:
         """检测结果数量"""
-        return len(self.detections) if self.detections else 0
+        return len(self.detections)
     
     def get_detections_by_class_id(self, label: int) -> List[DetectionDTO]:
         """根据类别ID筛选检测结果"""
-        if not self.detections:
-            return []
         return [det for det in self.detections if det.label == label]
     
     def get_high_confidence_detections(self, threshold: float = 0.5) -> List[DetectionDTO]:
         """获取高置信度检测结果"""
-        if not self.detections:
-            return []
         return [det for det in self.detections if det.confidence >= threshold]
 
 
 @dataclass(frozen=True)
-class VideoFrameDTO(BaseDTO):
+class VideoFrameDTO(TransportDTO):
     """视频帧数据传输对象"""
     
     device_id: str  # 设备ID
@@ -302,7 +288,7 @@ class VideoFrameDTO(BaseDTO):
 
 
 @dataclass(frozen=True)
-class OAKDataCollectionDTO(BaseDTO):
+class OAKDataCollectionDTO(TransportDTO):
     """OAK数据采集模块综合数据传输对象"""
     
     collection_id: str  # 采集批次ID

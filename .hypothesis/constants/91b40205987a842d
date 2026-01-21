@@ -1,0 +1,4 @@
+# file: D:\pythonWork\graspWithVision\OAK\oak_vision_system\core\dto\config_dto\oak_module_config_dto.py
+# hypothesis_version: 6.150.2
+
+['=== OAK模块配置摘要 ===', 'hardware_config', 'role', 'role_bindings必须为字典类型', '未激活']

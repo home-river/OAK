@@ -1,0 +1,4 @@
+# file: D:\pythonWork\graspWithVision\OAK\oak_vision_system\core\dto\__init__.py
+# hypothesis_version: 6.150.2
+
+['1.0.0', 'BaseDTO', 'BoundingBoxDTO', 'DTOValidationError', 'DetectionDTO', 'OAKDataCollectionDTO', 'TransportDTO', 'VideoFrameDTO', '__version__']

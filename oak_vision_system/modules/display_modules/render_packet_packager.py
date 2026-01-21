@@ -14,19 +14,19 @@ from typing import Any, Callable, Dict, List, Optional, Tuple
 import threading
 import time
 
-from oak_vision_system.core.dto.data_processing_dto import ProcessedDetectionDTO, DeviceProcessedDetectionDTO
+from oak_vision_system.core.dto.data_processing_dto import DeviceProcessedDataDTO
 from oak_vision_system.core.dto.detection_dto import VideoFrameDTO
-from oak_vision_system.core.dto.base_dto import BaseDTO
+from oak_vision_system.core.dto.transport_dto import TransportDTO
 from queue import Queue, Empty
 from oak_vision_system.core.event_bus import get_event_bus, EventType
 from oak_vision_system.utils import OverflowQueue
 
 
 @dataclass(frozen=True)
-class RenderPacket(BaseDTO):
+class RenderPacket(TransportDTO):
     """单设备渲染数据包"""
     video_frame: VideoFrameDTO  # 视频帧数据
-    processed_detections: Optional[DeviceProcessedDetectionDTO] = None  # 处理后的检测数据  
+    processed_detections: DeviceProcessedDataDTO  # 处理后的检测数据（必需字段）
     
     def _validate_data(self) -> List[str]:
         """渲染数据包验证"""
@@ -34,18 +34,15 @@ class RenderPacket(BaseDTO):
         
         # 验证视频帧数据
         errors.extend(self.video_frame._validate_data())
+        
         # 验证处理后的检测数据
-        if self.processed_detections is not None:
-            errors.extend(self.processed_detections._validate_data())
-            if self.video_frame is not None:
-                # 验证帧id和mxid是否一致
-                if self.video_frame.device_id != self.processed_detections.device_id:
-                    errors.append(f"视频帧数据和处理后的检测数据设备ID不一致")
-                if self.video_frame.frame_id != self.processed_detections.frame_id:
-                    errors.append(f"视频帧数据和处理后的检测数据帧ID不一致")
-        else:
-            errors.extend("渲染包不完整。")
-
+        errors.extend(self.processed_detections._validate_data())
+        
+        # 验证帧id和mxid是否一致
+        if self.video_frame.device_id != self.processed_detections.device_id:
+            errors.append(f"视频帧数据和处理后的检测数据设备ID不一致")
+        if self.video_frame.frame_id != self.processed_detections.frame_id:
+            errors.append(f"视频帧数据和处理后的检测数据帧ID不一致")
             
         return errors
 
@@ -64,7 +61,7 @@ class RawDataEvent:
     
     """
     datatype: DataType
-    pro_data: Optional[DeviceProcessedDetectionDTO] = None
+    pro_data: Optional[DeviceProcessedDataDTO] = None
     video_data: Optional[VideoFrameDTO] = None
     
     def __post_init__(self):
@@ -85,12 +82,12 @@ class _PartialMatch:
     frame_id: int
     first_arrival_ts: float
     video_frame: Optional[VideoFrameDTO] = None
-    processed_detection: Optional[DeviceProcessedDetectionDTO] = None
+    processed_detection: Optional[DeviceProcessedDataDTO] = None
 
 
 class RenderPacketPackager:
     """渲染数据包打包器"""
-    def __init__(self, *, queue_maxsize: int = 8, timeout_sec: float = 0.2, devices_list: list[str] = []):
+    def __init__(self, *, queue_maxsize: int = 8, timeout_sec: float = 0.2, devices_list: list[str] = [], cache_max_age_sec: float = 1.0):
         # 获取事件总线实例（用于后续扩展和消息通信，可选，不依赖事件总线也可运行）
         self.event_bus = get_event_bus()
 
@@ -105,6 +102,9 @@ class RenderPacketPackager:
 
         # 内部缓存：用于临时存储旧帧
         self._latest_packets: Dict[str, RenderPacket] = self._init_latest_packets(devices_list)
+        
+        # 缓存时间戳：记录每个设备缓存帧的时间
+        self._packet_timestamps: Dict[str, float] = {device_id: 0.0 for device_id in devices_list}
 
         # 线程控制事件，指示打包线程的运行状态
         self._running = threading.Event()
@@ -114,6 +114,9 @@ class RenderPacketPackager:
 
         # 配对等待的超时时长（秒），超时未配对的条目将被丢弃
         self.timeout_sec = timeout_sec
+        
+        # 缓存最大年龄（秒），超过此时间的缓存帧将被清理
+        self.cache_max_age_sec = cache_max_age_sec
 
         # 统计数据：成功配对包数和丢弃包数
         self._stats = {
@@ -126,7 +129,8 @@ class RenderPacketPackager:
         # 日志模块
         self.logger = logging.getLogger(__name__)
 
-        self.logger.info("渲染包打包器已初始化，队列最大长度: %d, 超时时间: %.2f 秒", queue_maxsize, timeout_sec)
+        self.logger.info("渲染包打包器已初始化，队列最大长度: %d, 超时时间: %.2f 秒, 缓存最大年龄: %.2f 秒", 
+                        queue_maxsize, timeout_sec, cache_max_age_sec)
 
     
 
@@ -141,7 +145,7 @@ class RenderPacketPackager:
         self.event_bus.subscribe(EventType.PROCESSED_DATA,self._handle_processed_data)
 
 
-    def _handle_processed_data(self,processed_data:DeviceProcessedDetectionDTO):
+    def _handle_processed_data(self,processed_data:DeviceProcessedDataDTO):
         """
         打包模块接收处理检测数据的回调函数
         """
@@ -257,7 +261,7 @@ class RenderPacketPackager:
         self, 
         partial: _PartialMatch, 
         new_video: Optional[VideoFrameDTO],
-        new_detection: Optional[DeviceProcessedDetectionDTO]
+        new_detection: Optional[DeviceProcessedDataDTO]
     ) -> bool:
         """判断是否可以创建渲染包"""
 
@@ -269,7 +273,7 @@ class RenderPacketPackager:
         self,
         partial: _PartialMatch,
         new_video: Optional[VideoFrameDTO],
-        new_detection: Optional[DeviceProcessedDetectionDTO]
+        new_detection: Optional[DeviceProcessedDataDTO]
     ) -> RenderPacket:
         """创建渲染包"""
         video_frame = new_video if new_video else partial.video_frame
@@ -324,28 +328,85 @@ class RenderPacketPackager:
         
         策略：
         - 尝试获取新帧（timeout）
-        - 如果队列为空，使用缓冲帧
-        - 获取到新帧时，更新缓冲区
+        - 如果队列为空，使用缓冲帧（仅当未过期时）
+        - 获取到新帧时，更新缓冲区和时间戳
+        - 过期的缓存帧会被自动清理
         
         Returns:
-            {device_id: RenderPacket} 字典
+            {device_id: RenderPacket} 字典，只包含有效的（新鲜或未过期的）帧
         """
         packets = {}
+        now = time.time()
         
         for device_id, queue in self.packet_queue.items():
             try:
                 # 尝试获取新帧
                 packet = queue.get(timeout=timeout)
                 
-                # 更新缓冲区
+                # 更新缓冲区和时间戳
                 self._latest_packets[device_id] = packet
+                self._packet_timestamps[device_id] = now
                 
                 # 加入结果
                 packets[device_id] = packet
                 
             except Empty:
-                # 使用缓冲帧（如果存在）
-                if device_id in self._latest_packets:
-                    packets[device_id] = self._latest_packets[device_id]
+                # 尝试使用缓冲帧
+                cached_packet = self._latest_packets.get(device_id)
+                
+                if cached_packet is not None:
+                    # 检查是否过期
+                    cached_at = self._packet_timestamps.get(device_id, 0.0)
+                    age = now - cached_at
+                    
+                    if age <= self.cache_max_age_sec:
+                        # 未过期，可以使用
+                        packets[device_id] = cached_packet
+                    else:
+                        # 已过期，清理缓存
+                        self.logger.debug(
+                            f"设备 {device_id} 的缓存帧已过期 (年龄: {age:.2f}s)，已清理"
+                        )
+                        self._latest_packets[device_id] = None
+                        self._packet_timestamps[device_id] = 0.0
         
         return packets
+    
+    def get_cache_stats(self) -> dict:
+        """
+        获取缓存统计信息（调试接口）
+        
+        Returns:
+            dict: 缓存统计信息，包含：
+                - total_cached: 总缓存数量
+                - expired: 过期缓存数量
+                - valid: 有效缓存数量
+                - devices: 每个设备的详细信息
+        """
+        now = time.time()
+        stats = {
+            "total_cached": 0,
+            "expired": 0,
+            "valid": 0,
+            "devices": {}
+        }
+        
+        for device_id, packet in self._latest_packets.items():
+            if packet is not None:
+                stats["total_cached"] += 1
+                cached_at = self._packet_timestamps.get(device_id, 0.0)
+                age = now - cached_at
+                is_expired = age > self.cache_max_age_sec
+                
+                if is_expired:
+                    stats["expired"] += 1
+                else:
+                    stats["valid"] += 1
+                
+                stats["devices"][device_id] = {
+                    "age": age,
+                    "expired": is_expired,
+                    "frame_id": packet.video_frame.frame_id
+                }
+        
+        return stats

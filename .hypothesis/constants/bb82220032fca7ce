@@ -1,0 +1,4 @@
+# file: D:\pythonWork\graspWithVision\OAK\oak_vision_system\core\dto\config_dto\system_config_dto.py
+# hypothesis_version: 6.150.2
+
+[0.5, 5.0, 60.0, 100, 500, 1000, 10000, 'CRITICAL', 'D', 'DEBUG', 'ERROR', 'H', 'INFO', 'M', 'MIDNIGHT', 'S', 'W0', 'W1', 'W2', 'W3', 'W4', 'W5', 'W6', 'WARNING', 'log_file_path', 'log_max_size_mb', 'log_rotate_interval', 'max_worker_threads', 'reconnect_interval', 'size', 'time']

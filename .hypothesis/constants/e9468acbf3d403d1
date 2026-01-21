@@ -1,0 +1,4 @@
+# file: D:\pythonWork\graspWithVision\OAK\oak_vision_system\core\dto\config_dto\enums.py
+# hypothesis_version: 6.150.2
+
+['DeviceRole', 'OAK-1', 'OAK-D', 'OAK-D-Lite', 'OAK-D-Pro', 'OAK-D-S2', 'Unknown', 'connected', 'disconnected', 'left_camera', 'moving_average', 'right_camera', 'unknown', '右相机', '左相机', '未知']

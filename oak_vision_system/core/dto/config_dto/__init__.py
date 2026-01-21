@@ -50,10 +50,11 @@ from .data_processing_config_dto import (
     CoordinateTransformConfigDTO,
     FilterConfigDTO,
     MovingAverageFilterConfigDTO,
-    KalmanFilterConfigDTO,
-    LowpassFilterConfigDTO,
-    MedianFilterConfigDTO,
     DataProcessingConfigDTO,
+    DecisionLayerConfigDTO,
+    PersonWarningConfigDTO,
+    ObjectZonesConfigDTO,
+    GraspZoneConfigDTO,
 )
 from .can_config_dto import CANConfigDTO, FrameIdConfigDTO, CanFrameMeta
 from .display_config_dto import DisplayConfigDTO
@@ -91,9 +92,10 @@ __all__ = [
     'CoordinateTransformConfigDTO',
     'FilterConfigDTO',
     'MovingAverageFilterConfigDTO',
-    'KalmanFilterConfigDTO',
-    'LowpassFilterConfigDTO',
-    'MedianFilterConfigDTO',
+    'DecisionLayerConfigDTO',
+    'PersonWarningConfigDTO',
+    'ObjectZonesConfigDTO',
+    'GraspZoneConfigDTO',
     
     # 顶层管理
     'DeviceManagerConfigDTO',

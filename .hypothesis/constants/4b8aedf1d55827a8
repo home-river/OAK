@@ -1,0 +1,4 @@
+# file: D:\pythonWork\graspWithVision\OAK\oak_vision_system\utils\config_template.py
+# hypothesis_version: 6.150.2
+
+[-50.0, 0.0, 0.4, 0.5, 0.6, 5.0, 50.0, 400.0, 6000.0, 100, 200, 480, 640, 720, 1080, 1280, 1920, 250000, '%Y-%m-%d %H:%M', '2.0.0', 'INFO', 'JET', 'MIDNIGHT', 'can0', 'combined', 'durian', 'person', 'socketcan', 'time']

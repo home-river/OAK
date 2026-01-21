@@ -1,0 +1,4 @@
+# file: D:\pythonWork\graspWithVision\OAK\oak_vision_system\core\event_bus\event_bus.py
+# hypothesis_version: 6.150.2
+
+[5.0, 'EventBus', 'EventBus 已关闭，无法订阅事件。', 'EventBusWorker', '__self__', 'error_count', 'event_type', 'priority', 'subscriber_name', 'subscription_id', 'total_calls']

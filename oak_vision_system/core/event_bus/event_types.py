@@ -12,6 +12,9 @@ class EventType:
     PROCESSED_DATA = "processed_data"          # 数据处理模块输出，用于显示模块
     PROCESSING_ERROR = "processing_error"      # 可选：处理异常
 
+    # 数据处理：决策 / 业务相关
+    PERSON_WARNING = "person_warning"          # 人员危险警告事件
+
     # 显示相关
     DISPLAY_RENDER = "display_render"          # 可选：通知显示模块渲染
     DISPLAY_STATS = "display_stats"            # 可选：显示性能统计
@@ -29,6 +32,7 @@ class EventType:
         "reason": "queue_high" | "queue_low" | ...
     }
     """
+    
 
     # 其它业务事件（示例）
     SYSTEM_START = "system_start"

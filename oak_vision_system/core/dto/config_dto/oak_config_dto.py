@@ -25,7 +25,7 @@ from .base_config_dto import BaseConfigDTO
 import depthai as dai
 
 # 模块内维护的默认标签与中值滤波核大小（提取自 DTO 外部）
-DEFAULT_LABEL_MAP: tuple[str, ...] = ("durian", "person")
+DEFAULT_LABEL_MAP: tuple[str, ...] = ("durian", "person")   # 默认检测模型标签映射
 MEDIAN_FILTER_KERNEL_SIZES: tuple[int, ...] = (3, 5, 7)
 
 

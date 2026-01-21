@@ -1,0 +1,4 @@
+# file: D:\pythonWork\graspWithVision\OAK\oak_vision_system\utils\data_structures\Queue.py
+# hypothesis_version: 6.150.2
+
+[0.0, 0.5, 0.8, 0.95, 1.0, 'T', 'critical', 'high', 'low', 'medium']

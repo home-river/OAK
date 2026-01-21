@@ -1,0 +1,4 @@
+# file: D:\pythonWork\graspWithVision\OAK\oak_vision_system\utils\logging_utils.py
+# hypothesis_version: 6.150.2
+
+[100, 1000, 1024, '%Y-%m-%d %H:%M:%S', '<unknown>', 'CRITICAL', 'DEBUG', 'ERROR', 'INFO', 'MIDNIGHT', 'WARNING', 'baseFilename', 'excepthook', 'log_backup_count', 'log_file_path', 'log_level', 'log_max_size_mb', 'log_rotate_interval', 'log_rotate_mode', 'log_rotate_utc', 'log_rotate_when', 'log_to_file', 'name', 'size', 'time', 'utf-8', '未捕获异常', '线程 %s 中发生未捕获异常']

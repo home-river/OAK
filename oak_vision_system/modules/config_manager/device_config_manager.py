@@ -14,12 +14,15 @@
 - 类型安全：所有配置使用强类型DTO
 """
 
-from _typeshed import Self
 import json
 import logging
 from oak_vision_system.core.dto.config_dto.device_binding_dto import DeviceRoleBindingDTO
 from pathlib import Path
 from typing import Optional, Dict, List, Tuple
+try:
+    from typing import Self
+except ImportError:
+    from typing_extensions import Self
 from datetime import datetime
 from dataclasses import dataclass
 from enum import Enum

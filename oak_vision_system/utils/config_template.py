@@ -26,9 +26,6 @@ from oak_vision_system.core.dto.config_dto import (
     CoordinateTransformConfigDTO,
     FilterConfigDTO,
     MovingAverageFilterConfigDTO,
-    KalmanFilterConfigDTO,
-    LowpassFilterConfigDTO,
-    MedianFilterConfigDTO,
     FilterType,
 )
 
@@ -49,9 +46,6 @@ __all__ = [
     'template_CANConfigDTO',
     'template_CoordinateTransformConfigDTO',
     'template_MovingAverageFilterConfigDTO',
-    'template_KalmanFilterConfigDTO',
-    'template_LowpassFilterConfigDTO',
-    'template_MedianFilterConfigDTO',
     'template_FilterConfigDTO',
     'template_DataProcessingConfigDTO',
 ]
@@ -245,46 +239,13 @@ def template_CoordinateTransformConfigDTO() -> Dict[DeviceRole, CoordinateTransf
     }
 
 
-# 各滤波器模板
+# 滤波器模板
 def template_MovingAverageFilterConfigDTO() -> MovingAverageFilterConfigDTO:
-    return MovingAverageFilterConfigDTO(window_size=5, weighted=False)
+    return MovingAverageFilterConfigDTO(window_size=5)
 
 
-def template_KalmanFilterConfigDTO() -> KalmanFilterConfigDTO:
-    return KalmanFilterConfigDTO(kalman_gain=0.5, process_noise=0.1, measurement_noise=0.5)
-
-
-def template_LowpassFilterConfigDTO() -> LowpassFilterConfigDTO:
-    return LowpassFilterConfigDTO(cutoff_frequency=5.0)
-
-
-def template_MedianFilterConfigDTO() -> MedianFilterConfigDTO:
-    return MedianFilterConfigDTO(window_size=5)
-
-
-def template_FilterConfigDTO(filter_type: FilterType = FilterType.MOVING_AVERAGE) -> FilterConfigDTO:
-    # 显式提供与类型匹配的子配置，尽管 DTO 的 _post_init_hook 也会兜底
-    if filter_type == FilterType.MOVING_AVERAGE:
-        return FilterConfigDTO(
-            filter_type=FilterType.MOVING_AVERAGE,
-            moving_average_config=template_MovingAverageFilterConfigDTO(),
-        )
-    if filter_type == FilterType.KALMAN:
-        return FilterConfigDTO(
-            filter_type=FilterType.KALMAN,
-            kalman_config=template_KalmanFilterConfigDTO(),
-        )
-    if filter_type == FilterType.LOWPASS:
-        return FilterConfigDTO(
-            filter_type=FilterType.LOWPASS,
-            lowpass_config=template_LowpassFilterConfigDTO(),
-        )
-    if filter_type == FilterType.MEDIAN:
-        return FilterConfigDTO(
-            filter_type=FilterType.MEDIAN,
-            median_config=template_MedianFilterConfigDTO(),
-        )
-    # 兜底：返回默认滑动平均
+def template_FilterConfigDTO() -> FilterConfigDTO:
+    """创建默认的滤波器配置（滑动平均）"""
     return FilterConfigDTO(
         filter_type=FilterType.MOVING_AVERAGE,
         moving_average_config=template_MovingAverageFilterConfigDTO(),
@@ -301,11 +262,12 @@ def template_DataProcessingConfigDTO(roles: Optional[List[DeviceRole]] = None) -
     # 构造并返回 DataProcessingConfigDTO，包含坐标变换配置、滤波器配置等核心参数
     return DataProcessingConfigDTO(
         coordinate_transforms=transforms,  # 坐标变换配置，按设备角色映射
-        filter_config=template_FilterConfigDTO(FilterType.MOVING_AVERAGE),  # 默认使用滑动平均滤波
+        filter_config=template_FilterConfigDTO(),  # 默认使用滑动平均滤波
         enable_data_logging=False,  # 是否开启数据日志记录
         processing_thread_priority=5,  # 处理线程优先级（越高优先级越高，5为中等）
         person_timeout_seconds=5.0,  # 人员跟踪数据超时时间（秒）
     )
+
 
 
 

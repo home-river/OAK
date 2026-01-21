@@ -144,7 +144,8 @@ class OAKDataCollector:
         self,
         device_binding: DeviceRoleBindingDTO,
         rgb_frame: dai.ImgFrame,
-        depth_frame: Optional[dai.ImgFrame] = None
+        depth_frame: Optional[dai.ImgFrame] = None,
+        frame_id: Optional[int] = None
     ) -> Optional[VideoFrameDTO]:
         """
         组装原始视频帧数据 DTO。
@@ -156,6 +157,7 @@ class OAKDataCollector:
             rgb_frame: DepthAI 的 ImgFrame 对象（RGB 帧）
             depth_frame: DepthAI 的 ImgFrame 对象（深度帧），可选
                         如果配置中 enable_depth_output=True，则此参数必须提供
+            frame_id: 采集循环级别的帧ID，用于数据对齐。如果未提供则使用计数器
         
         Returns:
             VideoFrameDTO 对象，如果转换失败返回 None
@@ -183,14 +185,10 @@ class OAKDataCollector:
                 self.logger.error("设备ID为空，无法组装帧数据: %s", device_binding.role.value)
                 return None
             
-            # 使用硬件序列号作为帧ID；若不可用则回退到计数器
-            role_key = device_binding.role.value
-            frame_id = self._frame_counters.get(role_key, 0)
-            if hasattr(rgb_frame, "getSequenceNum"):
-                try:
-                    frame_id = rgb_frame.getSequenceNum()
-                except Exception as e:
-                    self.logger.warning("读取RGB序列号失败: device=%s, error=%s", device_binding.role.value, e)
+            # 使用传入的frame_id，如果未提供则使用计数器（向后兼容）
+            if frame_id is None:
+                role_key = device_binding.role.value
+                frame_id = self._frame_counters.get(role_key, 0)
             
             # 从 DepthAI ImgFrame 转换为 OpenCV 格式
             cv_frame = rgb_frame.getCvFrame()
@@ -231,9 +229,6 @@ class OAKDataCollector:
                 depth_frame=depth_frame_data
             )
             
-            # 更新最近帧号（供检测对齐使用）
-            self._frame_counters[role_key] = frame_id
-            
             return video_frame
             
         except Exception as e:
@@ -247,7 +242,8 @@ class OAKDataCollector:
     def _assemble_detection_data(
         self,
         device_binding: DeviceRoleBindingDTO,
-        detections_data: dai.SpatialImgDetections
+        detections_data: dai.SpatialImgDetections,
+        frame_id: Optional[int] = None
     ) -> Optional[DeviceDetectionDataDTO]:
         """
         组装原始检测数据 DTO。
@@ -257,6 +253,7 @@ class OAKDataCollector:
         Args:
             device_binding: 设备角色绑定信息
             detections_data: DepthAI 的 SpatialImgDetections 对象
+            frame_id: 采集循环级别的帧ID，用于数据对齐。如果未提供则使用计数器
         
         Returns:
             DeviceDetectionDataDTO 对象，如果转换失败返回 None
@@ -271,14 +268,10 @@ class OAKDataCollector:
                 self.logger.error("设备ID为空，无法组装检测数据: %s", device_binding.role)
                 return None
             
-            # 使用硬件序列号；若不可用则回退到最近的视频帧ID
-            role_key = device_binding.role.value
-            frame_id = self._frame_counters.get(role_key, 0)
-            if hasattr(detections_data, "getSequenceNum"):
-                try:
-                    frame_id = detections_data.getSequenceNum()
-                except Exception as e:
-                    self.logger.warning("读取检测序列号失败: device=%s, error=%s", device_binding.role.value, e)
+            # 使用传入的frame_id，如果未提供则使用计数器（向后兼容）
+            if frame_id is None:
+                role_key = device_binding.role.value
+                frame_id = self._frame_counters.get(role_key, 0)
             
             # 获取设备别名（使用角色枚举的value）
             device_alias = device_binding.role.value
@@ -439,15 +432,26 @@ class OAKDataCollector:
                         time.sleep(0.01)  # 10ms
                         continue
                     
+                    # 为本轮循环分配统一的frame_id，确保RGB帧和检测数据使用相同的ID进行对齐
+                    # 只在至少获取到一个数据时递增计数器
+                    current_frame_id = self._frame_counters.get(role_key, 0)
+                    self._frame_counters[role_key] = current_frame_id + 1
+                    
                     # 组装视频帧数据（仅在获取到数据时）
                     if rgb_frame is not None:
-                        frame_dto = self._assemble_frame_data(device_binding, rgb_frame, depth_frame)
+                        frame_dto = self._assemble_frame_data(
+                            device_binding, rgb_frame, depth_frame,
+                            frame_id=current_frame_id
+                        )
                         if frame_dto is not None:
                             self._publish_data(frame_dto)
                     
                     # 组装检测数据（仅在获取到数据时）
                     if det_frame is not None:
-                        detection_dto = self._assemble_detection_data(device_binding, det_frame)
+                        detection_dto = self._assemble_detection_data(
+                            device_binding, det_frame,
+                            frame_id=current_frame_id
+                        )
                         if detection_dto is not None:
                             self._publish_data(detection_dto)        
                 

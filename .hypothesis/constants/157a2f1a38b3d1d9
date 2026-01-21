@@ -1,0 +1,4 @@
+# file: D:\pythonWork\graspWithVision\OAK\oak_vision_system\core\dto\config_dto\__init__.py
+# hypothesis_version: 6.150.2
+
+['CANConfigDTO', 'CanFrameMeta', 'ConnectionStatus', 'DeviceMetadataDTO', 'DeviceRole', 'DeviceRoleBindingDTO', 'DeviceType', 'DisplayConfigDTO', 'FilterConfigDTO', 'FilterType', 'FrameIdConfigDTO', 'GraspZoneConfigDTO', 'MAX_HISTORICAL_MXIDS', 'OAKConfigDTO', 'OAKModuleConfigDTO', 'ObjectZonesConfigDTO', 'SystemConfigDTO']

@@ -1,0 +1,4 @@
+# file: D:\pythonWork\graspWithVision\OAK\oak_vision_system\modules\config_manager\device_match.py
+# hypothesis_version: 6.150.2
+
+[100, ', ', 'Invalid bindings: %s', 'available_devices', 'can_start', 'errors', 'full_match', 'invalid_config', 'matched_devices', 'no_match', 'partial_match', 'result_type', 'unmatched_roles', 'update match_result', '⚠ 部分匹配 - 部分角色未匹配到设备', '✓ 完全匹配 - 所有角色已成功匹配设备', '✗ 无匹配 - 所有角色均未匹配到设备', '✗ 配置错误 - 绑定配置不合法', '【错误信息】', '已解除 %d 个角色的设备绑定', '成功交换 %s 和 %s 的设备绑定', '成功将设备 %s 绑定到 %s', '成功更新 %s 的绑定配置', '成功绑定 %s 到设备 %s', '成功绑定 %s 到设备 %s（历史记录）', '成功解除所有设备与角色的绑定', '成功解除角色 %s 的设备绑定', '校验通过', '没有任何设备匹配到角色', '生成匹配结果的人类可读摘要', '自动绑定 %s 到设备 %s', '角色 %s 不存在于配置中', '角色 %s 当前未绑定设备，无法交换', '角色%s不存在于配置中', '设备 %s 不在线，无法交换', '设备%s不在线', '配置不合法，错误信息：%s', '配置错误，无法启动', '重置匹配结果为默认值', '验证过程中发现没有任何设备匹配到角色', '验证过程中发现配置错误，无法启动']

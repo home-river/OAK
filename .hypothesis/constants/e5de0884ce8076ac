@@ -1,0 +1,4 @@
+# file: D:\pythonWork\graspWithVision\OAK\oak_vision_system\core\event_bus\event_types.py
+# hypothesis_version: 6.150.2
+
+['backpressure_signal', 'camera_heartbeat', 'display_render', 'display_stats', 'performance_metrics', 'person_warning', 'processed_data', 'processing_error', 'raw_detection_data', 'raw_frame_data', 'system_error', 'system_start', 'system_stop']

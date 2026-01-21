@@ -1,0 +1,4 @@
+# file: D:\pythonWork\graspWithVision\OAK\oak_vision_system\core\dto\config_dto\oak_config_dto.py
+# hypothesis_version: 6.150.2
+
+[0.0, 0.4, 0.5, 1.0, 400.0, 6000.0, 120, 400, 480, 500, 640, 1080, 1920, 'confidence_threshold', 'durian', 'hardware_fps', 'label_map不能为空列表', 'label_map必须为列表类型', 'model_path', 'nms_threshold', 'person', 'queue_max_size']

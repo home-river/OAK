@@ -1,0 +1,4 @@
+# file: D:\pythonWork\graspWithVision\OAK\oak_vision_system\core\dto\config_dto\can_config_dto.py
+# hypothesis_version: 6.150.2
+
+[100, 200, 2047, 20000, 50000, 100000, 125000, 250000, 500000, 800000, 1000000, 536870911, '^can\\d+$', '^slcan\\d+$', '^vcan\\d+$', 'can0', 'can0/can1', 'can_channel', 'slcan', 'slcan0', 'socketcan', 'vcan', 'vcan0']
