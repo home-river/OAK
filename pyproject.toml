@@ -16,16 +16,22 @@ dependencies = [
     "numpy==1.24.3",
     "scipy==1.11.4",
     "python-can==4.2.2",
-    "pyyaml==6.0.1",
     "structlog==23.2.0",
     "asyncio-mqtt==0.16.1",
 ]
 
 [project.optional-dependencies]
+yaml = [
+    "ruamel.yaml>=0.17.0",  # 推荐：支持注释保持和格式保持
+]
+yaml-basic = [
+    "pyyaml>=6.0",  # 基础 YAML 支持（不保留注释）
+]
 dev = [
     "pytest==7.4.3",
     "pytest-asyncio==0.21.1",
     "pytest-mock==3.12.0",
+    "hypothesis==6.92.0",
     "black==23.11.0",
     "flake8==6.1.0",
     "mypy==1.7.1",

@@ -1,0 +1,4 @@
+# file: D:\pythonWork\graspWithVision\OAK\oak_vision_system\core\dto\config_dto\data_processing_config_dto.py
+# hypothesis_version: 6.150.2
+
+[-200.0, 0.0, 0.1, 0.5, 1.0, 3.0, 5.0, 10.0, 1500.0, 1550.0, 2000.0, 2500.0, 3000.0, 3050.0, 10000.0, 'T_clear', 'T_warn', 'auto', 'd_in', 'd_out', 'd_out 必须大于 d_in', 'danger_y_threshold', 'filter_config', 'grace_time', 'manual', 'r_max 必须 >= 0', 'r_min 必须 >= 0', 'r_min 必须小于 r_max', 'radius', 'rect', 'window_size必须 >= 1', 'x_min 必须小于 x_max', 'y_min 必须小于 y_max', '半径模式需要 r_min 和 r_max']

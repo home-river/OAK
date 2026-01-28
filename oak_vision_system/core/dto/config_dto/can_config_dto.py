@@ -101,14 +101,21 @@ class CANConfigDTO(BaseConfigDTO):
     """CAN通信模块配置"""
     
     # 基本配置
-    enable_can: bool = False    # 在开发阶段，暂时默认关闭CAN通信
+    enable_can: bool = True    # 默认启用CAN通信
     can_interface: str = 'socketcan'
     can_channel: str = 'can0'
     can_bitrate: int = 250000
     
     # 通信超时配置（协议层）
     send_timeout_ms: int = 100
-    receive_timeout_ms: int = 200
+    receive_timeout_ms: int = 10
+    
+    # 接口管理配置
+    enable_auto_configure: bool = True    # 是否自动配置CAN接口（Linux系统）
+    sudo_password: Optional[str] = "orangepi"   # sudo密码（用于自动配置）
+    
+    # 警报配置
+    alert_interval_ms: int = 500    # 警报发送间隔（毫秒）
     
     # 帧 ID 配置（直接采用 DTO）
     frame_ids: FrameIdConfigDTO = field(default_factory=FrameIdConfigDTO)
@@ -140,6 +147,10 @@ class CANConfigDTO(BaseConfigDTO):
         errors.extend(validate_string_length(
             self.can_channel, 'can_channel', min_length=1, max_length=50
         ))
+        
+        # 验证警报间隔
+        if self.alert_interval_ms <= 0:
+            errors.append(f"alert_interval_ms必须为正数，当前值: {self.alert_interval_ms}")
         
         # 验证帧 ID 配置
         if not isinstance(self.frame_ids, FrameIdConfigDTO):

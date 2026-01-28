@@ -28,3 +28,7 @@ __pycache__/
 .pytest_cache/
 build/
 dist/
+
+# Assets - 模型文件
+assets/**/*.blob
+!assets/**/README.md

@@ -18,7 +18,6 @@ from oak_vision_system.core.dto.config_dto import (
     DeviceRole,
     DeviceRoleBindingDTO,
     DeviceMetadataDTO,
-    DeviceType,
     OAKConfigDTO,
     OAKModuleConfigDTO,
     DataProcessingConfigDTO,
@@ -61,10 +60,12 @@ def create_example_config():
     display_config = DisplayConfigDTO(
         # 窗口配置
         enable_display=True,
-        default_display_mode="combined",
+        default_display_mode="rgb",
         enable_fullscreen=False,
         window_width=1280,
         window_height=720,
+        window_position_x=0,
+        window_position_y=0,
         
         # 渲染参数
         target_fps=20,
@@ -75,14 +76,15 @@ def create_example_config():
         show_confidence=True,
         show_coordinates=True,
         show_fps=True,
+        show_device_info=True,
         
-        # 深度图显示样式
-        depth_colormap="JET",
-        depth_alpha=0.6,
+        # 深度图显示
+        normalize_depth=True,
         
         # 检测框样式
         bbox_thickness=2,
         text_scale=0.6,
+        bbox_color_by_label=True,
     )
     
     # ========== 3. 系统配置（日志、性能等）==========
@@ -91,20 +93,25 @@ def create_example_config():
         log_level="INFO",
         log_to_file=True,
         log_file_path="./logs/oak_system.log",
+        log_max_size_mb=100,
+        log_backup_count=7,
         
         # 性能配置
         max_worker_threads=4,
-        enable_gpu_acceleration=False,
+        enable_profiling=False,
         
         # 系统行为
         auto_reconnect=True,
         reconnect_interval=5.0,
+        max_reconnect_attempts=10,
+        graceful_shutdown_timeout=5.0,
     )
     
     # ========== 4. 数据处理配置 ==========
     data_processing_config = DataProcessingConfigDTO(
-        enable_coordinate_transform=True,
-        enable_filtering=True,
+        enable_data_logging=False,
+        processing_thread_priority=5,
+        person_timeout_seconds=5.0,
     )
     
     # ========== 5. CAN配置 ==========
@@ -127,13 +134,13 @@ def create_example_config():
     
     left_metadata = DeviceMetadataDTO(
         mxid="14442C10D13F0AD700",
-        device_type=DeviceType.OAK_D,
+        product_name="OAK-D",
         notes="左侧相机，用于检测左边区域",
     )
     
     right_metadata = DeviceMetadataDTO(
         mxid="14442C10D13F0AD701",
-        device_type=DeviceType.OAK_D,
+        product_name="OAK-D",
         notes="右侧相机，用于检测右边区域",
     )
     
@@ -200,8 +207,9 @@ def demonstrate_architecture():
     print("2. 显示配置（独立UI管理）：")
     print(f"   - 显示模式: {config.display_config.default_display_mode}")
     print(f"   - 窗口大小: {config.display_config.window_width}x{config.display_config.window_height}")
+    print(f"   - 窗口位置: ({config.display_config.window_position_x}, {config.display_config.window_position_y})")
     print(f"   - 目标FPS: {config.display_config.target_fps}")
-    print(f"   - 深度颜色映射: {config.display_config.depth_colormap}")
+    print(f"   - 深度归一化: {'启用' if config.display_config.normalize_depth else '禁用'}")
     print()
     
     print("3. 系统配置（应用层通用功能）：")
@@ -212,8 +220,9 @@ def demonstrate_architecture():
     print()
     
     print("4. 数据处理配置：")
-    print(f"   - 坐标变换: {'启用' if config.data_processing_config.enable_coordinate_transform else '禁用'}")
-    print(f"   - 滤波: {'启用' if config.data_processing_config.enable_filtering else '禁用'}")
+    print(f"   - 坐标变换配置数: {len(config.data_processing_config.coordinate_transforms)}")
+    print(f"   - 滤波器类型: {config.data_processing_config.filter_config.filter_type.value}")
+    print(f"   - 数据日志: {'启用' if config.data_processing_config.enable_data_logging else '禁用'}")
     print()
     
     print("5. CAN配置：")
@@ -277,7 +286,7 @@ def compare_old_vs_new():
     print("      ├─ DisplayConfigDTO     ✅ 所有显示与UI")
     print("      │   ├─ 窗口配置")
     print("      │   ├─ 渲染参数")
-    print("      │   ├─ 深度图显示样式")
+    print("      │   ├─ 深度图显示")
     print("      │   └─ 叠加信息")
     print("      │")
     print("      ├─ SystemConfigDTO      ✅ 应用层系统配置")

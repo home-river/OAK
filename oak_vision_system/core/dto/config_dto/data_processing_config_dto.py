@@ -148,23 +148,12 @@ class GraspZoneConfigDTO(BaseConfigDTO):
             return errors
         
         if self.mode == "rect":
+            # 只验证 min < max 的大小关系，不限制具体数值范围
+            # 允许负值（例如 x_min=-200 是合理的）
             if self.x_min >= self.x_max:
                 errors.append("x_min 必须小于 x_max")
             if self.y_min >= self.y_max:
                 errors.append("y_min 必须小于 y_max")
-            
-            errors.extend(validate_numeric_range(
-                self.x_min, 'x_min', min_value=0.0, max_value=5000.0
-            ))
-            errors.extend(validate_numeric_range(
-                self.x_max, 'x_max', min_value=0.0, max_value=5000.0
-            ))
-            errors.extend(validate_numeric_range(
-                self.y_min, 'y_min', min_value=0.0, max_value=3000.0
-            ))
-            errors.extend(validate_numeric_range(
-                self.y_max, 'y_max', min_value=0.0, max_value=3000.0
-            ))
         
         elif self.mode == "radius":
             if self.r_min is None or self.r_max is None:
@@ -172,12 +161,11 @@ class GraspZoneConfigDTO(BaseConfigDTO):
             elif self.r_min >= self.r_max:
                 errors.append("r_min 必须小于 r_max")
             else:
-                errors.extend(validate_numeric_range(
-                    self.r_min, 'r_min', min_value=0.0, max_value=5000.0
-                ))
-                errors.extend(validate_numeric_range(
-                    self.r_max, 'r_max', min_value=0.0, max_value=5000.0
-                ))
+                # 半径必须为非负值
+                if self.r_min < 0:
+                    errors.append("r_min 必须 >= 0")
+                if self.r_max < 0:
+                    errors.append("r_max 必须 >= 0")
         
         return errors
 

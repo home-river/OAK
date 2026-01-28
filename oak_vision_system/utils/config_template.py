@@ -160,7 +160,7 @@ def template_DisplayConfigDTO() -> DisplayConfigDTO:
         enable_display=True,                 # 是否启用图像显示
 
         # ===== 窗口配置 =====
-        default_display_mode="combined",    # 窗口显示模式: rgb/depth/combined/side_by_side
+        default_display_mode="rgb",          # 窗口显示模式: rgb
         enable_fullscreen=False,             # 是否全屏
         window_width=1280,                   # 窗口宽度
         window_height=720,                   # 窗口高度
@@ -180,8 +180,6 @@ def template_DisplayConfigDTO() -> DisplayConfigDTO:
         show_device_info=True,               # 显示设备信息
 
         # ===== 深度图显示 =====
-        depth_colormap="JET",               # 深度图颜色映射: JET/RAINBOW/BONE/TURBO/HOT/COOL
-        depth_alpha=0.6,                     # 深度图叠加透明度(0-1)
         normalize_depth=True,                # 是否归一化深度显示
 
         # ===== 检测框样式 =====
@@ -212,7 +210,6 @@ def template_CANConfigDTO() -> CANConfigDTO:
 
 # 坐标变换配置模板（硬编码左右相机参数，返回映射）
 def template_CoordinateTransformConfigDTO() -> Dict[DeviceRole, CoordinateTransformConfigDTO]:
-    date_str = time.strftime("%Y-%m-%d %H:%M", time.localtime())
     return {
         DeviceRole.LEFT_CAMERA: CoordinateTransformConfigDTO(
             role=DeviceRole.LEFT_CAMERA,
@@ -222,7 +219,7 @@ def template_CoordinateTransformConfigDTO() -> Dict[DeviceRole, CoordinateTransf
             roll=0.0,
             pitch=0.0,
             yaw=0.0,
-            calibration_date=date_str,
+            calibration_date=None,  # 由用户或标定工具设置
             calibration_method=None,
         ),
         DeviceRole.RIGHT_CAMERA: CoordinateTransformConfigDTO(
@@ -233,7 +230,7 @@ def template_CoordinateTransformConfigDTO() -> Dict[DeviceRole, CoordinateTransf
             roll=0.0,
             pitch=0.0,
             yaw=0.0,
-            calibration_date=date_str,
+            calibration_date=None,  # 由用户或标定工具设置
             calibration_method=None,
         ),
     }

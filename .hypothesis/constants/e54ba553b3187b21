@@ -1,0 +1,4 @@
+# file: D:\pythonWork\graspWithVision\OAK\oak_vision_system\core\dto\config_dto\base_config_dto.py
+# hypothesis_version: 6.150.2
+
+['BaseConfigDTO', 'T', '__dict__', '_value_', 'created_at', 'is_valid', 'validation_errors', 'version']

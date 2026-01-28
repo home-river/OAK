@@ -45,6 +45,7 @@ from oak_vision_system.utils import template_DeviceManagerConfigDTO
 from .device_discovery import OAKDeviceDiscovery
 from .validators import validate_dto_structure, run_all_validations,validate_against_online_devices
 from .device_match import DeviceMatchManager
+from .config_converter import ConfigConverter
 from oak_vision_system.utils.logging_utils import configure_logging
 
 class MatchResultType(Enum):
@@ -168,14 +169,15 @@ class DeviceConfigManager:
                     auto_create: Optional[bool] = None
                     ) -> bool:
         """
-        从JSON文件加载配置到内存
+        从配置文件加载配置到内存（支持 JSON 和 YAML 格式）
         
         工作流程：
         1. 检查配置文件是否存在
-        2. 读取JSON文件
-        3. 反序列化为 DeviceManagerConfigDTO
-        4. 验证配置完整性
-        5. 加载到内存（self._config）
+        2. 自动检测文件格式（JSON/YAML）
+        3. 读取并解析配置文件
+        4. 反序列化为 DeviceManagerConfigDTO
+        5. 验证配置完整性
+        6. 加载到内存（self._config）
         
         Returns:
             bool: 加载成功返回 True，失败返回 False
@@ -183,6 +185,7 @@ class DeviceConfigManager:
         Raises:
             ConfigNotFoundError: 当配置文件不存在且初始化时 auto_create=False
             ConfigValidationError: 当配置文件格式错误或验证失败
+            ImportError: 加载 YAML 时 PyYAML 未安装
         
         
         """
@@ -213,7 +216,7 @@ class DeviceConfigManager:
                     raise ConfigValidationError("; ".join(errors))
             # 2.3 写盘并入内存
             try:
-                json_text = dto.to_json(indent=2)
+                json_text = dto.to_json(indent=2, include_metadata=False)
                 self._atomic_write_json(path, json_text)
             except OSError as e:
                 raise ConfigValidationError(f"写入配置文件失败: {e}")
@@ -229,25 +232,58 @@ class DeviceConfigManager:
                 configure_logging(dto.system_config)
             except Exception as e:
                 self.logger.error("初始化日志失败: %s", e, exc_info=True)
-            self.logger.info("配置已创建: path=%s", path)
+            self.logger.info("配置已创建: path=%s, format=json", path)
             return True
 
-        # 3) 读取 + 反序列化
+        # 3) 自动检测格式
         try:
-            raw = path.read_text(encoding="utf-8")
-            data = json.loads(raw)
-            dto = DeviceManagerConfigDTO.from_dict(data)
+            format_type = ConfigConverter.detect_format(path)
+            self.logger.info("检测到配置文件格式: %s, path=%s", format_type, path)
+        except ValueError as e:
+            self.logger.error("配置文件格式检测失败: %s, path=%s", e, path)
+            raise ConfigValidationError(f"配置文件格式检测失败: {e}")
+
+        # 4) 读取 + 反序列化
+        try:
+            if format_type == "yaml":
+                # YAML 格式：先加载为字典，再转换为 DTO
+                data = ConfigConverter.load_yaml_as_dict(path)
+                dto = DeviceManagerConfigDTO.from_dict(data)
+                
+                # 检测使用的 YAML 库并记录日志
+                try:
+                    from ruamel.yaml import YAML
+                    self.logger.info(
+                        "配置已加载: path=%s, format=yaml (使用 ruamel.yaml，支持注释保持)", 
+                        path
+                    )
+                except ImportError:
+                    self.logger.warning(
+                        "配置已加载: path=%s, format=yaml (使用 PyYAML，注释将不会保留)\n"
+                        "推荐安装 ruamel.yaml 以支持注释保持: pip install ruamel.yaml",
+                        path
+                    )
+            else:
+                # JSON 格式：使用现有逻辑
+                raw = path.read_text(encoding="utf-8")
+                data = json.loads(raw)
+                dto = DeviceManagerConfigDTO.from_dict(data)
+                self.logger.info("配置已加载: path=%s, format=json", path)
+        except ImportError as e:
+            # PyYAML 未安装
+            self.logger.error("加载 YAML 配置失败: %s, path=%s", e, path, exc_info=True)
+            raise
         except (OSError, json.JSONDecodeError, ValueError) as e:
             self.logger.error("配置读取/解析失败: %s, path=%s", e, path, exc_info=True)
             raise ConfigValidationError(f"配置读取/解析失败: {e}")
 
-        # 4) 可选校验
+        # 5) 可选校验
         if validate:
             ok, errors = validate_dto_structure(dto)
             if not ok:
                 raise ConfigValidationError("; ".join(errors))
 
-        # 5) 入内存并记录元信息
+        # 6) 入内存并记录元信息
         self._config = dto
         self._runnable_config = dto  # 加载后将配置作为可运行基线
         self._dirty = False  # 加载后草稿与可运行配置对齐
@@ -260,7 +296,6 @@ class DeviceConfigManager:
             configure_logging(dto.system_config)
         except Exception as e:
             self.logger.error("根据系统配置初始化日志失败: %s", e, exc_info=True)
-        self.logger.info("配置已加载: path=%s", path)
         return True
 
     def _atomic_write_json(self, output_path: Path, json_text: str) -> None:
@@ -325,7 +360,7 @@ class DeviceConfigManager:
             raise ConfigValidationError(f"创建配置目录失败: {e}")
         
         # 5. 原子写入
-        json_text = self._runnable_config.to_json(indent=2)
+        json_text = self._runnable_config.to_json(indent=2, include_metadata=False)
         try:
             self._atomic_write_json(output_path, json_text)
         except OSError as e:
@@ -379,7 +414,7 @@ class DeviceConfigManager:
             self.logger.error("创建配置目录失败: %s, path=%s", e, path.parent, exc_info=True)
             raise ConfigValidationError(f"创建配置目录失败: {e}")
 
-        text = self._runnable_config.to_json(indent=2)
+        text = self._runnable_config.to_json(indent=2, include_metadata=False)
         try:
             self._atomic_write_json(path, text)
         except OSError as e:
@@ -535,7 +570,7 @@ class DeviceConfigManager:
             path = Path(self._config_path)
             try:
                 path.parent.mkdir(parents=True, exist_ok=True)
-                text = self._runnable_config.to_json(indent=2)
+                text = self._runnable_config.to_json(indent=2, include_metadata=False)
                 self._atomic_write_json(path, text)
                 try:
                     self._last_modified = path.stat().st_mtime
@@ -722,6 +757,179 @@ class DeviceConfigManager:
 
     # =========配置导出================
 
+    def export_to_yaml(self, output_path: str) -> None:
+        """导出当前配置为 YAML 格式
+        
+        将当前加载的可运行配置导出为 YAML 格式文件。
+        
+        Args:
+            output_path: 输出文件路径
+            
+        Raises:
+            ConfigValidationError: 配置未加载
+            ImportError: PyYAML 未安装
+            OSError: 文件写入错误
+            
+        Example:
+            manager = DeviceConfigManager()
+            manager.load_config()
+            manager.export_to_yaml("config.yaml")
+        """
+        # 1. 验证配置已加载
+        if self._runnable_config is None:
+            self.logger.error("当前无可运行配置可导出，请先加载或创建配置")
+            raise ConfigValidationError("当前无可运行配置可导出，请先加载或创建配置")
+        
+        # 2. 序列化为 JSON（确保类型兼容）
+        json_text = self._runnable_config.to_json(indent=2, include_metadata=False)
+        
+        # 3. 创建临时 JSON 文件并转换为 YAML
+        output_path_obj = Path(output_path)
+        temp_json = output_path_obj.with_suffix('.tmp.json')
+        
+        try:
+            # 写入临时 JSON 文件
+            temp_json.write_text(json_text, encoding='utf-8')
+            
+            # 使用 ConfigConverter 转换为 YAML
+            ConfigConverter.json_to_yaml(temp_json, output_path_obj)
+            
+        except ImportError as e:
+            self.logger.error("导出 YAML 配置失败: %s, path=%s", e, output_path, exc_info=True)
+            raise
+        except OSError as e:
+            self.logger.error("导出 YAML 配置失败: %s, path=%s", e, output_path, exc_info=True)
+            raise ConfigValidationError(f"导出 YAML 配置失败: {e}")
+        finally:
+            # 清理临时文件
+            if temp_json.exists():
+                try:
+                    temp_json.unlink()
+                except OSError:
+                    pass
+        
+        # 4. 记录日志（检测使用的 YAML 库）
+        try:
+            from ruamel.yaml import YAML
+            self.logger.info(
+                "配置已导出为 YAML: path=%s (使用 ruamel.yaml，支持注释保持)", 
+                output_path
+            )
+        except ImportError:
+            self.logger.warning(
+                "配置已导出为 YAML: path=%s (使用 PyYAML，注释将不会保留)\n"
+                "推荐安装 ruamel.yaml 以支持注释保持: pip install ruamel.yaml",
+                output_path
+            )
+
+    def export_to_json(self, output_path: str) -> None:
+        """导出当前配置为 JSON 格式
+        
+        将当前加载的可运行配置导出为 JSON 格式文件。
+        
+        Args:
+            output_path: 输出文件路径
+            
+        Raises:
+            ConfigValidationError: 配置未加载
+            OSError: 文件写入错误
+            
+        Example:
+            manager = DeviceConfigManager()
+            manager.load_config()
+            manager.export_to_json("config.json")
+        """
+        # 1. 验证配置已加载
+        if self._runnable_config is None:
+            self.logger.error("当前无可运行配置可导出，请先加载或创建配置")
+            raise ConfigValidationError("当前无可运行配置可导出，请先加载或创建配置")
+        
+        # 2. 序列化为 JSON
+        json_text = self._runnable_config.to_json(indent=2, include_metadata=False)
+        
+        # 3. 写入文件
+        output_path_obj = Path(output_path)
+        try:
+            output_path_obj.parent.mkdir(parents=True, exist_ok=True)
+            output_path_obj.write_text(json_text, encoding='utf-8')
+        except OSError as e:
+            self.logger.error("导出 JSON 配置失败: %s, path=%s", e, output_path, exc_info=True)
+            raise ConfigValidationError(f"导出 JSON 配置失败: {e}")
+        
+        # 4. 记录日志
+        self.logger.info("配置已导出为 JSON: path=%s", output_path)
+
+    def export_template_config(
+        self,
+        *,
+        devices: Optional[List[DeviceMetadataDTO]] = None,
+        allow_unbound: bool = True
+    ) -> DeviceManagerConfigDTO:
+        """
+        导出配置模板（允许未绑定的配置）
+        
+        用途：
+        - 生成完整的配置模板供工具使用
+        - 允许设备未绑定（role_bindings 可以为空或未激活）
+        - 不关心配置是否可运行
+        - 适用于配置文件生成工具
+        
+        Args:
+            devices: 设备元数据列表；None 则自动发现在线设备
+            allow_unbound: 是否允许未绑定的配置（默认 True）
+        
+        Returns:
+            DeviceManagerConfigDTO: 完整的配置模板对象
+        
+        Raises:
+            ConfigValidationError: 当 allow_unbound=False 且存在未绑定角色时
+        
+        Example:
+            # 生成未绑定的模板（用于配置文件生成）
+            manager = DeviceConfigManager()
+            template = manager.export_template_config()
+            json_str = template.to_json(indent=2, include_metadata=False)
+            
+            # 生成包含已发现设备的模板
+            devices = OAKDeviceDiscovery.discover_devices()
+            template = manager.export_template_config(devices=devices)
+        """
+        # 1. 设备发现（如果未提供）
+        discovered_devices = devices if devices is not None else OAKDeviceDiscovery.discover_devices()
+        
+        if not discovered_devices:
+            self.logger.warning("未发现任何可用设备，将创建空设备配置模板")
+            discovered_devices = []
+        
+        # 2. 使用工厂方法创建默认配置
+        template_config = template_DeviceManagerConfigDTO(discovered_devices)
+        
+        # 3. 结构验证（仅验证 DTO 结构，不验证运行时状态）
+        ok, errors = validate_dto_structure(template_config)
+        if not ok:
+            raise ConfigValidationError(f"创建配置模板失败: {'; '.join(errors)}")
+        
+        # 4. 检查绑定状态（如果不允许未绑定）
+        if not allow_unbound:
+            unbound_roles = []
+            for role, binding in template_config.oak_module.role_bindings.items():
+                if not binding.active_mxid:
+                    unbound_roles.append(role.value)
+            
+            if unbound_roles:
+                raise ConfigValidationError(
+                    f"配置包含未绑定的角色: {', '.join(unbound_roles)}。"
+                    f"请设置 allow_unbound=True 或先绑定设备。"
+                )
+        
+        self.logger.info(
+            "配置模板已导出: 设备数=%d, 角色数=%d",
+            len(discovered_devices),
+            len(template_config.oak_module.role_bindings)
+        )
+        
+        return template_config
+
     def get_oak_module_config(self) -> OAKModuleConfigDTO:
         """获取 OAK 模块配置"""
         if self.get_runnable_config() is None:
@@ -751,5 +959,46 @@ class DeviceConfigManager:
         if self.get_runnable_config() is None:
             raise ConfigValidationError("当前无可运行配置，请先创建或加载配置")
         return self.get_runnable_config().system_config
+
+    def get_runnable_mxids(self) -> List[str]:
+        """导出可运行配置中的设备 mxid 列表（仅包含已激活的设备）"""
+        if self.get_runnable_config() is None:
+            raise ConfigValidationError("当前无可运行配置，请先创建或加载配置")
+
+        oak_module = self.get_runnable_config().oak_module
+        mxids = [
+            binding.active_mxid
+            for binding in oak_module.role_bindings.values()
+            if getattr(binding, "active_mxid", None)
+        ]
+
+        return list(dict.fromkeys(mxids))
+    
+    def get_active_role_bindings(self) -> Dict[DeviceRole, str]:
+        """获取当前激活的设备角色绑定（子任务 5.0）
+        
+        返回角色到 mxid 的映射字典，供显示模块等外部模块使用。
+        
+        Returns:
+            Dict[DeviceRole, str]: 角色 -> mxid 的映射字典
+            
+        Raises:
+            ConfigValidationError: 当无可运行配置时
+            
+        Example:
+            bindings = manager.get_active_role_bindings()
+            # {DeviceRole.LEFT: "14442C10D13F7FD000", DeviceRole.RIGHT: "14442C10D13F7FD001"}
+        """
+        if self.get_runnable_config() is None:
+            raise ConfigValidationError("当前无可运行配置，请先创建或加载配置")
+        
+        oak_module = self.get_runnable_config().oak_module
+        role_bindings = {}
+        
+        for role, binding in oak_module.role_bindings.items():
+            if binding.active_mxid:
+                role_bindings[role] = binding.active_mxid
+        
+        return role_bindings
     
 

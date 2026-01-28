@@ -12,8 +12,7 @@ from .base_config_dto import BaseConfigDTO
 
 
 # 模块内维护的显示相关白名单（提取自 DTO 外部）
-DISPLAY_MODES: tuple[str, ...] = ("rgb", "depth", "combined", "side_by_side")
-DEPTH_COLORMAPS: tuple[str, ...] = ("JET", "RAINBOW", "BONE", "TURBO", "HOT", "COOL")
+DISPLAY_MODES: tuple[str, ...] = ("rgb",)
 
 
 @dataclass(frozen=True)
@@ -32,7 +31,7 @@ class DisplayConfigDTO(BaseConfigDTO):
     enable_display: bool = True  # 是否启用图像显示
     
     # ========== 窗口配置 ==========
-    default_display_mode: str = "combined"  # "rgb"/"depth"/"combined"/"side_by_side"
+    default_display_mode: str = "rgb"  # "rgb"
     enable_fullscreen: bool = False
     window_width: int = 1280
     window_height: int = 720
@@ -40,7 +39,7 @@ class DisplayConfigDTO(BaseConfigDTO):
     window_position_y: int = 0
     
     # ========== 渲染参数 ==========
-    target_fps: int = 20  # 目标显示帧率（可能低于硬件帧率以节省资源）
+    target_fps: int = 15  # 目标显示帧率（可能低于硬件帧率以节省资源）
     enable_vsync: bool = False  # 垂直同步
     
     # ========== 叠加信息 ==========
@@ -52,8 +51,6 @@ class DisplayConfigDTO(BaseConfigDTO):
     show_device_info: bool = True  # 显示设备信息
     
     # ========== 深度图显示 ==========
-    depth_colormap: str = "JET"  # 深度图颜色映射 (JET/RAINBOW/BONE等)
-    depth_alpha: float = 0.6  # 深度图叠加透明度(0-1)
     normalize_depth: bool = True  # 归一化深度图显示
     
     # ========== 检测框样式 ==========
@@ -78,14 +75,6 @@ class DisplayConfigDTO(BaseConfigDTO):
         errors.extend(validate_numeric_range(
             self.target_fps, 'target_fps', min_value=1, max_value=120
         ))
-        
-        # 深度图参数验证
-        errors.extend(validate_numeric_range(
-            self.depth_alpha, 'depth_alpha', min_value=0.0, max_value=1.0
-        ))
-        
-        if self.depth_colormap not in DEPTH_COLORMAPS:
-            errors.append(f"depth_colormap必须为: {'/'.join(DEPTH_COLORMAPS)}")
         
         # 检测框样式验证
         errors.extend(validate_numeric_range(

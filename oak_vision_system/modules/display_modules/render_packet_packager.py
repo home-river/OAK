@@ -118,11 +118,12 @@ class RenderPacketPackager:
         # 缓存最大年龄（秒），超过此时间的缓存帧将被清理
         self.cache_max_age_sec = cache_max_age_sec
 
-        # 统计数据：成功配对包数和丢弃包数
+        # 统计数据：成功配对包数和丢弃包数（需求 13.4）
         self._stats = {
             "render_packets": 0,
             "drops": 0,
         }
+        self._stats_lock = threading.Lock()  # 线程安全保护（需求 13.4）
         # 订阅事件
         self._subscribe_event()
 
@@ -195,10 +196,16 @@ class RenderPacketPackager:
     def _clean_buffer(self):
         """清理缓冲区的过期数据"""
         now = time.time()
+        drops_count = 0
         for key, value in list(self._buffer.items()):
             if now - value.first_arrival_ts > self.timeout_sec:
                 self._buffer.pop(key, None)
-                self._stats["drops"] += 1
+                drops_count += 1
+        
+        # 线程安全地更新统计数据（需求 13.4）
+        if drops_count > 0:
+            with self._stats_lock:
+                self._stats["drops"] += drops_count
 
 
     def _process_event(self):
@@ -250,7 +257,9 @@ class RenderPacketPackager:
             packet = self._create_render_packet(partial_match, new_video, new_detection)
             self.packet_queue[device_id].put_with_overflow(packet)
             self._buffer.pop(key)
-            self._stats["render_packets"] += 1
+            # 线程安全地更新统计数据（需求 13.4）
+            with self._stats_lock:
+                self._stats["render_packets"] += 1
             return
         
         # 情况3：重复数据错误
@@ -293,19 +302,84 @@ class RenderPacketPackager:
         self._worker_thread.start()
         self.logger.info("渲染包打包工作线程已启动")
 
-    def stop(self):
-        """停止打包线程"""
+    def stop(self, timeout: float = 5.0):
+        """停止打包线程
+        
+        Args:
+            timeout: 等待线程结束的超时时间（秒）（需求 14.6）
+            
+        实现要点（需求 14.2, 14.3, 14.5, 14.6）：
+        - 使用 thread.join(timeout) 等待线程结束
+        - 如果超时，记录警告日志
+        - 取消事件订阅
+        - 清理队列和缓存
+        """
+        # 设置停止信号
         self._running.clear()
+        
+        # 等待工作线程结束（需求 14.6）
         if self._worker_thread is not None:
-            self._worker_thread.join()
-        self._worker_thread = None
+            self._worker_thread.join(timeout=timeout)
+            
+            # 检查是否超时（需求 14.6）
+            if self._worker_thread.is_alive():
+                self.logger.warning(
+                    "RenderPacketPackager 停止超时 (%.1f秒)，线程仍在运行",
+                    timeout
+                )
+            
+            self._worker_thread = None
+        
+        # 取消事件订阅（需求 14.5）
+        try:
+            self.event_bus.unsubscribe(EventType.RAW_FRAME_DATA, self._handle_video_frame)
+            self.event_bus.unsubscribe(EventType.PROCESSED_DATA, self._handle_processed_data)
+            self.logger.info("已取消事件订阅")
+        except Exception as e:
+            self.logger.error("取消事件订阅时发生错误: %s", e, exc_info=True)
+        
+        # 清理队列和缓存（需求 14.3, 14.4）
+        try:
+            # 清理输入队列
+            while not self.event_queue.empty():
+                try:
+                    self.event_queue.get_nowait()
+                except:
+                    break
+            
+            # 清理输出队列
+            for device_id, queue in self.packet_queue.items():
+                while not queue.empty():
+                    try:
+                        queue.get_nowait()
+                    except:
+                        break
+            
+            # 清理缓冲区
+            self._buffer.clear()
+            
+            # 清理缓存
+            self._latest_packets.clear()
+            self._packet_timestamps.clear()
+            
+            self.logger.info("已清理所有队列和缓存")
+        except Exception as e:
+            self.logger.error("清理队列和缓存时发生错误: %s", e, exc_info=True)
+        
+        # 线程安全地读取统计数据（需求 13.4, 14.7）
+        with self._stats_lock:
+            render_packets = self._stats["render_packets"]
+            drops = self._stats["drops"]
         
         # 计算配对成功率
-        total = self._stats["render_packets"] + self._stats["drops"]
-        success_rate = (self._stats["render_packets"] / total * 100) if total > 0 else 0
+        total = render_packets + drops
+        success_rate = (render_packets / total * 100) if total > 0 else 0
         
-        self.logger.info("渲染包打包工作线程已停止，统计数据: 渲染包=%d, 丢弃=%d, 成功率=%.1f%%", 
-                        self._stats["render_packets"], self._stats["drops"], success_rate)
+        # 输出关闭统计信息（需求 14.7）
+        self.logger.info(
+            "RenderPacketPackager 已停止 - 渲染包: %d, 丢弃: %d, 成功率: %.1f%%", 
+            render_packets, drops, success_rate
+        )
 
 
 

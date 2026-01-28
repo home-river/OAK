@@ -1,4 +1,4 @@
-from typing import Optional, Self
+from typing import Optional
 import depthai as dai
 
 from oak_vision_system.core.dto import (
@@ -32,12 +32,11 @@ class PipelineManager:
         self.logger.info("PipelineManager 初始化完成")
 
     def __post_init__(self):
-        # 创建pipeline
+        # 解析深度输出配置
         self.enable_depth_output = self.__resolve_enable_depth_output()
-        if self.enable_depth_output:
-            self.create_pipeline()
-        else:
-            self.create_pipeline_with_no_depth_output()
+        # Pipeline 创建延迟到外部显式调用（如 Collector._init_pipeline()）
+        # 这样可以避免在测试初始化时就需要真实的模型文件
+        self.logger.info("PipelineManager 初始化完成（Pipeline 延迟创建）")
 
     def __resolve_enable_depth_output(self) -> bool:
         if self.enable_depth_output is not None:

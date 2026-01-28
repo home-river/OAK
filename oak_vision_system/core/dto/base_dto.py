@@ -129,7 +129,7 @@ class BaseDTO(ABC):
         """
         pass
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self, include_metadata: bool = False) -> Dict[str, Any]:
         """
         将DTO转换为可序列化的字典
         
@@ -139,20 +139,34 @@ class BaseDTO(ABC):
         - 字典的枚举键 → 字符串键
         - 列表/元组 → 递归处理元素
         
+        Args:
+            include_metadata: 是否包含元数据字段（version, created_at, is_valid, validation_errors）
+                            默认为 False，适用于配置文件等场景
+        
         Returns:
             Dict[str, Any]: DTO的字典表示
         """
+        # 元数据字段列表
+        metadata_fields = {'version', 'created_at', 'is_valid', 'validation_errors'}
+        
         result = {}
-        for field_name, field_value in asdict(self).items():
-            result[field_name] = self._serialize_value(field_value)
+        # 手动遍历字段，保持嵌套 DTO 的对象形态
+        for field_info in fields(self):
+            field_name = field_info.name
+            # 如果不包含元数据，跳过元数据字段
+            if not include_metadata and field_name in metadata_fields:
+                continue
+            field_value = getattr(self, field_name)
+            result[field_name] = self._serialize_value(field_value, include_metadata=include_metadata)
         return result
     
-    def _serialize_value(self, value: Any) -> Any:
+    def _serialize_value(self, value: Any, include_metadata: bool = False) -> Any:
         """
         递归序列化值，处理特殊类型
         
         Args:
             value: 待序列化的值
+            include_metadata: 是否包含元数据字段（传递给嵌套 DTO）
             
         Returns:
             可序列化的值
@@ -167,33 +181,35 @@ class BaseDTO(ABC):
         
         # 3. 嵌套 DTO → 递归调用 to_dict()
         if isinstance(value, BaseDTO):
-            return value.to_dict()
+            return value.to_dict(include_metadata=include_metadata)
         
         # 4. 字典类型 → 递归处理键和值
         if isinstance(value, dict):
             return {
                 # 如果键是枚举，转换为字符串，否则保持原样；对值进行递归处理
-                (k.value if isinstance(k, Enum) else k): self._serialize_value(v)
+                (k.value if isinstance(k, Enum) else k): self._serialize_value(v, include_metadata=include_metadata)
                 for k, v in value.items()
             }
         
         # 5. 列表类型 → 递归处理每个元素
         if isinstance(value, list):
-            return [self._serialize_value(item) for item in value]
+            return [self._serialize_value(item, include_metadata=include_metadata) for item in value]
         
         # 6. 元组类型 → 递归处理每个元素
         if isinstance(value, tuple):
-            return tuple(self._serialize_value(item) for item in value)
+            return tuple(self._serialize_value(item, include_metadata=include_metadata) for item in value)
         
         # 7. 其他类型直接返回（int, float, str, bool等）
         return value
 
-    def to_json(self, indent: Optional[int] = None) -> str:
+    def to_json(self, indent: Optional[int] = None, include_metadata: bool = False) -> str:
         """
         将DTO转换为JSON字符串
         
         Args:
             indent: JSON缩进级别，None表示紧凑格式
+            include_metadata: 是否包含元数据字段（version, created_at等）
+                            默认为 False，适用于配置文件等场景
             
         Returns:
             str: DTO的JSON字符串表示
@@ -208,7 +224,7 @@ class BaseDTO(ABC):
                 return str(obj)
         
         return json.dumps(
-            self.to_dict(),
+            self.to_dict(include_metadata=include_metadata),
             indent=indent,
             ensure_ascii=False,
             default=json_serializer
