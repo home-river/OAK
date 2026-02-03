@@ -39,7 +39,7 @@ def create_example_config():
         
         # 相机参数
         rgb_resolution=(1920, 1080),
-        preview_resolution=(640, 480),
+        preview_resolution=(512, 288),  # 匹配神经网络输入尺寸
         hardware_fps=20,
         usb2_mode=True,
         

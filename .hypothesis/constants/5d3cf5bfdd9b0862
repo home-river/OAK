@@ -1,0 +1,4 @@
+# file: D:\pythonWork\graspWithVision\OAK\oak_vision_system\core\system_manager\system_manager.py
+# hypothesis_version: 6.150.2
+
+[0.5, 5.0, '%Y-%m-%d %H:%M:%S', 'SYSTEM_SHUTDOWN', 'SystemManager初始化完成', 'ctrl_c', 'error', 'excepthook', 'sigterm', '启动失败', '启动失败，开始回滚已启动的模块...', '回滚完成', '开始启动所有模块...', '没有需要回滚的模块']

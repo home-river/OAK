@@ -99,9 +99,14 @@ class CANCommunicator(can.Listener):
         self.bus: Optional[can.Bus] = None
         self.notifier: Optional[can.Notifier] = None
         
+        # 运行状态管理
+        self._is_running = False
+        self._running_lock = threading.Lock()
+        
         # 警报定时器相关
         self._alert_active = False
         self._alert_timer: Optional[threading.Timer] = None
+        self._alert_lock = threading.Lock()
         
         # 事件订阅ID（用于取消订阅）
         self._person_warning_subscription_id: Optional[str] = None
@@ -227,134 +232,183 @@ class CANCommunicator(can.Listener):
         Returns:
             bool: 启动成功返回True，失败返回False
         """
-        try:
-            # 步骤1: 检查是否需要自动配置CAN接口
-            if self.config.enable_auto_configure:
-                # 检查是否为Linux系统
-                if sys.platform in ['linux', 'linux2']:
-                    logger.info("开始自动配置CAN接口...")
-                    success = configure_can_interface(
-                        channel=self.config.can_channel,
-                        bitrate=self.config.can_bitrate,
-                        sudo_password=self.config.sudo_password
-                    )
-                    if not success:
-                        logger.error("CAN接口自动配置失败，请手动配置")
-                        # 继续尝试连接，可能接口已经手动配置好了
+        with self._running_lock:
+            if self._is_running:
+                logger.info("CANCommunicator 已在运行")
+                return True
+            
+            try:
+                # 步骤1: 检查是否需要自动配置CAN接口
+                if self.config.enable_auto_configure:
+                    # 检查是否为Linux系统
+                    if sys.platform in ['linux', 'linux2']:
+                        logger.info("开始自动配置CAN接口...")
+                        success = configure_can_interface(
+                            channel=self.config.can_channel,
+                            bitrate=self.config.can_bitrate,
+                            sudo_password=self.config.sudo_password
+                        )
+                        if not success:
+                            logger.error("CAN接口自动配置失败，请手动配置")
+                            # 继续尝试连接，可能接口已经手动配置好了
+                    else:
+                        logger.info(f"非Linux系统({sys.platform})，跳过自动配置")
                 else:
-                    logger.info(f"非Linux系统({sys.platform})，跳过自动配置")
-            else:
-                logger.info("自动配置已禁用，假设接口已手动配置")
-            
-            # 步骤2: 创建can.Bus对象
-            logger.info(
-                f"连接CAN总线: interface={self.config.can_interface}, "
-                f"channel={self.config.can_channel}, bitrate={self.config.can_bitrate}"
-            )
-            self.bus = can.Bus(
-                interface=self.config.can_interface,
-                channel=self.config.can_channel,
-                bitrate=self.config.can_bitrate
-            )
-            
-            # 步骤3: 创建can.Notifier实例（使用self作为Listener）
-            # Notifier会自动创建内部线程来监听CAN总线
-            # 直接传入self，因为CANCommunicator已经实现了can.Listener接口
-            self.notifier = can.Notifier(self.bus, [self])
-            
-            # 步骤4: 订阅Event_Bus的PERSON_WARNING事件
-            from oak_vision_system.core.event_bus.event_types import EventType
-            self._person_warning_subscription_id = self.event_bus.subscribe(
-                event_type=EventType.PERSON_WARNING,
-                callback=self._on_person_warning,
-                subscriber_name="CANCommunicator._on_person_warning"
-            )
-            
-            # 步骤5: 记录启动日志
-            logger.info(
-                f"CAN通信已启动: interface={self.config.can_interface}, "
-                f"channel={self.config.can_channel}, bitrate={self.config.can_bitrate}, "
-                f"auto_configure={self.config.enable_auto_configure}"
-            )
-            
-            return True
-            
-        except can.CanError as e:
-            # 步骤6: 处理连接失败异常
-            logger.error(f"CAN总线连接失败: {e}", exc_info=True)
-            return False
-        except Exception as e:
-            logger.error(f"启动CAN通信时发生异常: {e}", exc_info=True)
-            return False
+                    logger.info("自动配置已禁用，假设接口已手动配置")
+                
+                # 步骤2: 创建can.Bus对象
+                logger.info(
+                    f"连接CAN总线: interface={self.config.can_interface}, "
+                    f"channel={self.config.can_channel}, bitrate={self.config.can_bitrate}"
+                )
+                self.bus = can.Bus(
+                    interface=self.config.can_interface,
+                    channel=self.config.can_channel,
+                    bitrate=self.config.can_bitrate
+                )
+                
+                # 步骤3: 创建can.Notifier实例（使用self作为Listener）
+                # Notifier会自动创建内部线程来监听CAN总线
+                # 直接传入self，因为CANCommunicator已经实现了can.Listener接口
+                self.notifier = can.Notifier(self.bus, [self])
+                
+                # 步骤4: 订阅Event_Bus的PERSON_WARNING事件
+                from oak_vision_system.core.event_bus.event_types import EventType
+                self._person_warning_subscription_id = self.event_bus.subscribe(
+                    event_type=EventType.PERSON_WARNING,
+                    callback=self._on_person_warning,
+                    subscriber_name="CANCommunicator._on_person_warning"
+                )
+                
+                # 设置运行状态
+                self._is_running = True
+                
+                # 步骤5: 记录启动日志
+                logger.info(
+                    f"CAN通信已启动: interface={self.config.can_interface}, "
+                    f"channel={self.config.can_channel}, bitrate={self.config.can_bitrate}, "
+                    f"auto_configure={self.config.enable_auto_configure}"
+                )
+                
+                return True
+                
+            except can.CanError as e:
+                # 步骤6: 处理连接失败异常
+                logger.error(f"CAN总线连接失败: {e}", exc_info=True)
+                return False
+            except Exception as e:
+                logger.error(f"启动CAN通信时发生异常: {e}", exc_info=True)
+                return False
     
-    def stop(self):
+    def stop(self, timeout: float = 5.0) -> bool:
         """
         停止CAN通信，清理资源
         
+        Args:
+            timeout: 等待Notifier停止的超时时间（秒），默认5.0秒
+            
+        Returns:
+            bool: 停止成功返回True，超时或失败返回False
+        
         流程：
-        1. 停止警报定时器
-        2. 取消事件订阅
-        3. 停止Notifier
-        4. 关闭Bus
-        5. 检查enable_auto_configure，调用reset_can_interface()
-        6. 记录停止日志
+        1. 幂等性检查
+        2. 停止警报定时器
+        3. 取消事件订阅
+        4. 停止Notifier（带超时）
+        5. 关闭Bus
+        6. 检查enable_auto_configure，调用reset_can_interface()
+        7. 记录停止日志
         
         注意：
         - 调用顺序很重要：定时器 → 事件 → Notifier → Bus → 接口
         - 确保所有资源都被正确清理
+        - 使用锁保护状态变量，确保线程安全
         """
-        logger.info("开始停止CAN通信...")
-        
-        # 步骤1: 停止警报定时器
-        self._stop_alert_timer()
-        
-        # 步骤2: 取消事件订阅
-        if self._person_warning_subscription_id is not None:
+        with self._running_lock:
+            # 步骤1: 幂等性检查
+            if not self._is_running:
+                logger.info("CANCommunicator 未在运行")
+                return True
+            
+            logger.info("正在停止 CANCommunicator...")
+            
+            # 标记为正在停止（防止并发问题）
+            success = True
+            
+            # 步骤2: 停止警报定时器
             try:
-                self.event_bus.unsubscribe(self._person_warning_subscription_id)
-                logger.info("已取消PERSON_WARNING事件订阅")
+                self._stop_alert_timer()
             except Exception as e:
-                logger.error(f"取消事件订阅失败: {e}", exc_info=True)
-            finally:
-                self._person_warning_subscription_id = None
-        
-        # 步骤3: 停止Notifier
-        if self.notifier is not None:
-            try:
-                self.notifier.stop()
-                logger.info("Notifier已停止")
-            except Exception as e:
-                logger.error(f"停止Notifier失败: {e}", exc_info=True)
-            finally:
-                self.notifier = None
-        
-        # 步骤4: 关闭Bus
-        if self.bus is not None:
-            try:
-                self.bus.shutdown()
-                logger.info("CAN总线已关闭")
-            except Exception as e:
-                logger.error(f"关闭CAN总线失败: {e}", exc_info=True)
-            finally:
-                self.bus = None
-        
-        # 步骤5: 检查enable_auto_configure，调用reset_can_interface()
-        if self.config.enable_auto_configure:
-            if sys.platform in ['linux', 'linux2']:
-                logger.info("重置CAN接口...")
-                success = reset_can_interface(
-                    channel=self.config.can_channel,
-                    sudo_password=self.config.sudo_password
-                )
-                if not success:
-                    logger.warning("CAN接口重置失败")
+                logger.error(f"停止警报定时器失败: {e}", exc_info=True)
+                success = False
+            
+            # 步骤3: 取消事件订阅
+            if self._person_warning_subscription_id is not None:
+                try:
+                    self.event_bus.unsubscribe(self._person_warning_subscription_id)
+                    logger.info("已取消PERSON_WARNING事件订阅")
+                except Exception as e:
+                    logger.error(f"取消事件订阅失败: {e}", exc_info=True)
+                    success = False
+                finally:
+                    self._person_warning_subscription_id = None
+            
+            # 步骤4: 停止Notifier（带超时）
+            if self.notifier is not None:
+                try:
+                    # Notifier.stop() 会等待内部线程结束
+                    # 使用 timeout 参数控制等待时间
+                    start_time = time.time()
+                    self.notifier.stop(timeout=timeout)
+                    elapsed = time.time() - start_time
+                    
+                    # 检查是否超时
+                    if elapsed >= timeout:
+                        logger.error(f"Notifier 停止超时 ({timeout}s)")
+                        success = False
+                    else:
+                        logger.info("Notifier已停止")
+                except Exception as e:
+                    logger.error(f"停止Notifier失败: {e}", exc_info=True)
+                    success = False
+                finally:
+                    self.notifier = None
+            
+            # 步骤5: 关闭Bus
+            if self.bus is not None:
+                try:
+                    self.bus.shutdown()
+                    logger.info("CAN总线已关闭")
+                except Exception as e:
+                    logger.error(f"关闭CAN总线失败: {e}", exc_info=True)
+                    success = False
+                finally:
+                    self.bus = None
+            
+            # 步骤6: 检查enable_auto_configure，调用reset_can_interface()
+            if self.config.enable_auto_configure:
+                if sys.platform in ['linux', 'linux2']:
+                    logger.info("重置CAN接口...")
+                    reset_success = reset_can_interface(
+                        channel=self.config.can_channel,
+                        sudo_password=self.config.sudo_password
+                    )
+                    if not reset_success:
+                        logger.warning("CAN接口重置失败")
+                        success = False
+                else:
+                    logger.info(f"非Linux系统({sys.platform})，跳过接口重置")
             else:
-                logger.info(f"非Linux系统({sys.platform})，跳过接口重置")
-        else:
-            logger.info("自动配置已禁用，跳过接口重置")
-        
-        # 步骤6: 记录停止日志
-        logger.info("CAN通信已停止")
+                logger.info("自动配置已禁用，跳过接口重置")
+            
+            # 只在成功时清理状态
+            if success:
+                self._is_running = False
+                logger.info("CANCommunicator 已停止")
+            else:
+                logger.error("CANCommunicator 停止过程中出现错误")
+            
+            return success
     
     def _on_person_warning(self, event_data: dict):
         """
@@ -402,32 +456,38 @@ class CANCommunicator(can.Listener):
         
         设置_alert_active标志为True，并调用_schedule_next_alert()
         开始周期性发送警报帧。
+        
+        注意：使用锁保护状态变量，确保线程安全
         """
-        # 设置警报激活标志
-        self._alert_active = True
-        
-        # 调度第一次警报发送
-        self._schedule_next_alert()
-        
-        # 记录警报启动和时间戳（需求8.3）
-        logger.info(f"警报定时器已启动，时间戳: {time.time()}")
+        with self._alert_lock:
+            # 设置警报激活标志
+            self._alert_active = True
+            
+            # 调度第一次警报发送
+            self._schedule_next_alert()
+            
+            # 记录警报启动和时间戳（需求8.3）
+            logger.info(f"警报定时器已启动，时间戳: {time.time()}")
     
     def _stop_alert_timer(self):
         """
         停止警报定时器
         
         设置_alert_active标志为False，并取消当前定时器（如果存在）。
+        
+        注意：使用锁保护状态变量，确保线程安全
         """
-        # 清除警报激活标志
-        self._alert_active = False
-        
-        # 取消当前定时器
-        if self._alert_timer is not None:
-            self._alert_timer.cancel()
-            self._alert_timer = None
-        
-        # 记录警报停止和时间戳（需求8.4）
-        logger.info(f"警报定时器已停止，时间戳: {time.time()}")
+        with self._alert_lock:
+            # 清除警报激活标志
+            self._alert_active = False
+            
+            # 取消当前定时器
+            if self._alert_timer is not None:
+                self._alert_timer.cancel()
+                self._alert_timer = None
+            
+            # 记录警报停止和时间戳（需求8.4）
+            logger.info(f"警报定时器已停止，时间戳: {time.time()}")
     
     def _schedule_next_alert(self):
         """
@@ -437,19 +497,22 @@ class CANCommunicator(can.Listener):
         间隔为alert_interval_ms，回调为_send_alert()。
         
         使用递归调度方式实现周期发送：每次发送后调度下一次。
+        
+        注意：使用锁保护状态变量，确保线程安全
         """
-        # 检查警报是否仍然激活
-        if not self._alert_active:
-            return
-        
-        # 计算间隔（转换为秒）
-        interval_seconds = self.config.alert_interval_ms / 1000.0
-        
-        # 创建定时器
-        self._alert_timer = threading.Timer(interval_seconds, self._send_alert)
-        
-        # 启动定时器
-        self._alert_timer.start()
+        with self._alert_lock:
+            # 检查警报是否仍然激活
+            if not self._alert_active:
+                return
+            
+            # 计算间隔（转换为秒）
+            interval_seconds = self.config.alert_interval_ms / 1000.0
+            
+            # 创建定时器
+            self._alert_timer = threading.Timer(interval_seconds, self._send_alert)
+            
+            # 启动定时器
+            self._alert_timer.start()
     
     def _send_alert(self):
         """

@@ -10,18 +10,8 @@ from .transform_utils import (
     build_transform_matrix_v1_right,
 )
 
-from .config_template import (
-    template_SystemConfigDTO,
-    template_OAKConfigDTO,
-    template_DisplayConfigDTO,
-    template_FrameIdConfigDTO,
-    template_CANConfigDTO,
-    template_CoordinateTransformConfigDTO,
-    template_MovingAverageFilterConfigDTO,
-    template_FilterConfigDTO,
-    template_DataProcessingConfigDTO,
-    template_DeviceManagerConfigDTO,
-)
+# 注意：config_template 已移动到 oak_vision_system.core.config.templates
+# 如需使用配置模板函数，请从 oak_vision_system.core.config 导入
 
 from .logging_utils import (
     configure_logging,
@@ -38,16 +28,6 @@ __all__ = [
     'build_transform_matrix_v1',
     'build_transform_matrix_v1_left',
     'build_transform_matrix_v1_right',
-    'template_SystemConfigDTO',
-    'template_OAKConfigDTO',
-    'template_DisplayConfigDTO',
-    'template_FrameIdConfigDTO',
-    'template_CANConfigDTO',
-    'template_CoordinateTransformConfigDTO',
-    'template_MovingAverageFilterConfigDTO',
-    'template_FilterConfigDTO',
-    'template_DataProcessingConfigDTO',
-    'template_DeviceManagerConfigDTO',
     'configure_logging',
     'attach_exception_logger',
     'setup_exception_logger',

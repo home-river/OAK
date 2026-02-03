@@ -20,7 +20,7 @@ from hypothesis import given, strategies as st, settings, HealthCheck
 from oak_vision_system.modules.config_manager.config_converter import ConfigConverter
 from oak_vision_system.modules.config_manager.device_config_manager import DeviceConfigManager
 from oak_vision_system.core.dto.config_dto import DeviceManagerConfigDTO
-from oak_vision_system.utils import template_DeviceManagerConfigDTO
+from oak_vision_system.core.config import template_DeviceManagerConfigDTO
 
 
 # 配置 Hypothesis

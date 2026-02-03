@@ -113,7 +113,7 @@ class TestDeviceMatchManagerInit:
     def test_init_with_empty_bindings_creates_default(self):
         """测试：空绑定配置会创建默认配置"""
         # Arrange & Act
-        matcher = DeviceMatchManager(bindings=[])
+        matcher = DeviceMatchManager(bindings=None)
         
         # Assert
         default_bindings = DeviceRoleBindingDTO.create_default_bingdings()
@@ -166,7 +166,7 @@ class TestDeviceMatching:
         )
         
         # Act
-        result = matcher.default_match_devices()
+        result = matcher.default_match_devices(online_devices=two_devices)
         
         # Assert
         assert result.result_type == MatchResultType.FULL_MATCH
@@ -189,7 +189,7 @@ class TestDeviceMatching:
         )
         
         # Act
-        result = matcher.default_match_devices()
+        result = matcher.default_match_devices(online_devices=[device_left])
         
         # Assert
         assert result.result_type == MatchResultType.PARTIAL_MATCH
@@ -212,7 +212,7 @@ class TestDeviceMatching:
         )
         
         # Act
-        result = matcher.default_match_devices()
+        result = matcher.default_match_devices(online_devices=[])
         
         # Assert
         assert result.result_type == MatchResultType.NO_MATCH
@@ -230,7 +230,7 @@ class TestDeviceMatching:
         )
         
         # Act
-        result = matcher.default_match_devices()
+        result = matcher.default_match_devices(online_devices=two_devices)
         
         # Assert
         assert result.result_type == MatchResultType.FULL_MATCH
@@ -253,7 +253,7 @@ class TestDeviceMatching:
         )
         
         # Act
-        result = matcher.default_match_devices()
+        result = matcher.default_match_devices(online_devices=two_devices)
         
         # Assert
         assert result.result_type == MatchResultType.NO_MATCH
@@ -285,7 +285,7 @@ class TestDeviceMatching:
         matcher = DeviceMatchManager(bindings=bindings, online_devices=devices)
         
         # Act
-        result = matcher.default_match_devices()
+        result = matcher.default_match_devices(online_devices=devices)
         
         # Assert
         assert result.result_type == MatchResultType.FULL_MATCH
@@ -372,7 +372,7 @@ class TestManualBinding:
             bindings=bindings_with_history,
             online_devices=two_devices
         )
-        matcher.default_match_devices()
+        matcher.default_match_devices(online_devices=two_devices)
         
         # Act
         success, msg = matcher.unbind_role(DeviceRole.LEFT_CAMERA)
@@ -393,7 +393,7 @@ class TestManualBinding:
             bindings=bindings_with_history,
             online_devices=two_devices
         )
-        matcher.default_match_devices()
+        matcher.default_match_devices(online_devices=two_devices)
         
         # Act
         success, msg = matcher.unbind_all_devices()
@@ -412,7 +412,7 @@ class TestManualBinding:
             bindings=bindings_with_history,
             online_devices=two_devices
         )
-        matcher.default_match_devices()
+        matcher.default_match_devices(online_devices=two_devices)
         
         # 记录交换前的绑定
         left_mxid_before = matcher.get_binding_by_role(DeviceRole.LEFT_CAMERA).active_mxid
@@ -441,7 +441,7 @@ class TestManualBinding:
             bindings=bindings_with_history,
             online_devices=[device_left]  # 只有一个设备
         )
-        matcher.default_match_devices()  # 只有左相机匹配
+        matcher.default_match_devices(online_devices=[device_left])  # 只有左相机匹配
         
         # Act
         success, msg = matcher.swap_devices(
@@ -514,7 +514,7 @@ class TestConfigValidation:
             bindings=bindings_with_history,
             online_devices=two_devices
         )
-        result = matcher.default_match_devices()
+        result = matcher.default_match_devices(online_devices=two_devices)
         
         # Act
         can_start, issues = matcher.validate_match_result(result)
@@ -532,7 +532,7 @@ class TestConfigValidation:
             bindings=bindings_with_history,
             online_devices=[device_left]
         )
-        result = matcher.default_match_devices()
+        result = matcher.default_match_devices(online_devices=[device_left])
         
         # Act
         can_start, issues = matcher.validate_match_result(result)
@@ -549,7 +549,7 @@ class TestConfigValidation:
             bindings=bindings_with_history,
             online_devices=[]
         )
-        result = matcher.default_match_devices()
+        result = matcher.default_match_devices(online_devices=[])
         
         # Act
         can_start, issues = matcher.validate_match_result(result)
@@ -613,7 +613,7 @@ class TestQueryInterfaces:
             bindings=bindings_with_history,
             online_devices=two_devices
         )
-        matcher.default_match_devices()
+        matcher.default_match_devices(online_devices=two_devices)
         
         # Act & Assert
         assert matcher.is_role_matched(DeviceRole.LEFT_CAMERA) is True
@@ -626,7 +626,7 @@ class TestQueryInterfaces:
             bindings=bindings_with_history,
             online_devices=two_devices
         )
-        matcher.default_match_devices()
+        matcher.default_match_devices(online_devices=two_devices)
         
         # Act & Assert
         assert matcher.is_device_bound(two_devices[0].mxid) is True
@@ -639,7 +639,7 @@ class TestQueryInterfaces:
             bindings=bindings_with_history,
             online_devices=two_devices
         )
-        matcher.default_match_devices()
+        matcher.default_match_devices(online_devices=two_devices)
         
         # Act
         matched = matcher.list_matched_devices()
@@ -658,7 +658,7 @@ class TestQueryInterfaces:
             online_devices=all_devices,
             auto_bind_new_devices=False  # 禁用自动绑定
         )
-        matcher.default_match_devices()
+        matcher.default_match_devices(online_devices=all_devices)
         
         # Act
         available = matcher.list_available_devices()
@@ -674,7 +674,7 @@ class TestQueryInterfaces:
             bindings=bindings_with_history,
             online_devices=[device_left]  # 只有一个设备
         )
-        matcher.default_match_devices()
+        matcher.default_match_devices(online_devices=[device_left])
         
         # Act
         unmatched = matcher.get_unmatched_roles()
@@ -696,7 +696,7 @@ class TestStateExport:
             bindings=bindings_with_history,
             online_devices=two_devices
         )
-        matcher.default_match_devices()
+        matcher.default_match_devices(online_devices=two_devices)
         
         # Act
         status = matcher.get_current_status()
@@ -723,7 +723,7 @@ class TestStateExport:
             bindings=bindings_with_history,
             online_devices=two_devices
         )
-        matcher.default_match_devices()
+        matcher.default_match_devices(online_devices=two_devices)
         
         # Act
         exported = matcher.export_bindings()
@@ -740,7 +740,7 @@ class TestStateExport:
             bindings=bindings_with_history,
             online_devices=two_devices
         )
-        result = matcher.default_match_devices()
+        result = matcher.default_match_devices(online_devices=two_devices)
         
         # Act
         summary = matcher.get_match_summary(result)
@@ -766,7 +766,7 @@ class TestEdgeCases:
         )
         
         # Act
-        result = matcher.default_match_devices()
+        result = matcher.default_match_devices(online_devices=[])
         
         # Assert
         assert result.result_type == MatchResultType.NO_MATCH
@@ -788,7 +788,7 @@ class TestEdgeCases:
         )
         
         # Act
-        result = matcher.default_match_devices()
+        result = matcher.default_match_devices(online_devices=many_devices)
         
         # Assert
         assert result.result_type == MatchResultType.FULL_MATCH
@@ -804,7 +804,7 @@ class TestEdgeCases:
         )
         
         # 第一次匹配
-        result1 = matcher.default_match_devices()
+        result1 = matcher.default_match_devices(online_devices=[device_left])
         assert result1.result_type == MatchResultType.PARTIAL_MATCH
         
         # Act - 添加新设备并重新匹配
@@ -835,12 +835,12 @@ class TestEdgeCases:
         )
         
         # 禁用状态下不应自动绑定
-        result1 = matcher.default_match_devices()
+        result1 = matcher.default_match_devices(online_devices=two_devices)
         assert result1.result_type == MatchResultType.NO_MATCH
         
         # Act - 启用自动绑定
         matcher.set_auto_bind_new_devices(True)
-        result2 = matcher.default_match_devices()
+        result2 = matcher.default_match_devices(online_devices=two_devices)
         
         # Assert
         assert result2.result_type == MatchResultType.FULL_MATCH
@@ -852,7 +852,7 @@ class TestEdgeCases:
             bindings=bindings_with_history,
             online_devices=two_devices
         )
-        matcher.default_match_devices()
+        matcher.default_match_devices(online_devices=two_devices)
         
         # Act
         matcher.reset_to_default_bindingsResult()
@@ -887,7 +887,7 @@ class TestIntegrationScenarios:
         )
         
         # 4. 执行匹配
-        result = matcher.default_match_devices()
+        result = matcher.default_match_devices(online_devices=discovered_devices)
         
         # 5. 验证是否可以启动
         can_start, issues = matcher.validate_match_result(result)
@@ -905,7 +905,7 @@ class TestIntegrationScenarios:
         )
         
         # 第一次匹配：按历史记录正常匹配
-        matcher.default_match_devices()
+        matcher.default_match_devices(online_devices=[device_left, device_right])
         
         # 记录交换前的状态
         left_mxid_before = matcher.get_binding_by_role(DeviceRole.LEFT_CAMERA).active_mxid
@@ -951,7 +951,7 @@ class TestIntegrationScenarios:
         )
         
         # Act
-        result = matcher.default_match_devices()
+        result = matcher.default_match_devices(online_devices=new_devices)
         
         # Assert - 新设备应该被自动绑定
         assert result.result_type == MatchResultType.FULL_MATCH

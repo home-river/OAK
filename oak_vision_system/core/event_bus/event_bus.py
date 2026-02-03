@@ -350,6 +350,14 @@ class EventBus:
 
 
     def close(self, wait: bool = True, cancel_pending: bool = False) -> None:
+        """
+        关闭 EventBus，取消所有订阅。
+
+        :param wait: 是否等待所有正在执行的订阅者完成，否则立即返回。
+                     注意：这里的“正在执行”指的是异步模式下的未完成任务。
+        :param cancel_pending: 是否取消等待执行的任务。
+                                注意：这里的“等待执行”指的是异步模式下的未开始执行的任务。
+        """
         with self._lock:
             if self._closed:
                 return
@@ -358,8 +366,9 @@ class EventBus:
             self._flow_control.clear()
 
         try:
-            self._executor.shutdown(wait=wait, cancel_futures=cancel_pending)
+            self._executor.shutdown(wait=wait, cancel_pending=cancel_pending)
         except TypeError:
+            # 兼容 Python 3.7 之前的版本，没有 cancel_pending 参数
             self._executor.shutdown(wait=wait)
 
 

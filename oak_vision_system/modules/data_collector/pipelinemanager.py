@@ -111,11 +111,10 @@ class PipelineManager:
             monoRight.out.link(stereo.right)
             camRgb.preview.link(spatialDetectionNetwork.input)
             spatialDetectionNetwork.passthrough.link(xoutRgb.input)
-            # camRgb.preview.link(xoutRgb.input)
             spatialDetectionNetwork.out.link(xoutNN.input)
             stereo.depth.link(spatialDetectionNetwork.inputDepth)
             spatialDetectionNetwork.passthroughDepth.link(xoutDepth.input)
-            # spatialDetectionNetwork.outNetwork.link(nnNetworkOut.input)
+            # spatialDetectionNetwork.outNetwork.link(nnNetworkOut.input) # tensor输出无用
             self.logger.info("pipeline创建完成")
             self.pipeline = pipeline
         except Exception as e:

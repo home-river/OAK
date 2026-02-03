@@ -58,7 +58,7 @@ class OAKConfigDTO(BaseConfigDTO):
     # ========== 相机硬件配置 ==========
     # RGB相机
     rgb_resolution: Tuple[int, int] = (1920, 1080)  # 相机实际分辨率
-    preview_resolution: Tuple[int, int] = (640, 480)  # 预览分辨率
+    preview_resolution: Tuple[int, int] = (512, 288)  # 预览分辨率，匹配神经网络输入
     hardware_fps: int = 20  # 硬件帧率
     
     # 连接模式
@@ -68,8 +68,8 @@ class OAKConfigDTO(BaseConfigDTO):
     # 深度感知参数
     enable_depth_output: bool = False  # 是否启用深度图绘制功能
     depth_resolution: Tuple[int, int] = (640, 400)  # 深度图分辨率，深度相机分辨率
-    depth_min_threshold: float = 400.0   # 最小有效深度(mm)
-    depth_max_threshold: float = 6000.0  # 最大有效深度(mm)
+    depth_min_threshold: int = 400   # 最小有效深度(mm)
+    depth_max_threshold: int = 6000  # 最大有效深度(mm)
     
     # 深度对齐
     align_depth_to_rgb: bool = True  # 深度图对齐到RGB

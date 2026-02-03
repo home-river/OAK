@@ -41,7 +41,7 @@ from oak_vision_system.core.dto.config_dto import (
     DataProcessingConfigDTO,
     SystemConfigDTO,
 )
-from oak_vision_system.utils import template_DeviceManagerConfigDTO
+from oak_vision_system.core.config import template_DeviceManagerConfigDTO
 from .device_discovery import OAKDeviceDiscovery
 from .validators import validate_dto_structure, run_all_validations,validate_against_online_devices
 from .device_match import DeviceMatchManager

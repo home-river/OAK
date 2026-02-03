@@ -108,6 +108,10 @@ class RenderPacketPackager:
 
         # 线程控制事件，指示打包线程的运行状态
         self._running = threading.Event()
+        
+        # 状态管理（用于幂等性检查和线程安全）
+        self._is_running = False
+        self._running_lock = threading.RLock()
 
         # 打包工作线程对象
         self._worker_thread: Optional[threading.Thread] = None
@@ -124,6 +128,10 @@ class RenderPacketPackager:
             "drops": 0,
         }
         self._stats_lock = threading.Lock()  # 线程安全保护（需求 13.4）
+        # 事件订阅ID（用于取消订阅）
+        self._video_frame_sub_id = None
+        self._processed_data_sub_id = None
+        
         # 订阅事件
         self._subscribe_event()
 
@@ -142,8 +150,8 @@ class RenderPacketPackager:
     def _subscribe_event(self):
         """订阅数据源模块的视频帧，订阅数据处理模块发布的数据帧"""
 
-        self.event_bus.subscribe(EventType.RAW_FRAME_DATA,self._handle_video_frame)
-        self.event_bus.subscribe(EventType.PROCESSED_DATA,self._handle_processed_data)
+        self._video_frame_sub_id = self.event_bus.subscribe(EventType.RAW_FRAME_DATA, self._handle_video_frame)
+        self._processed_data_sub_id = self.event_bus.subscribe(EventType.PROCESSED_DATA, self._handle_processed_data)
 
 
     def _handle_processed_data(self,processed_data:DeviceProcessedDataDTO):
@@ -295,91 +303,133 @@ class RenderPacketPackager:
 
 
 
-    def start(self):
-        """启动打包线程"""
-        self._running.set()
-        self._worker_thread = threading.Thread(target=self._process_event, name="RenderPacketPackagerWorker")
-        self._worker_thread.start()
-        self.logger.info("渲染包打包工作线程已启动")
+    def start(self) -> bool:
+        """启动打包线程
+        
+        Returns:
+            bool: 启动成功返回True，已在运行返回False
+        """
+        with self._running_lock:
+            # 幂等性检查
+            if self._is_running:
+                self.logger.info("RenderPacketPackager 已在运行")
+                return False
+            
+            self._running.set()
+            self._is_running = True
+            
+            self._worker_thread = threading.Thread(
+                target=self._process_event, 
+                name="RenderPacketPackagerWorker",
+                daemon=False
+            )
+            self._worker_thread.start()
+            
+            self.logger.info("渲染包打包工作线程已启动")
+            return True
 
-    def stop(self, timeout: float = 5.0):
+    def stop(self, timeout: float = 5.0) -> bool:
         """停止打包线程
         
         Args:
-            timeout: 等待线程结束的超时时间（秒）（需求 14.6）
+            timeout: 等待线程结束的超时时间（秒）
             
-        实现要点（需求 14.2, 14.3, 14.5, 14.6）：
+        Returns:
+            bool: 停止成功返回True，超时返回False
+            
+        实现要点：
+        - 幂等性检查：如果已停止则直接返回True
+        - 线程安全：使用锁保护状态
         - 使用 thread.join(timeout) 等待线程结束
-        - 如果超时，记录警告日志
+        - 如果超时，记录警告日志并返回False
         - 取消事件订阅
         - 清理队列和缓存
         """
-        # 设置停止信号
-        self._running.clear()
-        
-        # 等待工作线程结束（需求 14.6）
-        if self._worker_thread is not None:
-            self._worker_thread.join(timeout=timeout)
+        with self._running_lock:
+            # 1. 幂等性检查
+            if not self._is_running:
+                self.logger.info("RenderPacketPackager 未在运行")
+                return True
             
-            # 检查是否超时（需求 14.6）
-            if self._worker_thread.is_alive():
-                self.logger.warning(
-                    "RenderPacketPackager 停止超时 (%.1f秒)，线程仍在运行",
-                    timeout
-                )
+            self.logger.info("正在停止 RenderPacketPackager...")
             
-            self._worker_thread = None
-        
-        # 取消事件订阅（需求 14.5）
-        try:
-            self.event_bus.unsubscribe(EventType.RAW_FRAME_DATA, self._handle_video_frame)
-            self.event_bus.unsubscribe(EventType.PROCESSED_DATA, self._handle_processed_data)
-            self.logger.info("已取消事件订阅")
-        except Exception as e:
-            self.logger.error("取消事件订阅时发生错误: %s", e, exc_info=True)
-        
-        # 清理队列和缓存（需求 14.3, 14.4）
-        try:
-            # 清理输入队列
-            while not self.event_queue.empty():
-                try:
-                    self.event_queue.get_nowait()
-                except:
-                    break
+            # 2. 设置停止信号
+            self._running.clear()
             
-            # 清理输出队列
-            for device_id, queue in self.packet_queue.items():
-                while not queue.empty():
+            # 3. 等待工作线程结束
+            if self._worker_thread is not None:
+                self._worker_thread.join(timeout=timeout)
+                
+                # 检查是否超时
+                if self._worker_thread.is_alive():
+                    self.logger.warning(
+                        "RenderPacketPackager 停止超时 (%.1f秒)，线程仍在运行",
+                        timeout
+                    )
+                    # 超时时不清理状态，保持一致性
+                    return False
+                
+                self._worker_thread = None
+            
+            # 4. 取消事件订阅
+            try:
+                if self._video_frame_sub_id:
+                    self.event_bus.unsubscribe(self._video_frame_sub_id)
+                    self._video_frame_sub_id = None
+                if self._processed_data_sub_id:
+                    self.event_bus.unsubscribe(self._processed_data_sub_id)
+                    self._processed_data_sub_id = None
+                self.logger.debug("已取消事件订阅")
+            except Exception as e:
+                self.logger.error("取消事件订阅时发生错误: %s", e, exc_info=True)
+            
+            # 5. 清理队列和缓存
+            try:
+                # 清理输入队列
+                while not self.event_queue.empty():
                     try:
-                        queue.get_nowait()
+                        self.event_queue.get_nowait()
                     except:
                         break
+                
+                # 清理输出队列
+                for device_id, queue in self.packet_queue.items():
+                    while not queue.empty():
+                        try:
+                            queue.get_nowait()
+                        except:
+                            break
+                
+                # 清理缓冲区
+                self._buffer.clear()
+                
+                # 清理缓存
+                for device_id in self._latest_packets.keys():
+                    self._latest_packets[device_id] = None
+                    self._packet_timestamps[device_id] = 0.0
+                
+                self.logger.debug("已清理所有队列和缓存")
+            except Exception as e:
+                self.logger.error("清理队列和缓存时发生错误: %s", e, exc_info=True)
             
-            # 清理缓冲区
-            self._buffer.clear()
+            # 6. 清理状态（只在成功时执行）
+            self._is_running = False
             
-            # 清理缓存
-            self._latest_packets.clear()
-            self._packet_timestamps.clear()
+            # 7. 输出关闭统计信息
+            with self._stats_lock:
+                render_packets = self._stats["render_packets"]
+                drops = self._stats["drops"]
             
-            self.logger.info("已清理所有队列和缓存")
-        except Exception as e:
-            self.logger.error("清理队列和缓存时发生错误: %s", e, exc_info=True)
-        
-        # 线程安全地读取统计数据（需求 13.4, 14.7）
-        with self._stats_lock:
-            render_packets = self._stats["render_packets"]
-            drops = self._stats["drops"]
-        
-        # 计算配对成功率
-        total = render_packets + drops
-        success_rate = (render_packets / total * 100) if total > 0 else 0
-        
-        # 输出关闭统计信息（需求 14.7）
-        self.logger.info(
-            "RenderPacketPackager 已停止 - 渲染包: %d, 丢弃: %d, 成功率: %.1f%%", 
-            render_packets, drops, success_rate
-        )
+            # 计算配对成功率
+            total = render_packets + drops
+            success_rate = (render_packets / total * 100) if total > 0 else 0
+            
+            self.logger.info(
+                "RenderPacketPackager 已停止 - 渲染包: %d, 丢弃: %d, 成功率: %.1f%%", 
+                render_packets, drops, success_rate
+            )
+            
+            return True
 
 
 

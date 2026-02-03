@@ -56,6 +56,7 @@ class DisplayRenderer:
         devices_list: List[str],
         role_bindings: Optional[Dict[DeviceRole, str]] = None,
         enable_depth_output: bool = False,
+        event_bus = None,
     ) -> None:
         """初始化显示渲染器（子任务 5.1 + 6.1）
         
@@ -68,12 +69,14 @@ class DisplayRenderer:
                           用于设备在线状态检测和自动切换逻辑
             enable_depth_output: 是否启用深度数据处理（子任务 6.1）
                                 从硬件配置传入，控制是否处理深度帧
+            event_bus: 事件总线实例，用于发布 SYSTEM_SHUTDOWN 事件
         """
         self._config = config
         self._packager = packager
         self._devices_list = devices_list
         self._role_bindings = role_bindings or {}  # 存储角色绑定（子任务 5.1）
         self._enable_depth_output = enable_depth_output  # 存储深度输出配置（子任务 6.1）
+        self._event_bus = event_bus  # 存储事件总线实例
         
         # 单窗口管理
         self._main_window_name = "OAK Display"
@@ -265,8 +268,20 @@ class DisplayRenderer:
                 # 处理键盘输入
                 key = cv2.waitKey(1) & 0xFF
                 if key == ord('q'):
-                    self._stop_event.set()
-                    break
+                    # 发布 SYSTEM_SHUTDOWN 事件，通知 SystemManager 关闭系统
+                    if self._event_bus is not None:
+                        from oak_vision_system.core.system_manager import ShutdownEvent
+                        self._event_bus.publish(
+                            "SYSTEM_SHUTDOWN",
+                            ShutdownEvent(reason="user_quit")
+                        )
+                        self.logger.info("用户按下 'q' 键，已发布 SYSTEM_SHUTDOWN 事件")
+                    else:
+                        # 如果没有 event_bus（向后兼容），使用旧的行为
+                        self.logger.info("用户按下 'q' 键，停止渲染器")
+                        self._stop_event.set()
+                        break
+                    # 继续运行，等待 SystemManager 调用 stop()
                 elif key == ord('f'):
                     self._toggle_fullscreen()
                 elif key == ord('1'):
@@ -287,6 +302,10 @@ class DisplayRenderer:
                 self._last_frame_time = time.time()
         finally:
             cv2.destroyAllWindows()
+            # 同步状态：线程退出时将 _is_running 置为 False
+            # 这样 display_manager.is_running 能立即反映渲染线程的退出状态
+            with self._running_lock:
+                self._is_running = False
     
     def _create_main_window(self) -> None:
         """创建单个主窗口（子任务 3.1 + 5.4 + 7.3）

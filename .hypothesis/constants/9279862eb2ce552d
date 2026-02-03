@@ -1,0 +1,4 @@
+# file: D:\pythonWork\graspWithVision\OAK\oak_vision_system\core\system_manager\__init__.py
+# hypothesis_version: 6.150.2
+
+['ManagedModule', 'ModuleState', 'ShutdownEvent', 'SystemManager']

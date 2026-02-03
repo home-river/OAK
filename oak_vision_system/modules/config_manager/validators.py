@@ -70,7 +70,8 @@ def validate_mxid_references(config: DeviceManagerConfigDTO) -> Tuple[bool, List
     available_mxids = tuple(m.mxid for m in config.oak_module.device_metadata.values())
     bindings = list(config.oak_module.role_bindings.values())
     for binding in bindings:
-        if binding.active_mxid not in available_mxids:
+        # 跳过未绑定的角色（active_mxid 为 None）
+        if binding.active_mxid is not None and binding.active_mxid not in available_mxids:
             errors.append(f"Mxid:{binding.active_mxid} 不存在于 device_metadata")
     return len(errors) == 0, errors
 

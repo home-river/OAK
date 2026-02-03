@@ -19,7 +19,7 @@ from oak_vision_system.modules.config_manager.device_config_manager import (
     ConfigNotFoundError
 )
 from oak_vision_system.modules.config_manager.config_converter import ConfigConverter
-from oak_vision_system.utils import template_DeviceManagerConfigDTO
+from oak_vision_system.core.config import template_DeviceManagerConfigDTO
 
 
 class TestEndToEndYAMLSupport:

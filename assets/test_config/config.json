@@ -2,7 +2,7 @@
   "config_version": "2.0.0",
   "oak_module": {
     "hardware_config": {
-      "model_path": null,
+      "model_path": "assets/test_config/yolov8.blob",
       "label_map": [
         "durian",
         "person"
@@ -26,8 +26,8 @@
         640,
         480
       ],
-      "depth_min_threshold": 400.0,
-      "depth_max_threshold": 6000.0,
+      "depth_min_threshold": 400,
+      "depth_max_threshold": 6000,
       "align_depth_to_rgb": true,
       "median_filter": 5,
       "left_right_check": true,
@@ -39,20 +39,41 @@
     "role_bindings": {
       "left_camera": {
         "role": "left_camera",
-        "historical_mxids": [],
+        "historical_mxids": [
+          "19443010C122201300"
+        ],
         "MAX_HISTORICAL_MXIDS_LENGTH": 5,
-        "active_mxid": null,
-        "last_active_mxid": null
+        "active_mxid": "19443010C122201300",
+        "last_active_mxid": "19443010C122201300"
       },
       "right_camera": {
         "role": "right_camera",
-        "historical_mxids": [],
+        "historical_mxids": [
+          "19443010F1221E1300"
+        ],
         "MAX_HISTORICAL_MXIDS_LENGTH": 5,
-        "active_mxid": null,
-        "last_active_mxid": null
+        "active_mxid": "19443010F1221E1300",
+        "last_active_mxid": "19443010F1221E1300"
       }
     },
-    "device_metadata": {}
+    "device_metadata": {
+      "19443010C122201300": {
+        "mxid": "19443010C122201300",
+        "product_name": "OAK-D S2 AF",
+        "connection_status": "connected",
+        "notes": "自动发现于 2026-02-03 11:58:49",
+        "first_seen": 1770091126.1801202,
+        "last_seen": 1770091126.1801202
+      },
+      "19443010F1221E1300": {
+        "mxid": "19443010F1221E1300",
+        "product_name": "OAK-D-S2-FF",
+        "connection_status": "connected",
+        "notes": "自动发现于 2026-02-03 11:58:53",
+        "first_seen": 1770091126.1801202,
+        "last_seen": 1770091126.1801202
+      }
+    }
   },
   "data_processing_config": {
     "coordinate_transforms": {

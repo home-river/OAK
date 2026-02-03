@@ -1,7 +1,7 @@
 config_version: 2.0.0
 oak_module:
   hardware_config:
-    model_path:
+    model_path: assets/test_config/yolov8.blob
     label_map:
     - durian
     - person
@@ -21,8 +21,8 @@ oak_module:
     depth_resolution:
     - 640
     - 480
-    depth_min_threshold: 400.0
-    depth_max_threshold: 6000.0
+    depth_min_threshold: 400
+    depth_max_threshold: 6000
     align_depth_to_rgb: true
     median_filter: 5
     left_right_check: true

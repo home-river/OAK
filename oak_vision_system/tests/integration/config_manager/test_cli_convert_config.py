@@ -172,7 +172,7 @@ def test_cli_force_option(runner, tmp_path, sample_config):
 
 def test_cli_validate_option_success(runner, tmp_path):
     """测试 --validate 选项 - 验证成功"""
-    from oak_vision_system.utils.config_template import template_DeviceManagerConfigDTO
+    from oak_vision_system.core.config import template_DeviceManagerConfigDTO
     
     json_file = tmp_path / "config.json"
     

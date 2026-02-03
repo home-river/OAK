@@ -1,8 +1,23 @@
-# 显示模块测试指南
+# 手动测试指南
 
 ## 概述
 
-本文档说明如何测试显示模块的重构功能，包括自动化测试和手动测试。
+本目录包含需要真实设备或用户交互的手动测试脚本，包括显示模块测试和数据采集器测试。
+
+## 测试分类
+
+### 1. 显示模块测试
+- 显示功能的用户交互测试
+- 按键切换和全屏功能验证
+
+### 2. 数据采集器测试  
+- OAK设备连接和数据采集功能验证
+- 单设备和多设备协同测试
+- 性能和稳定性测试
+
+---
+
+# 显示模块测试指南
 
 ## 自动化测试结果
 
@@ -124,7 +139,7 @@ python -m pytest oak_vision_system/tests/unit/modules/display_modules/ -v
 
 ### 测试脚本 1：按键切换测试
 
-**文件：** `test_display_key_switching_manual.py`
+**文件：** `manual_display_key_switching.py`
 
 **测试内容：**
 - 按 '1' 键切换到第一个设备
@@ -136,7 +151,7 @@ python -m pytest oak_vision_system/tests/unit/modules/display_modules/ -v
 **运行方法：**
 ```bash
 cd oak_vision_system/tests/manual
-python test_display_key_switching_manual.py
+python manual_display_key_switching.py
 ```
 
 **预期结果：**
@@ -147,7 +162,7 @@ python test_display_key_switching_manual.py
 
 ### 测试脚本 2：多设备场景测试
 
-**文件：** `test_display_multi_device_manual.py`
+**文件：** `manual_display_multi_device.py`
 
 **测试内容：**
 - 场景1：只有一个设备在线（自动单设备显示）
@@ -157,7 +172,7 @@ python test_display_key_switching_manual.py
 **运行方法：**
 ```bash
 cd oak_vision_system/tests/manual
-python test_display_multi_device_manual.py
+python manual_display_multi_device.py
 ```
 
 **预期结果：**

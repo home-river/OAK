@@ -372,6 +372,10 @@ class OAKDataCollector:
         queue_max_size = self.config.hardware_config.queue_max_size
         queue_blocking = self.config.hardware_config.queue_blocking
         self._set_running_state(device_binding, True)
+        
+        # 添加调试信息
+        self.logger.info(f"尝试连接设备: MXID={device_binding.active_mxid}, USB2模式={usb_mode}")
+        
         try:
             with dai.Device(pipeline, device_info, usb2Mode=usb_mode) as device:
                 rgb_queue = device.getOutputQueue(name="rgb", maxSize=queue_max_size, blocking=queue_blocking)
@@ -504,18 +508,57 @@ class OAKDataCollector:
             cast_started.append(role_key)
         return result
 
-    def stop(self) -> None:
-        """停止所有设备的采集流程"""
-        for role_key in list(self.running.keys()):
-            self._set_running_state(role_key, False)
+    def stop(self, timeout: float = 5.0) -> bool:
+        """停止所有设备的采集流程
+        
+        Args:
+            timeout: 等待线程停止的超时时间（秒），默认5.0秒
+            
+        Returns:
+            bool: 是否成功停止所有设备
+                - True: 所有设备成功停止
+                - False: 至少有一个设备停止超时或失败
+        """
+        with self._running_lock:
+            # 1. 幂等性检查：如果所有设备都已停止，直接返回成功
+            if not any(self.running.values()):
+                self.logger.info("OAKDataCollector 未在运行或已停止")
+                return True
+            
+            self.logger.info("正在停止 OAKDataCollector...")
+            
+            # 2. 设置停止信号：将所有设备的运行状态设置为 False
+            for role_key in list(self.running.keys()):
+                self.running[role_key] = False
+        
+        # 3. 等待所有线程结束（带超时）
+        all_stopped = True
         for role_key, thread in list(self._worker_threads.items()):
             if thread.is_alive():
                 try:
-                    thread.join()
-                except RuntimeError as e:
-                    self.logger.warning(
+                    thread.join(timeout=timeout)
+                    
+                    if thread.is_alive():
+                        self.logger.error(
+                            "设备线程停止超时 (%ss): device=%s",
+                            timeout,
+                            role_key
+                        )
+                        all_stopped = False
+                        # 注意：超时时不清理引用，保持状态一致性
+                except Exception as e:
+                    self.logger.error(
                         "等待设备线程退出失败: device=%s, error=%s",
                         role_key,
                         e
                     )
-        self._worker_threads.clear()
+                    all_stopped = False
+        
+        # 4. 清理状态（只在所有线程成功停止时执行）
+        if all_stopped:
+            self._worker_threads.clear()
+            self.logger.info("OAKDataCollector 已停止")
+        else:
+            self.logger.error("OAKDataCollector 停止失败：部分线程未能在超时时间内停止")
+        
+        return all_stopped
