@@ -1,0 +1,4 @@
+# file: D:\pythonWork\graspWithVision\OAK\oak_vision_system\core\backpressure\strategy.py
+# hypothesis_version: 6.150.2
+
+[0.5, 0.9, 'drop_rate', 'drop_warn', 'pressure_hold', 'queue_high_hits', 'queue_low', 'queue_low_hits', 'queue_ok', 'queue_overload']

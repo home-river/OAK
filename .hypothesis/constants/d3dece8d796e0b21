@@ -1,0 +1,4 @@
+# file: D:\pythonWork\graspWithVision\OAK\oak_vision_system\core\backpressure\types.py
+# hypothesis_version: 6.150.2
+
+[0.0, 1.0, 'capacity 必须 > 0', 'critical', 'current_size 必须 >= 0', 'high', 'high 必须 >= low', 'high/low 必须 >= 0', 'low', 'medium']

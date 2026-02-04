@@ -16,15 +16,15 @@
         1080
       ],
       "preview_resolution": [
-        640,
-        480
+        512,
+        288
       ],
       "hardware_fps": 20,
       "usb2_mode": true,
-      "enable_depth_output": true,
+      "enable_depth_output": false,
       "depth_resolution": [
         640,
-        480
+        400
       ],
       "depth_min_threshold": 400,
       "depth_max_threshold": 6000,
@@ -137,6 +137,7 @@
   },
   "can_config": {
     "enable_can": false,
+    "_enable_can_comment": "CAN通信开关：false=虚拟模式（用于开发和测试），true=真实模式（连接硬件CAN总线）",
     "can_interface": "socketcan",
     "can_channel": "can0",
     "can_bitrate": 250000,

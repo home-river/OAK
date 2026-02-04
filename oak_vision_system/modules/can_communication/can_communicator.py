@@ -22,6 +22,7 @@ import numpy as np
 
 from .can_protocol import CANProtocol
 from .can_interface_config import configure_can_interface, reset_can_interface
+from .can_communicator_base import CANCommunicatorBase
 
 if TYPE_CHECKING:
     from oak_vision_system.core.dto.config_dto.can_config_dto import CANConfigDTO
@@ -31,7 +32,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-class CANCommunicator(can.Listener):
+class CANCommunicator(CANCommunicatorBase, can.Listener):
     """
     CAN通信管理器
     
@@ -72,28 +73,25 @@ class CANCommunicator(can.Listener):
         Raises:
             RuntimeError: 如果decision_layer为None且单例未初始化
         """
-        super().__init__()  # 初始化can.Listener基类
-        self.config = config
-        
         # 兜底获取决策层单例
         if decision_layer is None:
             from oak_vision_system.modules.data_processing.decision_layer.decision_layer import DecisionLayer
             try:
-                self.decision_layer = DecisionLayer.get_instance()
+                decision_layer = DecisionLayer.get_instance()
                 logger.info("已自动获取DecisionLayer单例")
             except RuntimeError as e:
                 logger.error(f"无法获取DecisionLayer单例: {e}")
                 raise
-        else:
-            self.decision_layer = decision_layer
         
         # 兜底获取事件总线单例
         if event_bus is None:
             from oak_vision_system.core.event_bus.event_bus import get_event_bus
-            self.event_bus = get_event_bus()
+            event_bus = get_event_bus()
             logger.info("已自动获取EventBus单例")
-        else:
-            self.event_bus = event_bus
+        
+        # 调用基类初始化
+        CANCommunicatorBase.__init__(self, config, decision_layer, event_bus)
+        can.Listener.__init__(self)  # 显式初始化can.Listener基类
         
         # CAN总线组件
         self.bus: Optional[can.Bus] = None
@@ -103,10 +101,11 @@ class CANCommunicator(can.Listener):
         self._is_running = False
         self._running_lock = threading.Lock()
         
-        # 警报定时器相关
+        # 警报定时器相关 - 使用单线程循环方案
         self._alert_active = False
-        self._alert_timer: Optional[threading.Timer] = None
-        self._alert_lock = threading.Lock()
+        self._alert_thread: Optional[threading.Thread] = None
+        self._alert_stop_event = threading.Event()
+        self._alert_lock = threading.RLock()
         
         # 事件订阅ID（用于取消订阅）
         self._person_warning_subscription_id: Optional[str] = None
@@ -410,6 +409,17 @@ class CANCommunicator(can.Listener):
             
             return success
     
+    @property
+    def is_running(self) -> bool:
+        """
+        返回 CAN 通信器的运行状态
+        
+        Returns:
+            bool: 正在运行返回 True，否则返回 False
+        """
+        with self._running_lock:
+            return self._is_running
+    
     def _on_person_warning(self, event_data: dict):
         """
         处理人员警报事件（事件总线回调）
@@ -454,17 +464,35 @@ class CANCommunicator(can.Listener):
         """
         启动警报定时器
         
-        设置_alert_active标志为True，并调用_schedule_next_alert()
-        开始周期性发送警报帧。
+        使用单线程循环方案：创建一个 daemon 线程，循环发送警报帧。
+        
+        优势：
+        - 只创建一个线程，资源效率高
+        - 可以按绝对时间补偿漂移
+        - 停止逻辑更干净（Event + join）
+        - 并发逻辑更简单
         
         注意：使用锁保护状态变量，确保线程安全
         """
         with self._alert_lock:
+            # 如果已经在运行，直接返回
+            if self._alert_active:
+                logger.info("警报定时器已在运行")
+                return
+            
             # 设置警报激活标志
             self._alert_active = True
             
-            # 调度第一次警报发送
-            self._schedule_next_alert()
+            # 清除停止事件
+            self._alert_stop_event.clear()
+            
+            # 创建并启动警报线程
+            self._alert_thread = threading.Thread(
+                target=self._alert_loop,
+                name="CANCommunicator-AlertTimer",
+                daemon=True  # daemon 线程，主程序退出时自动结束
+            )
+            self._alert_thread.start()
             
             # 记录警报启动和时间戳（需求8.3）
             logger.info(f"警报定时器已启动，时间戳: {time.time()}")
@@ -473,50 +501,74 @@ class CANCommunicator(can.Listener):
         """
         停止警报定时器
         
-        设置_alert_active标志为False，并取消当前定时器（如果存在）。
+        设置停止事件，并等待线程结束。
         
         注意：使用锁保护状态变量，确保线程安全
         """
         with self._alert_lock:
+            # 如果未在运行，直接返回
+            if not self._alert_active:
+                logger.info("警报定时器未在运行")
+                return
+            
             # 清除警报激活标志
             self._alert_active = False
             
-            # 取消当前定时器
-            if self._alert_timer is not None:
-                self._alert_timer.cancel()
-                self._alert_timer = None
+            # 设置停止事件，通知线程退出
+            self._alert_stop_event.set()
+            
+            # 等待线程结束（带超时）
+            if self._alert_thread is not None:
+                self._alert_thread.join(timeout=1.0)  # 最多等待1秒
+                if self._alert_thread.is_alive():
+                    logger.warning("警报线程未在超时时间内结束")
+                else:
+                    logger.debug("警报线程已正常结束")
+                self._alert_thread = None
             
             # 记录警报停止和时间戳（需求8.4）
             logger.info(f"警报定时器已停止，时间戳: {time.time()}")
     
-    def _schedule_next_alert(self):
+    def _alert_loop(self):
         """
-        调度下一次警报发送
+        警报发送循环（在独立线程中运行）
         
-        检查_alert_active标志，如果为True则创建threading.Timer，
-        间隔为alert_interval_ms，回调为_send_alert()。
+        循环逻辑：
+        1. 检查是否应该继续运行
+        2. 发送警报帧
+        3. 等待指定间隔（可被停止事件中断）
+        4. 重复
         
-        使用递归调度方式实现周期发送：每次发送后调度下一次。
+        优势：
+        - 时间精度高，可以补偿发送耗时
+        - 停止响应快（Event.wait 可被立即中断）
+        - 异常隔离（单个发送失败不影响循环）
         
-        注意：使用锁保护状态变量，确保线程安全
+        注意：
+        - 此方法在独立的 daemon 线程中执行
+        - 必须包含异常保护，防止线程崩溃
         """
-        with self._alert_lock:
-            # 检查警报是否仍然激活
-            if not self._alert_active:
-                return
-            
-            # 计算间隔（转换为秒）
-            interval_seconds = self.config.alert_interval_ms / 1000.0
-            
-            # 创建定时器
-            self._alert_timer = threading.Timer(interval_seconds, self._send_alert)
-            
-            # 启动定时器
-            self._alert_timer.start()
+        logger.debug("警报发送线程开始运行")
+        
+        try:
+            while self._alert_active and not self._alert_stop_event.is_set():
+                # 发送警报帧
+                self._send_alert()
+                
+                # 等待指定间隔，可被停止事件中断
+                interval_seconds = self.config.alert_interval_ms / 1000.0
+                if self._alert_stop_event.wait(timeout=interval_seconds):
+                    # 停止事件被设置，退出循环
+                    break
+                    
+        except Exception as e:
+            logger.error(f"警报发送线程异常: {e}", exc_info=True)
+        finally:
+            logger.debug("警报发送线程结束运行")
     
     def _send_alert(self):
         """
-        发送警报帧（定时器回调）
+        发送警报帧
         
         流程：
         1. 编码警报帧（调用CANProtocol.encode_alert()）
@@ -524,11 +576,10 @@ class CANCommunicator(can.Listener):
         3. 发送消息
         4. 记录日志（时间戳）
         5. 处理发送异常
-        6. 调用_schedule_next_alert()实现递归调度
         
         注意：
-        - 此方法在定时器线程中执行
-        - 必须包含异常保护，防止定时器线程崩溃
+        - 此方法在警报线程中执行
+        - 必须包含异常保护，防止单次发送失败影响整个循环
         """
         try:
             # 步骤1: 编码警报帧
@@ -556,7 +607,4 @@ class CANCommunicator(can.Listener):
             # 继续运行，不中断警报流程
         except Exception as e:
             logger.error(f"发送警报时发生异常: {e}", exc_info=True)
-        finally:
-            # 步骤6: 调用_schedule_next_alert()实现递归调度
-            self._schedule_next_alert()
 

@@ -1,0 +1,4 @@
+# file: D:\pythonWork\graspWithVision\OAK\oak_vision_system\core\backpressure\config.py
+# hypothesis_version: 6.150.2
+
+[0.5, 0.8, 1.0, 'min_capacity 必须 >= 0']

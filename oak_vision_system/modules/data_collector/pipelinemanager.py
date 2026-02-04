@@ -20,11 +20,14 @@ class PipelineManager:
     def __init__(self, config: OAKConfigDTO,
                  enable_depth_output:Optional[bool]=None, # 如果为None，则根据config中的enable_depth决定
                  system_config: Optional[SystemConfigDTO] = None):
+        # 首先初始化 logger（必须在调用任何方法之前）
+        self.logger = logging.getLogger(__name__)
+        
+        # 然后初始化其他属性
         self.config = config
         self.rgb_resolution = self._convert_rgb_resolution()
         self.filterkernel = self._convert_filterkernel()
         self.monocamera_resolution = self._convert_depth_resolution()
-        self.logger = logging.getLogger(__name__)
         self.pipeline = None
         self.enable_depth_output = enable_depth_output
         self.system_config = system_config or SystemConfigDTO()

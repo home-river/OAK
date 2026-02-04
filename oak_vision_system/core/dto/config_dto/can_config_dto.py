@@ -101,7 +101,7 @@ class CANConfigDTO(BaseConfigDTO):
     """CAN通信模块配置"""
     
     # 基本配置
-    enable_can: bool = True    # 默认启用CAN通信
+    enable_can: bool = False   # CAN通信开关：False=虚拟模式（用于开发和测试），True=真实模式（连接硬件CAN总线）
     can_interface: str = 'socketcan'
     can_channel: str = 'can0'
     can_bitrate: int = 250000

@@ -405,8 +405,9 @@ class TestStopThreadSafety:
         """
         # Assert
         assert hasattr(started_communicator, '_alert_lock'), "应有 _alert_lock 属性"
-        assert isinstance(started_communicator._alert_lock, type(threading.Lock())), \
-            "_alert_lock 应为 threading.Lock 类型"
+        # 接受 Lock 或 RLock 类型（RLock 用于解决可重入死锁问题）
+        assert isinstance(started_communicator._alert_lock, (type(threading.Lock()), type(threading.RLock()))), \
+            "_alert_lock 应为 threading.Lock 或 threading.RLock 类型"
 
 
 # ==================== 资源清理测试 ====================

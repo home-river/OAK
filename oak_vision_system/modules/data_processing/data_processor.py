@@ -138,7 +138,7 @@ class DataProcessor:
         
         # 初始化 DecisionLayer 单例
         decision_config = config.decision_layer_config
-        self._decision_layer = DecisionLayer(
+        self.decision_layer = DecisionLayer(
             event_bus=self._event_bus,
             config=decision_config
         )
@@ -157,7 +157,7 @@ class DataProcessor:
             len(device_metadata),
             len(self._label_map),
             queue_size,
-            self._decision_layer is not None,
+            self.decision_layer is not None,
         )
     
     # ========== 事件订阅管理 ==========
@@ -446,7 +446,7 @@ class DataProcessor:
         # 4. 决策层处理
         state_labels = []
         try:
-            state_labels = self._decision_layer.decide(
+            state_labels = self.decision_layer.decide(
                 device_id=device_id,
                 filtered_coords=filtered_coords,
                 filtered_labels=filtered_labels

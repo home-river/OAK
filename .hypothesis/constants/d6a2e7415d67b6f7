@@ -1,0 +1,4 @@
+# file: D:\pythonWork\graspWithVision\OAK\oak_vision_system\modules\display_modules\render_packet_packager.py
+# hypothesis_version: 6.150.2
+
+[0.0, 0.01, 0.2, 1.0, 5.0, 100, 'age', 'devices', 'drops', 'expired', 'frame_id', 'render_packets', 'total_cached', 'valid', '取消事件订阅时发生错误: %s', '处理事件时发生错误: %s', '已取消事件订阅', '已清理所有队列和缓存', '检测数据', '清理队列和缓存时发生错误: %s', '渲染包打包工作线程已启动', '视频帧']

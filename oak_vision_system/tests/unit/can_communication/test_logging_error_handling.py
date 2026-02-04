@@ -104,7 +104,8 @@ class TestLoggingRequirements(unittest.TestCase):
                     self.assertIn('响应时间', log_output)
                     self.assertIn('ms', log_output)
     
-    def test_8_3_alert_start_logging(self):
+    @patch('oak_vision_system.modules.can_communication.can_communicator.threading.Thread')
+    def test_8_3_alert_start_logging(self, mock_thread):
         """
         需求8.3: 警报启动时记录时间戳
         
@@ -113,6 +114,10 @@ class TestLoggingRequirements(unittest.TestCase):
         - 记录时间戳
         - 使用INFO级别
         """
+        # Mock Thread 避免真正启动线程
+        mock_thread_instance = Mock()
+        mock_thread.return_value = mock_thread_instance
+        
         with patch('oak_vision_system.modules.can_communication.can_communicator.can.Bus'):
             with patch('oak_vision_system.modules.can_communication.can_communicator.can.Notifier'):
                 communicator = CANCommunicator(
@@ -130,8 +135,13 @@ class TestLoggingRequirements(unittest.TestCase):
                     self.assertIn('时间戳', log_output)
                     # 验证时间戳格式（应该是浮点数）
                     self.assertRegex(log_output, r'时间戳: \d+\.\d+')
+                    
+                    # 验证Thread被创建和启动
+                    mock_thread.assert_called_once()
+                    mock_thread_instance.start.assert_called_once()
     
-    def test_8_4_alert_stop_logging(self):
+    @patch('oak_vision_system.modules.can_communication.can_communicator.threading.Thread')
+    def test_8_4_alert_stop_logging(self, mock_thread):
         """
         需求8.4: 警报停止时记录时间戳
         
@@ -140,6 +150,11 @@ class TestLoggingRequirements(unittest.TestCase):
         - 记录时间戳
         - 使用INFO级别
         """
+        # Mock Thread 避免真正启动线程
+        mock_thread_instance = Mock()
+        mock_thread_instance.is_alive.return_value = False  # 模拟线程已结束
+        mock_thread.return_value = mock_thread_instance
+        
         with patch('oak_vision_system.modules.can_communication.can_communicator.can.Bus'):
             with patch('oak_vision_system.modules.can_communication.can_communicator.can.Notifier'):
                 communicator = CANCommunicator(
@@ -148,7 +163,7 @@ class TestLoggingRequirements(unittest.TestCase):
                     self.mock_event_bus
                 )
                 
-                # 先启动警报
+                # 先启动警报（这会创建mock thread）
                 communicator._start_alert_timer()
                 
                 with self.assertLogs('oak_vision_system.modules.can_communication.can_communicator', level='INFO') as log:
@@ -160,6 +175,9 @@ class TestLoggingRequirements(unittest.TestCase):
                     self.assertIn('时间戳', log_output)
                     # 验证时间戳格式
                     self.assertRegex(log_output, r'时间戳: \d+\.\d+')
+                    
+                    # 验证Thread被join
+                    mock_thread_instance.join.assert_called_once_with(timeout=1.0)
     
     @patch('oak_vision_system.modules.can_communication.can_communicator.can.Bus')
     def test_8_5_can_error_logging(self, mock_bus):

@@ -1,0 +1,4 @@
+# file: D:\pythonWork\graspWithVision\OAK\oak_vision_system\core\system_manager\system_manager.py
+# hypothesis_version: 6.150.2
+
+[0.5, 3.0, 5.0, ' → ', 'SYSTEM_SHUTDOWN', 'SystemManager', 'SystemManager 关闭完成', 'custom', 'global', 'none', 'provided', 'reason', 'shutdown() 已经执行过，跳过', 'unknown', '事件总线关闭成功', '关闭事件总线...', '启动回滚完成', '开始关闭系统...', '开始启动所有模块...', '异常钩子恢复成功', '强制退出进程 (exit code 1)', '恢复异常钩子...', '执行统一关闭流程...', '接收到退出信号，准备关闭系统...', '没有需要回滚的模块']

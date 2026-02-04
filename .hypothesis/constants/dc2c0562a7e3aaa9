@@ -1,0 +1,4 @@
+# file: D:\pythonWork\graspWithVision\OAK\oak_vision_system\modules\data_collector\collector.py
+# hypothesis_version: 6.150.2
+
+[0.0, 0.01, 1.0, 2.0, 5.0, 'OAKDataCollector 已停止', 'depth', 'detections', 'hardware_fps', 'label', 'no_active_mxid', 'rgb', 'role', 'skipped', 'started', '不支持的数据类型: %s', '启动OAK设备%s失败: %s', '设备%s未绑定MXid，无法启动采集', '设备ID为空，无法组装帧数据: %s', '设备ID为空，无法组装检测数据: %s']

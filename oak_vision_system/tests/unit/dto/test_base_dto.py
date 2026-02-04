@@ -110,9 +110,16 @@ class TestBaseDTO:
         assert dto_dict['name'] == "张三"
         assert dto_dict['age'] == 25
         assert dto_dict['email'] == "zhangsan@example.com"
-        assert 'version' in dto_dict
-        assert 'created_at' in dto_dict
-        assert 'is_valid' in dto_dict
+        # 默认情况下不包含元数据字段
+        assert 'version' not in dto_dict
+        assert 'created_at' not in dto_dict
+        assert 'is_valid' not in dto_dict
+        
+        # 测试包含元数据的情况
+        dto_dict_with_meta = dto.to_dict(include_metadata=True)
+        assert 'version' in dto_dict_with_meta
+        assert 'created_at' in dto_dict_with_meta
+        assert 'is_valid' in dto_dict_with_meta
     
     def test_to_json_conversion(self):
         """测试转换为JSON"""

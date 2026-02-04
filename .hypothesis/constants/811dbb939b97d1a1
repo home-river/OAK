@@ -1,0 +1,4 @@
+# file: D:\pythonWork\graspWithVision\OAK\oak_vision_system\modules\display_modules\display_manager.py
+# hypothesis_version: 6.150.2
+
+[0.0, 0.2, 0.8, 1.0, 5.0, ', ', 'DisplayManager 已在运行', 'DisplayManager 已成功停止', 'DisplayManager 已成功启动', 'DisplayManager 未在运行', 'DisplayRenderer 启动失败', 'drop_count', 'drops', 'maxsize', 'packager', 'queue_stats', 'render_packets', 'renderer', 'size', 'total_drops', 'total_queue_drops', 'usage_ratio', '启用', '子模块启动未完全成功', '检测到高队列使用率的设备: %s', '清理已启动的子模块...', '禁用', '获取统计信息时发生异常: %s']

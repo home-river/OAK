@@ -561,7 +561,9 @@ class TestDataProcessorTransform:
         
         # Assert
         assert not transform_called["called"], "空检测列表不应该调用坐标变换"
-        assert result is None, "空检测列表应该返回 None"
+        # 更新：空检测列表应该返回空的 DeviceProcessedDataDTO，而不是 None
+        assert isinstance(result, DeviceProcessedDataDTO), "空检测列表应该返回 DeviceProcessedDataDTO"
+        assert len(result.labels) == 0, "空检测列表的 labels 应该为空"
     
     def test_transform_receives_correct_device_id(self, processor, sample_detection_data, monkeypatch):
         """测试坐标变换接收正确的 device_id"""
@@ -889,7 +891,9 @@ class TestDataProcessorFilter:
         
         # Assert
         assert not filter_called["called"], "空检测列表不应该调用滤波处理"
-        assert result is None, "空检测列表应该返回 None"
+        # 更新：空检测列表应该返回空的 DeviceProcessedDataDTO，而不是 None
+        assert isinstance(result, DeviceProcessedDataDTO), "空检测列表应该返回 DeviceProcessedDataDTO"
+        assert len(result.labels) == 0, "空检测列表的 labels 应该为空"
     
     def test_filter_after_transform(self, processor, sample_detection_data, monkeypatch):
         """测试滤波处理在坐标变换之后执行"""
@@ -1089,7 +1093,7 @@ class TestDataProcessorAssembly:
         np.testing.assert_array_equal(result.labels, filtered_labels)
     
     def test_state_label_initialized_empty(self, processor, sample_detection_data, monkeypatch):
-        """测试 state_label 初始化为空列表"""
+        """测试 state_label 由决策层填充"""
         # Arrange
         # Mock transformer and filter
         def mock_transform_coordinates(mxid, coords_homogeneous):
@@ -1099,15 +1103,20 @@ class TestDataProcessorAssembly:
         def mock_filter_process(device_id, coordinates, bboxes, confidences, labels):
             return coordinates, bboxes, confidences, labels
         
+        # Mock decision layer to return empty list
+        def mock_decide(device_id, filtered_coords, filtered_labels):
+            return []
+        
         monkeypatch.setattr(processor._transformer, "transform_coordinates", mock_transform_coordinates)
         monkeypatch.setattr(processor._filter_manager, "process", mock_filter_process)
+        monkeypatch.setattr(processor._decision_layer, "decide", mock_decide)
         
         # Act
         result = processor.process(sample_detection_data)
         
         # Assert
         assert isinstance(result.state_label, list), "state_label 应该是列表类型"
-        assert len(result.state_label) == 0, "state_label 应该初始化为空列表"
+        assert len(result.state_label) == 0, "当决策层返回空列表时，state_label 应该为空"
     
     def test_empty_output_handling(self, processor):
         """测试空输出处理"""
@@ -1122,8 +1131,15 @@ class TestDataProcessorAssembly:
         # Act
         result = processor.process(empty_detection_data)
         
-        # Assert - 验证返回 None
-        assert result is None, "空输入应该返回 None"
+        # Assert - 更新：空输入应该返回空的 DeviceProcessedDataDTO
+        assert isinstance(result, DeviceProcessedDataDTO), "空输入应该返回 DeviceProcessedDataDTO"
+        assert result.device_id == "device_001_mxid_12345"
+        assert result.frame_id == 100
+        assert len(result.labels) == 0
+        assert len(result.bbox) == 0
+        assert len(result.coords) == 0
+        assert len(result.confidence) == 0
+        assert result.state_label == []
     
     def test_empty_output_correct_dtypes(self, processor):
         """测试空输出的数组 dtype 正确"""
@@ -1138,8 +1154,12 @@ class TestDataProcessorAssembly:
         # Act
         result = processor.process(empty_detection_data)
         
-        # Assert - 验证返回 None
-        assert result is None, "空输入（detections=None）应该返回 None"
+        # Assert - 更新：空输入应该返回空的 DeviceProcessedDataDTO，并验证 dtype
+        assert isinstance(result, DeviceProcessedDataDTO), "空输入（detections=None）应该返回 DeviceProcessedDataDTO"
+        assert result.labels.dtype == np.int32, "labels 的 dtype 应该是 int32"
+        assert result.bbox.dtype == np.float32, "bbox 的 dtype 应该是 float32"
+        assert result.coords.dtype == np.float32, "coords 的 dtype 应该是 float32"
+        assert result.confidence.dtype == np.float32, "confidence 的 dtype 应该是 float32"
     
     def test_assemble_output_with_different_sizes(self, processor, monkeypatch):
         """测试组装不同大小的输出数据"""
@@ -1429,7 +1449,7 @@ class TestDataProcessorEvent:
             pytest.fail("事件发布异常不应该被抛出")
     
     def test_event_publish_with_empty_detections(self, processor, monkeypatch):
-        """测试空检测列表不发布事件（因为返回 None）"""
+        """测试空检测列表也会发布事件"""
         # Arrange
         empty_detection_data = DeviceDetectionDataDTO(
             device_id="device_001_mxid_12345",
@@ -1438,11 +1458,12 @@ class TestDataProcessorEvent:
             detections=[],
         )
         
-        event_published = {"called": False}
+        event_published = {"called": False, "data": None}
         
         # Mock event bus publish
         def mock_publish(event_type, data, wait_all=False):
             event_published["called"] = True
+            event_published["data"] = data
             return 1
         
         monkeypatch.setattr(processor._event_bus, "publish", mock_publish)
@@ -1450,8 +1471,10 @@ class TestDataProcessorEvent:
         # Act
         processor.process(empty_detection_data)
         
-        # Assert
-        assert not event_published["called"], "空检测列表不应该发布事件（返回 None）"
+        # Assert - 更新：空检测列表也应该发布事件（返回空的 DeviceProcessedDataDTO）
+        assert event_published["called"], "空检测列表也应该发布事件"
+        assert isinstance(event_published["data"], DeviceProcessedDataDTO), "发布的数据应该是 DeviceProcessedDataDTO"
+        assert len(event_published["data"].labels) == 0, "发布的数据应该是空的"
     
     def test_event_published_after_processing(self, processor, sample_detection_data, monkeypatch):
         """测试事件在处理完成后发布"""
@@ -1501,8 +1524,13 @@ class TestDataProcessorEvent:
             filtered_labels = np.array([0, 1], dtype=np.int32)
             return filtered_coords, filtered_bboxes, filtered_confidences, filtered_labels
         
+        # Mock decision layer to return empty list
+        def mock_decide(device_id, filtered_coords, filtered_labels):
+            return []
+        
         monkeypatch.setattr(processor._transformer, "transform_coordinates", mock_transform_coordinates)
         monkeypatch.setattr(processor._filter_manager, "process", mock_filter_process)
+        monkeypatch.setattr(processor._decision_layer, "decide", mock_decide)
         
         # Mock event bus publish
         def mock_publish(event_type, data, wait_all=False):
@@ -1523,7 +1551,8 @@ class TestDataProcessorEvent:
         assert data.bbox.shape == (2, 4)
         assert data.confidence.shape == (2,)
         assert data.labels.shape == (2,)
-        assert data.state_label == []
+        # 更新：state_label 由决策层填充，这里 mock 返回空列表
+        assert isinstance(data.state_label, list), "state_label 应该是列表类型"
 
 
 
@@ -1877,8 +1906,10 @@ class TestDataProcessorIntegration:
         # Act
         result = processor.process(empty_detection_data)
         
-        # Assert - 验证空输入返回 None
-        assert result is None, "空检测列表应该返回 None"
+        # Assert - 更新：空输入应该返回空的 DeviceProcessedDataDTO
+        assert isinstance(result, DeviceProcessedDataDTO), "空检测列表应该返回 DeviceProcessedDataDTO"
+        assert len(result.labels) == 0, "空检测列表的 labels 应该为空"
+        assert len(result.coords) == 0, "空检测列表的 coords 应该为空"
     
     def test_none_detections_handling_in_flow(self, processor):
         """测试完整流程中的 None detections 处理"""
@@ -1893,8 +1924,10 @@ class TestDataProcessorIntegration:
         # Act
         result = processor.process(none_detection_data)
         
-        # Assert - 验证 None detections 返回 None
-        assert result is None, "None detections 应该返回 None"
+        # Assert - 更新：None detections 应该返回空的 DeviceProcessedDataDTO
+        assert isinstance(result, DeviceProcessedDataDTO), "None detections 应该返回 DeviceProcessedDataDTO"
+        assert len(result.labels) == 0, "None detections 的 labels 应该为空"
+        assert len(result.coords) == 0, "None detections 的 coords 应该为空"
     
     def test_exception_handling_in_flow(self, processor, monkeypatch):
         """测试完整流程中的异常处理"""

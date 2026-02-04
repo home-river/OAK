@@ -174,7 +174,7 @@ class TestConfigDTOSmokeTest:
     def test_oak_config_dto_smoke(self):
         """冒烟测试：OAK配置DTO"""
         oak_config = OAKConfigDTO(
-            model_path="/path/to/model.blob",
+            model_path=None,  # 使用 None 避免文件验证
             confidence_threshold=0.5,
             hardware_fps=30
         )
@@ -200,9 +200,9 @@ class TestConfigDTOSmokeTest:
     def test_system_config_dto_smoke(self):
         """冒烟测试：系统配置DTO"""
         sys_config = SystemConfigDTO(
-            enable_can_communication=True,
-            can_interface="can0",
-            can_baudrate=500000
+            log_level="INFO",
+            auto_reconnect=True,
+            reconnect_interval=5.0
         )
         
         assert sys_config.validate(), \

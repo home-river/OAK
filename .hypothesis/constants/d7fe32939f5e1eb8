@@ -1,0 +1,4 @@
+# file: D:\pythonWork\graspWithVision\OAK\oak_vision_system\modules\display_modules\display_renderer.py
+# hypothesis_version: 6.150.2
+
+[0.0, 0.1, 0.5, 0.6, 0.7, 1.0, 5.0, 100, 128, 200, 255, 256, 480, 640, 1280, '1', '2', '3', '3:Combined', 'DisplayRenderer', 'DisplayRenderer 停止超时', 'DisplayRenderer 已启动', 'F:Fullscreen', 'OAK Display', 'Q:Quit', 'SYSTEM_SHUTDOWN', 'avg_fps', 'combined', 'f', 'fps', 'fps_history', 'frames_rendered', 'is_running', 'max_fps', 'min_fps', 'q', 'runtime_sec', 'single', 'start_time', 'user_quit', '全屏', '切换到 Combined 模式', '启用', "用户按下 'q' 键，停止渲染器", '禁用', '窗口']

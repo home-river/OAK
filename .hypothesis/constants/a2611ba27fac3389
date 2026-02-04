@@ -1,0 +1,4 @@
+# file: D:\pythonWork\graspWithVision\OAK\oak_vision_system\modules\config_manager\validators.py
+# hypothesis_version: 6.150.2
+
+['active_mxid', 'run_all_validations', 'validate_roles']

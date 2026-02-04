@@ -129,8 +129,11 @@ class TestGracefulShutdown(unittest.TestCase):
         self.assertEqual(len(packager._buffer), 0)
         
         # 验证缓存已清空（需求 14.4）
-        self.assertEqual(len(packager._latest_packets), 0)
-        self.assertEqual(len(packager._packet_timestamps), 0)
+        # stop() 方法将缓存值设置为 None，而不是删除键
+        for device_id, packet in packager._latest_packets.items():
+            self.assertIsNone(packet, f"设备 {device_id} 的缓存应该为 None")
+        for device_id, timestamp in packager._packet_timestamps.items():
+            self.assertEqual(timestamp, 0.0, f"设备 {device_id} 的时间戳应该为 0.0")
     
     @patch('cv2.destroyAllWindows')
     def test_renderer_closes_windows(self, mock_destroy):

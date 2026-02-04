@@ -1,0 +1,4 @@
+# file: D:\pythonWork\graspWithVision\OAK\oak_vision_system\modules\data_collector\pipelinemanager.py
+# hypothesis_version: 6.150.2
+
+[0.5, 400, 480, 640, 720, 800, 1012, 1080, 1200, 1280, 1352, 1440, 1520, 1920, 1944, 2024, 2160, 2592, 3000, 3040, 3120, 3840, 4000, 4056, 4208, 5312, 6000, 8000, 'camera_config', 'depth', 'detections', 'enable_depth_output', 'init', 'left', 'link_nodes', 'nn_config', 'node_creation', 'pipeline_init', 'pipeline创建完成', 'pipeline创建完成（无深度输出）', 'rgb', 'right', 'stereo_config', 'xlink_creation']

@@ -1,0 +1,159 @@
+{
+  "config_version": "2.0.0",
+  "oak_module": {
+    "hardware_config": {
+      "model_path": "assets/example_config/model.blob",
+      "label_map": [
+        "person",
+        "object"
+      ],
+      "num_classes": 2,
+      "confidence_threshold": 0.5,
+      "nms_threshold": 0.4,
+      "max_detections": -1,
+      "rgb_resolution": [1920, 1080],
+      "preview_resolution": [640, 480],
+      "hardware_fps": 20,
+      "usb2_mode": false,
+      "enable_depth_output": true,
+      "depth_resolution": [640, 480],
+      "depth_min_threshold": 400,
+      "depth_max_threshold": 6000,
+      "align_depth_to_rgb": true,
+      "median_filter": 5,
+      "left_right_check": true,
+      "extended_disparity": false,
+      "subpixel": false,
+      "queue_max_size": 4,
+      "queue_blocking": false
+    },
+    "role_bindings": {
+      "left_camera": {
+        "role": "left_camera",
+        "historical_mxids": [],
+        "MAX_HISTORICAL_MXIDS_LENGTH": 5,
+        "active_mxid": null,
+        "last_active_mxid": null
+      },
+      "right_camera": {
+        "role": "right_camera",
+        "historical_mxids": [],
+        "MAX_HISTORICAL_MXIDS_LENGTH": 5,
+        "active_mxid": null,
+        "last_active_mxid": null
+      }
+    },
+    "device_metadata": {}
+  },
+  "data_processing_config": {
+    "coordinate_transforms": {
+      "left_camera": {
+        "role": "left_camera",
+        "translation_x": -50.0,
+        "translation_y": 0.0,
+        "translation_z": 0.0,
+        "roll": 0.0,
+        "pitch": 0.0,
+        "yaw": 0.0,
+        "calibration_date": null,
+        "calibration_method": null
+      },
+      "right_camera": {
+        "role": "right_camera",
+        "translation_x": 50.0,
+        "translation_y": 0.0,
+        "translation_z": 0.0,
+        "roll": 0.0,
+        "pitch": 0.0,
+        "yaw": 0.0,
+        "calibration_date": null,
+        "calibration_method": null
+      }
+    },
+    "filter_config": {
+      "filter_type": "moving_average",
+      "moving_average_config": {
+        "window_size": 5
+      }
+    },
+    "decision_layer_config": {
+      "person_label_ids": [0],
+      "person_warning": {
+        "d_in": 3000.0,
+        "d_out": 3050.0,
+        "T_warn": 3.0,
+        "T_clear": 3.0,
+        "grace_time": 0.5
+      },
+      "object_zones": {
+        "danger_y_threshold": 1500.0,
+        "grasp_zone": {
+          "mode": "rect",
+          "x_min": -200.0,
+          "x_max": 2000.0,
+          "y_min": 1550.0,
+          "y_max": 2500.0,
+          "r_min": null,
+          "r_max": null
+        }
+      },
+      "state_expiration_time": 1.0
+    },
+    "enable_data_logging": false,
+    "processing_thread_priority": 5,
+    "person_timeout_seconds": 5.0
+  },
+  "can_config": {
+    "enable_can": false,
+    "_enable_can_comment": "CAN通信开关：false=虚拟模式（用于开发和测试），true=真实模式（连接硬件CAN总线）",
+    "can_interface": "socketcan",
+    "can_channel": "can0",
+    "can_bitrate": 250000,
+    "send_timeout_ms": 100,
+    "receive_timeout_ms": 200,
+    "enable_auto_configure": true,
+    "sudo_password": "your_password_here",
+    "alert_interval_ms": 500,
+    "frame_ids": {
+      "frames": {}
+    }
+  },
+  "display_config": {
+    "enable_display": true,
+    "default_display_mode": "rgb",
+    "enable_fullscreen": false,
+    "window_width": 1280,
+    "window_height": 720,
+    "window_position_x": 0,
+    "window_position_y": 0,
+    "target_fps": 20,
+    "enable_vsync": false,
+    "show_detection_boxes": true,
+    "show_labels": true,
+    "show_confidence": true,
+    "show_coordinates": true,
+    "show_fps": true,
+    "show_device_info": true,
+    "normalize_depth": true,
+    "bbox_thickness": 2,
+    "bbox_color_by_label": true,
+    "text_scale": 0.6
+  },
+  "system_config": {
+    "log_level": "INFO",
+    "log_to_file": false,
+    "log_file_path": null,
+    "log_max_size_mb": 100,
+    "log_backup_count": 7,
+    "log_rotate_mode": "time",
+    "log_rotate_when": "MIDNIGHT",
+    "log_rotate_interval": 1,
+    "log_rotate_utc": false,
+    "enable_profiling": false,
+    "max_worker_threads": 4,
+    "auto_reconnect": true,
+    "reconnect_interval": 5.0,
+    "max_reconnect_attempts": 10,
+    "graceful_shutdown_timeout": 5.0
+  }
+}

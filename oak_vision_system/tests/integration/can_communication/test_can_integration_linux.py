@@ -475,7 +475,7 @@ class TestPersonAlertFlow:
         
         # 验证初始状态
         assert not communicator._alert_active, "初始状态警报应该未激活"
-        assert communicator._alert_timer is None, "初始状态定时器应该为None"
+        assert communicator._alert_thread is None, "初始状态线程应该为None"
         
         # 发布TRIGGERED事件
         mock_event_bus.publish_person_warning(PersonWarningStatus.TRIGGERED)
@@ -485,7 +485,7 @@ class TestPersonAlertFlow:
         
         # 验证警报已启动
         assert communicator._alert_active, "警报应该已激活"
-        assert communicator._alert_timer is not None, "定时器应该已创建"
+        assert communicator._alert_thread is not None, "线程应该已创建"
         
         # 等待几个警报周期
         time.sleep(0.2)  # 等待200ms，应该收到约4次警报
@@ -545,7 +545,7 @@ class TestPersonAlertFlow:
         
         # 验证警报已停止
         assert not communicator._alert_active, "警报应该已停止"
-        assert communicator._alert_timer is None, "定时器应该已取消"
+        assert communicator._alert_thread is None, "线程应该已结束"
         
         # 等待一段时间，确认不再发送警报
         time.sleep(0.15)
