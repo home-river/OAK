@@ -48,7 +48,8 @@ class OAKDeviceDiscovery:
         """
         logger = logging.getLogger(__name__)
         try: 
-            infos = dai.DeviceBootloader.getAllAvailableDevices()
+            # infos = dai.DeviceBootloader.getAllAvailableDevices()
+            infos = dai.Device.getAllAvailableDevices()
         except Exception as e:
             if verbose:
                 print(f"获取所有可用的OAK设备失败: {e}")
@@ -115,7 +116,7 @@ class OAKDeviceDiscovery:
                 
             except Exception as e:
                 if verbose:
-                    print(f"⚠️ 处理设备 {info.mxid} 时出错: {e}")
+                    print(f"处理设备 {info.mxid} 时出错: {e}")
                 logger.warning("处理设备 %s 时出错: %s", getattr(info, 'mxid', 'unknown'), e, exc_info=True)
                 continue
         

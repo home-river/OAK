@@ -211,7 +211,7 @@ def valid_config_dto_strategy():
 
 
 @given(config_dto=valid_config_dto_strategy())
-@settings(suppress_health_check=[HealthCheck.function_scoped_fixture], max_examples=50)
+@settings(suppress_health_check=[HealthCheck.function_scoped_fixture], max_examples=50, deadline=None)
 def test_property_yaml_loading_integration(config_dto, tmp_path):
     """
     Feature: config-format-converter, Property 4: YAML Loading Integration
@@ -227,6 +227,8 @@ def test_property_yaml_loading_integration(config_dto, tmp_path):
     except ImportError:
         pytest.skip("PyYAML not installed")
     
+    from unittest.mock import patch
+    
     json_file = tmp_path / "config.json"
     yaml_file = tmp_path / "config.yaml"
     
@@ -238,12 +240,16 @@ def test_property_yaml_loading_integration(config_dto, tmp_path):
     # 2. 使用 ConfigConverter 转换为 YAML（确保格式兼容）
     ConfigConverter.json_to_yaml(json_file, yaml_file)
     
-    # 3. 使用 DeviceConfigManager 分别加载 JSON 和 YAML
-    manager_json = DeviceConfigManager(str(json_file), auto_create=False)
-    manager_json.load_config(validate=False)
-    
-    manager_yaml = DeviceConfigManager(str(yaml_file), auto_create=False)
-    manager_yaml.load_config(validate=False)
+    # 3. Mock 设备发现以避免硬件扫描
+    with patch('oak_vision_system.modules.config_manager.device_config_manager.OAKDeviceDiscovery.discover_devices') as mock_discover:
+        mock_discover.return_value = []  # 返回空设备列表
+        
+        # 使用 DeviceConfigManager 分别加载 JSON 和 YAML
+        manager_json = DeviceConfigManager(str(json_file), auto_create=False)
+        manager_json.load_config(validate=False)
+        
+        manager_yaml = DeviceConfigManager(str(yaml_file), auto_create=False)
+        manager_yaml.load_config(validate=False)
     
     # 4. 验证两者加载的配置等价（忽略动态生成的字段）
     json_config = manager_json.get_config()
@@ -261,7 +267,7 @@ def test_property_yaml_loading_integration(config_dto, tmp_path):
 # ==================== Property 5: Configuration Export Preserves Content ====================
 
 @given(config_dto=valid_config_dto_strategy())
-@settings(suppress_health_check=[HealthCheck.function_scoped_fixture], max_examples=50)
+@settings(suppress_health_check=[HealthCheck.function_scoped_fixture], max_examples=50, deadline=None)
 def test_property_export_to_yaml_preserves_content(config_dto, tmp_path):
     """
     Feature: config-format-converter, Property 5: Configuration Export Preserves Content
@@ -276,6 +282,8 @@ def test_property_export_to_yaml_preserves_content(config_dto, tmp_path):
     except ImportError:
         pytest.skip("PyYAML not installed")
     
+    from unittest.mock import patch
+    
     json_file = tmp_path / "config.json"
     yaml_export = tmp_path / "export.yaml"
     
@@ -284,16 +292,20 @@ def test_property_export_to_yaml_preserves_content(config_dto, tmp_path):
     json_text = json.dumps(config_dict, indent=2, ensure_ascii=False)
     json_file.write_text(json_text, encoding='utf-8')
     
-    # 2. 加载配置
-    manager = DeviceConfigManager(str(json_file), auto_create=False)
-    manager.load_config(validate=False)
-    
-    # 3. 导出为 YAML
-    manager.export_to_yaml(str(yaml_export))
-    
-    # 4. 重新加载导出的 YAML
-    manager_reloaded = DeviceConfigManager(str(yaml_export), auto_create=False)
-    manager_reloaded.load_config(validate=False)
+    # 2. Mock 设备发现以避免硬件扫描
+    with patch('oak_vision_system.modules.config_manager.device_config_manager.OAKDeviceDiscovery.discover_devices') as mock_discover:
+        mock_discover.return_value = []  # 返回空设备列表
+        
+        # 加载配置
+        manager = DeviceConfigManager(str(json_file), auto_create=False)
+        manager.load_config(validate=False)
+        
+        # 3. 导出为 YAML
+        manager.export_to_yaml(str(yaml_export))
+        
+        # 4. 重新加载导出的 YAML
+        manager_reloaded = DeviceConfigManager(str(yaml_export), auto_create=False)
+        manager_reloaded.load_config(validate=False)
     
     # 5. 验证内容等价
     original_config = manager.get_config()
@@ -307,7 +319,7 @@ def test_property_export_to_yaml_preserves_content(config_dto, tmp_path):
 
 
 @given(config_dto=valid_config_dto_strategy())
-@settings(suppress_health_check=[HealthCheck.function_scoped_fixture], max_examples=50)
+@settings(suppress_health_check=[HealthCheck.function_scoped_fixture], max_examples=50, deadline=None)
 def test_property_export_to_json_preserves_content(config_dto, tmp_path):
     """
     Feature: config-format-converter, Property 5: Configuration Export Preserves Content
@@ -326,6 +338,8 @@ def test_property_export_to_json_preserves_content(config_dto, tmp_path):
     except ImportError:
         pytest.skip("PyYAML not installed")
     
+    from unittest.mock import patch
+    
     # 1. 保存原始配置为 JSON，然后转换为 YAML
     config_dict = config_dto.to_dict()
     json_text = json.dumps(config_dict, indent=2, ensure_ascii=False)
@@ -334,16 +348,20 @@ def test_property_export_to_json_preserves_content(config_dto, tmp_path):
     # 使用 ConfigConverter 转换为 YAML（确保格式兼容）
     ConfigConverter.json_to_yaml(json_file, yaml_file)
     
-    # 2. 加载 YAML 配置
-    manager = DeviceConfigManager(str(yaml_file), auto_create=False)
-    manager.load_config(validate=False)
-    
-    # 3. 导出为 JSON
-    manager.export_to_json(str(json_export))
-    
-    # 4. 重新加载导出的 JSON
-    manager_reloaded = DeviceConfigManager(str(json_export), auto_create=False)
-    manager_reloaded.load_config(validate=False)
+    # 2. Mock 设备发现以避免硬件扫描
+    with patch('oak_vision_system.modules.config_manager.device_config_manager.OAKDeviceDiscovery.discover_devices') as mock_discover:
+        mock_discover.return_value = []  # 返回空设备列表
+        
+        # 加载 YAML 配置
+        manager = DeviceConfigManager(str(yaml_file), auto_create=False)
+        manager.load_config(validate=False)
+        
+        # 3. 导出为 JSON
+        manager.export_to_json(str(json_export))
+        
+        # 4. 重新加载导出的 JSON
+        manager_reloaded = DeviceConfigManager(str(json_export), auto_create=False)
+        manager_reloaded.load_config(validate=False)
     
     # 5. 验证内容等价
     original_config = manager.get_config()
@@ -359,7 +377,7 @@ def test_property_export_to_json_preserves_content(config_dto, tmp_path):
 # ==================== Property 6: Logging Records Key Operations ====================
 
 @given(config_dto=valid_config_dto_strategy())
-@settings(suppress_health_check=[HealthCheck.function_scoped_fixture], max_examples=50)
+@settings(suppress_health_check=[HealthCheck.function_scoped_fixture], max_examples=50, deadline=None)
 def test_property_logging_records_load_operations(config_dto, tmp_path, caplog):
     """
     Feature: config-format-converter, Property 6: Logging Records Key Operations
@@ -374,6 +392,8 @@ def test_property_logging_records_load_operations(config_dto, tmp_path, caplog):
     except ImportError:
         pytest.skip("PyYAML not installed")
     
+    from unittest.mock import patch
+    
     json_file = tmp_path / "config.json"
     yaml_file = tmp_path / "config.yaml"
     
@@ -383,31 +403,35 @@ def test_property_logging_records_load_operations(config_dto, tmp_path, caplog):
     json_file.write_text(json_text, encoding='utf-8')
     ConfigConverter.json_to_yaml(json_file, yaml_file)
     
-    # 2. 测试 JSON 加载日志
-    with caplog.at_level(logging.INFO):
-        manager_json = DeviceConfigManager(str(json_file), auto_create=False)
-        manager_json.load_config(validate=False)
-    
-    # 验证日志包含文件路径和格式类型
-    log_messages = [record.message for record in caplog.records if record.levelname == 'INFO']
-    assert any(str(json_file) in msg and 'json' in msg.lower() for msg in log_messages), \
-        f"Expected log with path and format, got: {log_messages}"
-    
-    caplog.clear()
-    
-    # 3. 测试 YAML 加载日志
-    with caplog.at_level(logging.INFO):
-        manager_yaml = DeviceConfigManager(str(yaml_file), auto_create=False)
-        manager_yaml.load_config(validate=False)
-    
-    # 验证日志包含文件路径和格式类型
-    log_messages = [record.message for record in caplog.records if record.levelname == 'INFO']
-    assert any(str(yaml_file) in msg and 'yaml' in msg.lower() for msg in log_messages), \
-        f"Expected log with path and format, got: {log_messages}"
+    # 2. Mock 设备发现以避免硬件扫描
+    with patch('oak_vision_system.modules.config_manager.device_config_manager.OAKDeviceDiscovery.discover_devices') as mock_discover:
+        mock_discover.return_value = []  # 返回空设备列表
+        
+        # 测试 JSON 加载日志
+        with caplog.at_level(logging.INFO):
+            manager_json = DeviceConfigManager(str(json_file), auto_create=False)
+            manager_json.load_config(validate=False)
+        
+        # 验证日志包含文件路径和格式类型
+        log_messages = [record.message for record in caplog.records if record.levelname == 'INFO']
+        assert any(str(json_file) in msg and 'json' in msg.lower() for msg in log_messages), \
+            f"Expected log with path and format, got: {log_messages}"
+        
+        caplog.clear()
+        
+        # 3. 测试 YAML 加载日志
+        with caplog.at_level(logging.INFO):
+            manager_yaml = DeviceConfigManager(str(yaml_file), auto_create=False)
+            manager_yaml.load_config(validate=False)
+        
+        # 验证日志包含文件路径和格式类型
+        log_messages = [record.message for record in caplog.records if record.levelname == 'INFO']
+        assert any(str(yaml_file) in msg and 'yaml' in msg.lower() for msg in log_messages), \
+            f"Expected log with path and format, got: {log_messages}"
 
 
 @given(config_dto=valid_config_dto_strategy())
-@settings(suppress_health_check=[HealthCheck.function_scoped_fixture], max_examples=50)
+@settings(suppress_health_check=[HealthCheck.function_scoped_fixture], max_examples=50, deadline=None)
 def test_property_logging_records_export_operations(config_dto, tmp_path, caplog):
     """
     Feature: config-format-converter, Property 6: Logging Records Key Operations
@@ -422,6 +446,8 @@ def test_property_logging_records_export_operations(config_dto, tmp_path, caplog
     except ImportError:
         pytest.skip("PyYAML not installed")
     
+    from unittest.mock import patch
+    
     json_file = tmp_path / "config.json"
     yaml_export = tmp_path / "export.yaml"
     json_export = tmp_path / "export.json"
@@ -431,12 +457,16 @@ def test_property_logging_records_export_operations(config_dto, tmp_path, caplog
     json_text = json.dumps(config_dict, indent=2, ensure_ascii=False)
     json_file.write_text(json_text, encoding='utf-8')
     
-    manager = DeviceConfigManager(str(json_file), auto_create=False)
-    manager.load_config(validate=False)
+    # 2. Mock 设备发现以避免硬件扫描
+    with patch('oak_vision_system.modules.config_manager.device_config_manager.OAKDeviceDiscovery.discover_devices') as mock_discover:
+        mock_discover.return_value = []  # 返回空设备列表
+        
+        manager = DeviceConfigManager(str(json_file), auto_create=False)
+        manager.load_config(validate=False)
     
     caplog.clear()
     
-    # 2. 测试 YAML 导出日志
+    # 3. 测试 YAML 导出日志
     with caplog.at_level(logging.INFO):
         manager.export_to_yaml(str(yaml_export))
     
@@ -447,7 +477,7 @@ def test_property_logging_records_export_operations(config_dto, tmp_path, caplog
     
     caplog.clear()
     
-    # 3. 测试 JSON 导出日志
+    # 4. 测试 JSON 导出日志
     with caplog.at_level(logging.INFO):
         manager.export_to_json(str(json_export))
     
@@ -460,7 +490,7 @@ def test_property_logging_records_export_operations(config_dto, tmp_path, caplog
 # ==================== Property 8: Backward Compatibility ====================
 
 @given(config_dto=valid_config_dto_strategy())
-@settings(suppress_health_check=[HealthCheck.function_scoped_fixture], max_examples=50)
+@settings(suppress_health_check=[HealthCheck.function_scoped_fixture], max_examples=50, deadline=None)
 def test_property_backward_compatibility_json_loading(config_dto, tmp_path):
     """
     Feature: config-format-converter, Property 8: Backward Compatibility Maintained
@@ -470,15 +500,21 @@ def test_property_backward_compatibility_json_loading(config_dto, tmp_path):
     
     **Validates: Requirements 8.1, 8.2**
     """
+    from unittest.mock import patch
+    
     json_file = tmp_path / "config.json"
     
     # 1. 保存为 JSON（传统方式）
     json_text = config_dto.to_json(indent=2)
     json_file.write_text(json_text, encoding='utf-8')
     
-    # 2. 使用 DeviceConfigManager 加载（应该仍然正常工作）
-    manager = DeviceConfigManager(str(json_file), auto_create=False)
-    result = manager.load_config(validate=False)
+    # 2. Mock 设备发现以避免硬件扫描
+    with patch('oak_vision_system.modules.config_manager.device_config_manager.OAKDeviceDiscovery.discover_devices') as mock_discover:
+        mock_discover.return_value = []  # 返回空设备列表
+        
+        # 使用 DeviceConfigManager 加载（应该仍然正常工作）
+        manager = DeviceConfigManager(str(json_file), auto_create=False)
+        result = manager.load_config(validate=False)
     
     # 3. 验证加载成功
     assert result is True
@@ -488,7 +524,7 @@ def test_property_backward_compatibility_json_loading(config_dto, tmp_path):
 
 
 @given(config_dto=valid_config_dto_strategy())
-@settings(suppress_health_check=[HealthCheck.function_scoped_fixture], max_examples=50)
+@settings(suppress_health_check=[HealthCheck.function_scoped_fixture], max_examples=50, deadline=None)
 def test_property_backward_compatibility_api_unchanged(config_dto, tmp_path):
     """
     Feature: config-format-converter, Property 8: Backward Compatibility Maintained
@@ -498,18 +534,24 @@ def test_property_backward_compatibility_api_unchanged(config_dto, tmp_path):
     
     **Validates: Requirements 8.1, 8.2**
     """
+    from unittest.mock import patch
+    
     json_file = tmp_path / "config.json"
     
     # 保存配置
     json_text = config_dto.to_json(indent=2)
     json_file.write_text(json_text, encoding='utf-8')
     
-    # 测试 API 签名未改变
-    manager = DeviceConfigManager(str(json_file), auto_create=False)
-    
-    # load_config 返回 bool
-    result = manager.load_config(validate=False)
-    assert isinstance(result, bool)
+    # 2. Mock 设备发现以避免硬件扫描
+    with patch('oak_vision_system.modules.config_manager.device_config_manager.OAKDeviceDiscovery.discover_devices') as mock_discover:
+        mock_discover.return_value = []  # 返回空设备列表
+        
+        # 测试 API 签名未改变
+        manager = DeviceConfigManager(str(json_file), auto_create=False)
+        
+        # load_config 返回 bool
+        result = manager.load_config(validate=False)
+        assert isinstance(result, bool)
     
     # get_config 返回配置对象
     loaded_config = manager.get_config()
@@ -586,7 +628,7 @@ def test_property_optional_dependency_yaml_save_without_pyyaml(tmp_path, monkeyp
 
 
 @given(config_dto=valid_config_dto_strategy())
-@settings(suppress_health_check=[HealthCheck.function_scoped_fixture], max_examples=50)
+@settings(suppress_health_check=[HealthCheck.function_scoped_fixture], max_examples=50, deadline=None)
 def test_property_optional_dependency_json_works_without_pyyaml(config_dto, tmp_path, monkeypatch):
     """
     Feature: config-format-converter, Property 9: Optional Dependency Handling
@@ -596,6 +638,8 @@ def test_property_optional_dependency_json_works_without_pyyaml(config_dto, tmp_
     
     **Validates: Requirements 7.3**
     """
+    from unittest.mock import patch
+    
     json_file = tmp_path / "config.json"
     
     # 保存为 JSON
@@ -613,9 +657,13 @@ def test_property_optional_dependency_json_works_without_pyyaml(config_dto, tmp_
     
     monkeypatch.setattr(builtins, "__import__", mock_import)
     
-    # JSON 配置应该仍然可以正常加载
-    manager = DeviceConfigManager(str(json_file), auto_create=False)
-    result = manager.load_config(validate=False)
+    # Mock 设备发现以避免硬件扫描
+    with patch('oak_vision_system.modules.config_manager.device_config_manager.OAKDeviceDiscovery.discover_devices') as mock_discover:
+        mock_discover.return_value = []  # 返回空设备列表
+        
+        # JSON 配置应该仍然可以正常加载
+        manager = DeviceConfigManager(str(json_file), auto_create=False)
+        result = manager.load_config(validate=False)
     
     assert result is True
     loaded_config = manager.get_config()
@@ -625,7 +673,7 @@ def test_property_optional_dependency_json_works_without_pyyaml(config_dto, tmp_
 # ==================== Property 10: Validation Detects Corruption ====================
 
 @given(config_dto=valid_config_dto_strategy())
-@settings(suppress_health_check=[HealthCheck.function_scoped_fixture], max_examples=50)
+@settings(suppress_health_check=[HealthCheck.function_scoped_fixture], max_examples=50, deadline=None)
 def test_property_validation_detects_corruption_after_conversion(config_dto, tmp_path):
     """
     Feature: config-format-converter, Property 10: Validation Detects Corruption
@@ -640,6 +688,8 @@ def test_property_validation_detects_corruption_after_conversion(config_dto, tmp
     except ImportError:
         pytest.skip("PyYAML not installed")
     
+    from unittest.mock import patch
+    
     json_file = tmp_path / "config.json"
     yaml_file = tmp_path / "config.yaml"
     
@@ -650,9 +700,13 @@ def test_property_validation_detects_corruption_after_conversion(config_dto, tmp
     # 2. 转换为 YAML
     ConfigConverter.json_to_yaml(json_file, yaml_file)
     
-    # 3. 加载 YAML 并验证（应该通过）
-    manager = DeviceConfigManager(str(yaml_file), auto_create=False)
-    result = manager.load_config(validate=True)
+    # 3. Mock 设备发现以避免硬件扫描
+    with patch('oak_vision_system.modules.config_manager.device_config_manager.OAKDeviceDiscovery.discover_devices') as mock_discover:
+        mock_discover.return_value = []  # 返回空设备列表
+        
+        # 加载 YAML 并验证（应该通过）
+        manager = DeviceConfigManager(str(yaml_file), auto_create=False)
+        result = manager.load_config(validate=True)
     
     # 4. 验证应该成功（没有数据损坏）
     assert result is True

@@ -21,10 +21,10 @@
       ],
       "hardware_fps": 20,
       "usb2_mode": true,
-      "enable_depth_output": false,
+      "enable_depth_output": true,
       "depth_resolution": [
         640,
-        400
+        480
       ],
       "depth_min_threshold": 400,
       "depth_max_threshold": 6000,
@@ -43,7 +43,7 @@
           "19443010C122201300"
         ],
         "MAX_HISTORICAL_MXIDS_LENGTH": 5,
-        "active_mxid": "19443010C122201300",
+        "active_mxid": null,
         "last_active_mxid": "19443010C122201300"
       },
       "right_camera": {
@@ -52,7 +52,7 @@
           "19443010F1221E1300"
         ],
         "MAX_HISTORICAL_MXIDS_LENGTH": 5,
-        "active_mxid": "19443010F1221E1300",
+        "active_mxid": null,
         "last_active_mxid": "19443010F1221E1300"
       }
     },
@@ -61,17 +61,17 @@
         "mxid": "19443010C122201300",
         "product_name": "OAK-D S2 AF",
         "connection_status": "connected",
-        "notes": "自动发现于 2026-02-03 11:58:49",
-        "first_seen": 1770091126.1801202,
-        "last_seen": 1770091126.1801202
+        "notes": "自动发现于 2026-02-27 10:37:24",
+        "first_seen": 1772159841.3188033,
+        "last_seen": 1772159841.3188033
       },
       "19443010F1221E1300": {
         "mxid": "19443010F1221E1300",
         "product_name": "OAK-D-S2-FF",
         "connection_status": "connected",
-        "notes": "自动发现于 2026-02-03 11:58:53",
-        "first_seen": 1770091126.1801202,
-        "last_seen": 1770091126.1801202
+        "notes": "自动发现于 2026-02-27 10:37:20",
+        "first_seen": 1772159833.8002033,
+        "last_seen": 1772159833.8002033
       }
     }
   },
@@ -85,7 +85,7 @@
         "roll": 0.0,
         "pitch": 0.0,
         "yaw": 0.0,
-        "calibration_date": "2026-01-27 10:59",
+        "calibration_date": null,
         "calibration_method": null
       },
       "right_camera": {
@@ -96,7 +96,7 @@
         "roll": 0.0,
         "pitch": 0.0,
         "yaw": 0.0,
-        "calibration_date": "2026-01-27 10:59",
+        "calibration_date": null,
         "calibration_method": null
       }
     },
@@ -137,7 +137,6 @@
   },
   "can_config": {
     "enable_can": false,
-    "_enable_can_comment": "CAN通信开关：false=虚拟模式（用于开发和测试），true=真实模式（连接硬件CAN总线）",
     "can_interface": "socketcan",
     "can_channel": "can0",
     "can_bitrate": 250000,

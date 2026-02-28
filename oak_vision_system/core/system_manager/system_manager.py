@@ -107,6 +107,7 @@ class SystemManager:
         self._modules: Dict[str, ManagedModule] = {}  # 模块名称 -> ManagedModule
         self._shutdown_event = threading.Event()      # 退出信号
         self._stop_started = threading.Event()        # 防重复关闭标志
+        self._display_module: Optional[Any] = None   # 显示模块引用（需要主线程渲染）
         
         # 异常钩子句柄（稍后初始化）
         self._exception_handle: Optional[_HookHandle] = None
@@ -182,6 +183,48 @@ class SystemManager:
             f"注册模块: {name} (priority={priority}, state={ModuleState.NOT_STARTED.value})"
         )
     
+    def register_display_module(self, name: str, instance: Any, priority: int) -> None:
+        """
+        注册显示模块（需要主线程渲染）
+        
+        显示模块需要特殊处理，因为 OpenCV 窗口操作必须在主线程中执行。
+        此方法会：
+        1. 将模块注册到常规模块列表（用于 start/stop 管理）
+        2. 存储到 _display_module 属性（用于主循环渲染）
+        
+        Args:
+            name: 模块名称（唯一标识）
+            instance: DisplayManager 实例（必须有 start(), stop(), render_once() 方法）
+            priority: 优先级（数字越大越靠近下游）
+                     建议值：显示=50
+        
+        Raises:
+            ValueError: 如果模块名称已存在
+            ValueError: 如果已经注册了其他显示模块
+        
+        Example:
+            >>> manager.register_display_module("display", display_manager, priority=50)
+        
+        需求: 3.1, 3.2
+        """
+        # 检查是否已经注册了显示模块
+        if self._display_module is not None:
+            raise ValueError(
+                f"已经注册了显示模块，不能重复注册。"
+                f"当前显示模块: {self._display_module}"
+            )
+        
+        # 调用常规注册方法（用于 start/stop 管理）
+        self.register_module(name, instance, priority)
+        
+        # 存储到 _display_module 属性（用于主循环渲染）
+        self._display_module = instance
+        
+        # 记录注册日志，标记该模块需要主线程渲染
+        self._logger.info(
+            f"注册显示模块: {name} (priority={priority}, 需要主线程渲染)"
+        )
+    
     def start_all(self) -> None:
         """
         启动所有注册的模块
@@ -223,7 +266,21 @@ class SystemManager:
                 self._logger.info(f"启动模块: {module.name} (priority={module.priority})")
                 
                 # 调用模块的 start() 方法
-                module.instance.start()
+                ret = module.instance.start()
+                
+                # 检查返回值：如果返回 False，表示启动失败（兜底语义）
+                if ret is False:
+                    self._logger.error(
+                        f"模块启动失败（返回 False）: {module.name}"
+                    )
+                    # 设置失败模块状态为 ERROR
+                    module.state = ModuleState.ERROR
+                    # 触发回滚
+                    self._rollback_startup(started_modules)
+                    # 抛出异常
+                    raise RuntimeError(
+                        f"模块启动失败: {module.name} (返回 False)"
+                    )
                 
                 # 设置状态为 RUNNING
                 module.state = ModuleState.RUNNING
@@ -276,17 +333,24 @@ class SystemManager:
                 self._logger.info(f"回滚停止模块: {module.name}")
                 
                 # 调用模块的 stop() 方法
-                module.instance.stop()
+                stop_result = module.instance.stop()
                 
-                # 设置状态为 STOPPED
-                module.state = ModuleState.STOPPED
-                
-                self._logger.info(f"模块回滚停止成功: {module.name}")
+                # 检查返回值（如果返回 False，表示停止失败）
+                if stop_result is False:
+                    self._logger.error(
+                        f"回滚停止模块失败（返回 False）: {module.name}"
+                    )
+                    # 设置状态为 ERROR
+                    module.state = ModuleState.ERROR
+                else:
+                    # 设置状态为 STOPPED
+                    module.state = ModuleState.STOPPED
+                    self._logger.info(f"模块回滚停止成功: {module.name}")
             
             except Exception as stop_err:
                 # 捕获异常并记录错误（不抛出，继续停止其他模块）
                 self._logger.error(
-                    f"回滚停止模块失败: {module.name}, 错误: {stop_err}",
+                    f"回滚停止模块失败（抛出异常）: {module.name}, 错误: {stop_err}",
                     exc_info=True
                 )
                 
@@ -313,95 +377,151 @@ class SystemManager:
     
     # ==================== 主循环和退出 ====================
     
-    def run(self) -> None:
+    def run(self, force_exit_on_shutdown_failure: bool = True) -> None:
         """
         运行系统并阻塞主线程
         
-        两个退出出口：
+        三个退出出口：
         1. KeyboardInterrupt（Ctrl+C）- except 块捕获
         2. SYSTEM_SHUTDOWN 事件 - 设置 _shutdown_event
+        3. 用户按 'q' 键 - render_once() 返回 True
         
-        所有退出路径汇聚到 finally 块，统一调用 shutdown()
+        主线程渲染支持：
+        - 如果注册了显示模块，主循环会调用 display_module.render_once()
+        - render_once() 返回 True 时触发系统关闭
+        
+        退出流程设计：
+        - 所有退出路径都设置 _shutdown_event（保持状态一致性）
+        - 统一在 finally 块中调用 shutdown() 清理资源
+        - 使用 _stop_started 防止重复关闭
         
         退出流程：
-            - 出口1：用户按 Ctrl+C → except KeyboardInterrupt → finally → shutdown()
+            - 出口1：用户按 Ctrl+C → 设置 _shutdown_event → except KeyboardInterrupt → finally → shutdown()
             - 出口2：SYSTEM_SHUTDOWN 事件 → _shutdown_event.set() → while 循环退出 → finally → shutdown()
+            - 出口3：用户按 'q' 键 → render_once() 返回 True → _shutdown_event.set() → finally → shutdown()
+
+        强退策略：
+            - shutdown() 会返回 bool 表示是否所有模块都停止成功
+            - 当 shutdown() 返回 False 且 force_exit_on_shutdown_failure=True 时，
+              run() 会在宽限期后调用 os._exit(1) 强制退出进程
+
+        Args:
+            force_exit_on_shutdown_failure: 当模块停止失败时是否触发强制退出兜底机制。
+                默认 True（生产环境保持强退兜底）。测试/开发环境可传 False 以便异常传播与断言。
         
         Example:
             >>> manager = SystemManager(system_config=config)
             >>> manager.register_module("collector", collector, priority=10)
+            >>> manager.register_display_module("display", display_manager, priority=50)
             >>> manager.start_all()
             >>> manager.run()  # 阻塞主线程，等待退出信号
+        
+        需求: 2.1, 2.2, 2.3, 2.4
         """
         try:
             self._logger.info("SystemManager 开始运行，等待退出信号...")
             self._logger.info("退出方式: Ctrl+C 或 SYSTEM_SHUTDOWN 事件")
             
+            # 获取注册的显示模块（如果有）
+            display_module = self._display_module
+            
+            if display_module is not None:
+                self._logger.info("检测到显示模块，使用主线程渲染模式")
+            
             # 主循环：等待退出信号
-            # 使用 Event.wait(timeout) 阻塞主线程，CPU 使用率接近 0%
             while not self._shutdown_event.is_set():
-                self._shutdown_event.wait(timeout=0.5)
+                # 如果有显示模块，调用 render_once()（主线程渲染）
+                if display_module is not None:
+                    try:
+                        should_quit = display_module.render_once()
+                        if should_quit:
+                            # 出口3：用户按 'q' 键请求退出
+                            self._logger.info("显示模块请求退出（用户按下 'q' 键）")
+                            self._shutdown_event.set()
+                            break
+                    except Exception as e:
+                        # 捕获渲染异常，记录日志但不中断主循环
+                        self._logger.error(
+                            "渲染过程中发生异常: %s",
+                            e,
+                            exc_info=True
+                        )
+                        # 继续运行，不退出
+                else:
+                    # 无显示模块，使用原有的等待逻辑
+                    # 使用 Event.wait(timeout) 阻塞主线程，CPU 使用率接近 0%
+                    self._shutdown_event.wait(timeout=0.5)
                 # 出口2：SYSTEM_SHUTDOWN 事件设置 _shutdown_event
             
+            # 正常退出：_shutdown_event 已被设置
             self._logger.info("接收到退出信号，准备关闭系统...")
         
         except KeyboardInterrupt:
             # 出口1：Ctrl+C
+            # 关键设计：统一设置 _shutdown_event，保持状态一致性
+            self._shutdown_event.set()
             self._logger.info("捕获到 KeyboardInterrupt (Ctrl+C)，准备关闭系统...")
         
         finally:
-            # 统一退出点：两个出口都汇聚到这里
+            # 统一退出点：三个出口都汇聚到这里
             # 检查 _stop_started 防止重复调用 shutdown()
             if not self._stop_started.is_set():
                 self._logger.info("执行统一关闭流程...")
-                self.shutdown()
+                shutdown_success = self.shutdown()
+
+                if (not shutdown_success) and force_exit_on_shutdown_failure:
+                    import os
+                    import time
+
+                    self._logger.critical(
+                        f"触发兜底机制：等待 {self._force_exit_grace_period} 秒后强制退出进程"
+                    )
+
+                    # 等待宽限期（给日志系统时间刷新缓冲区）
+                    time.sleep(self._force_exit_grace_period)
+
+                    # 刷新日志缓冲区
+                    try:
+                        logging.shutdown()
+                    except Exception as e:
+                        # 忽略日志刷新失败
+                        print(f"日志刷新失败: {e}", flush=True)
+
+                    # 强制退出进程（退出码 1 表示模块停止失败）
+                    self._logger.critical("强制退出进程 (exit code 1)")
+                    os._exit(1)
             else:
                 self._logger.debug("shutdown() 已经执行过，跳过")
     
-    def shutdown(self) -> None:
+    def shutdown(self) -> bool:
         """
         关闭系统
         
         流程：
         1. 检查 _stop_started 防止重复关闭
         2. 按优先级从低到高关闭模块（上游→下游）
-        3. 检查模块停止失败情况，触发兜底机制
+        3. 停止失败时重试一次 stop()，并记录失败模块
         4. 关闭事件总线
         5. 恢复异常钩子
         
-        关闭顺序示例：
-            Collector(10) → Processor(30) → Display(50)
-        
         兜底机制：
-            如果任何模块的 stop() 方法返回 False 或抛出异常，
-            系统会在宽限期后强制退出进程（os._exit(1)），
-            确保系统能够可靠退出。
-        
-        退出码：
-            - 0: 正常退出（所有模块成功停止）
-            - 1: 异常退出（模块停止失败，触发强制退出）
-        
-        注意：
-            - 可以被多个线程安全调用
-            - 模块关闭失败不会阻塞其他模块
-            - 总是尝试关闭事件总线和恢复异常钩子
-            - 强制退出是最后的保障，确保进程一定退出
-        
-        Example:
-            >>> manager.shutdown()  # 手动关闭系统
+            shutdown() 只记录 stop() 失败模块并返回成功/失败布尔值，
+            强制退出进程（os._exit(1)）由 run() 根据参数决定是否触发。
+
+        Returns:
+            bool: True 表示所有模块都成功停止（或已执行过 shutdown 被跳过）；
+            False 表示至少有一个模块停止失败（失败模块会以 CRITICAL 日志记录）。
         """
-        import os
-        import time
-        
+
+        self._logger.info("开始关闭系统...")
+
         # 防重复关闭检查：检查 _stop_started，如果已设置则直接返回
         if self._stop_started.is_set():
             self._logger.debug("shutdown() 已经执行过，跳过")
-            return
-        
+            return True
+
         # 设置 _stop_started 标志
         self._stop_started.set()
-        
-        self._logger.info("开始关闭系统...")
         
         # 按优先级升序排序模块（优先级低的先关闭）
         sorted_modules = sorted(
@@ -431,13 +551,36 @@ class SystemManager:
                 self._logger.info(f"停止模块: {module.name} (priority={module.priority})")
                 
                 # 调用 stop() 方法并检查返回值
-                stop_result = module.instance.stop()
+                try:
+                    stop_result = module.instance.stop(timeout=self._default_stop_timeout)
+                except TypeError:
+                    stop_result = module.instance.stop()
                 
                 # 检查返回值（如果返回 False，表示停止失败）
                 if stop_result is False:
-                    self._logger.error(f"模块停止失败（返回 False）: {module.name}")
-                    module.state = ModuleState.ERROR
-                    failed_modules.append(module.name)
+                    self._logger.error(f"模块停止失败（返回 False）: {module.name}，尝试重试 stop()")
+
+                    try:
+                        try:
+                            retry_result = module.instance.stop(timeout=self._default_stop_timeout)
+                        except TypeError:
+                            retry_result = module.instance.stop()
+                        if retry_result is False:
+                            self._logger.error(
+                                f"模块停止重试失败（返回 False）: {module.name}"
+                            )
+                            module.state = ModuleState.ERROR
+                            failed_modules.append(module.name)
+                        else:
+                            module.state = ModuleState.STOPPED
+                            self._logger.info(f"模块停止重试成功: {module.name}")
+                    except Exception as retry_err:
+                        self._logger.error(
+                            f"模块停止重试失败（抛出异常）: {module.name}, 错误: {retry_err}",
+                            exc_info=True
+                        )
+                        module.state = ModuleState.ERROR
+                        failed_modules.append(module.name)
                 else:
                     # 设置状态为 STOPPED
                     module.state = ModuleState.STOPPED
@@ -449,12 +592,30 @@ class SystemManager:
                     f"停止模块失败（抛出异常）: {module.name}, 错误: {e}",
                     exc_info=True
                 )
-                
-                # 设置状态为 ERROR
-                module.state = ModuleState.ERROR
-                
-                # 添加到失败模块列表
-                failed_modules.append(module.name)
+
+                self._logger.error(f"尝试重试 stop(): {module.name}")
+
+                try:
+                    try:
+                        retry_result = module.instance.stop(timeout=self._default_stop_timeout)
+                    except TypeError:
+                        retry_result = module.instance.stop()
+                    if retry_result is False:
+                        self._logger.error(
+                            f"模块停止重试失败（返回 False）: {module.name}"
+                        )
+                        module.state = ModuleState.ERROR
+                        failed_modules.append(module.name)
+                    else:
+                        module.state = ModuleState.STOPPED
+                        self._logger.info(f"模块停止重试成功: {module.name}")
+                except Exception as retry_err:
+                    self._logger.error(
+                        f"模块停止重试失败（抛出异常）: {module.name}, 错误: {retry_err}",
+                        exc_info=True
+                    )
+                    module.state = ModuleState.ERROR
+                    failed_modules.append(module.name)
         
         # 关闭事件总线
         try:
@@ -475,31 +636,14 @@ class SystemManager:
             # 捕获异常并记录错误（不抛出）
             self._logger.error(f"恢复异常钩子失败: {e}", exc_info=True)
         
-        # 检查是否有失败的模块，触发兜底机制
+        # 检查是否有失败的模块（记录日志，但不在 shutdown() 内强退进程）
         if failed_modules:
-            # 记录 CRITICAL 级别日志（包含失败模块列表）
             self._logger.critical(
                 f"检测到 {len(failed_modules)} 个模块停止失败: {', '.join(failed_modules)}"
             )
-            self._logger.critical(
-                f"触发兜底机制：等待 {self._force_exit_grace_period} 秒后强制退出进程"
-            )
-            
-            # 等待宽限期（给日志系统时间刷新缓冲区）
-            time.sleep(self._force_exit_grace_period)
-            
-            # 刷新日志缓冲区
-            try:
-                logging.shutdown()
-            except Exception as e:
-                # 忽略日志刷新失败
-                print(f"日志刷新失败: {e}", flush=True)
-            
-            # 强制退出进程（退出码 1 表示模块停止失败）
-            self._logger.critical("强制退出进程 (exit code 1)")
-            os._exit(1)
         
         self._logger.info("SystemManager 关闭完成")
+        return len(failed_modules) == 0
     
     # ==================== 状态查询 ====================
     
@@ -540,10 +684,14 @@ class SystemManager:
     
     def __enter__(self) -> "SystemManager":
         """
-        进入 with 块时自动调用 start_all()
+        进入 with 块时返回 self
         
         使 SystemManager 支持上下文管理器协议，可以使用 with 语句。
-        进入 with 块时自动启动所有注册的模块。
+        注意：不再自动调用 start_all()，需要在 with 块中手动调用。
+        
+        这样设计的原因：
+        - 如果在 __enter__() 中调用 start_all() 失败，__exit__() 不会被调用（Python 标准行为）
+        - 手动调用可以确保即使 start_all() 失败，__exit__() 也会执行，从而调用 shutdown() 清理资源
         
         Returns:
             SystemManager: 返回 self，允许在 with 语句中使用 as 子句
@@ -553,11 +701,11 @@ class SystemManager:
             ...     manager.register_module("collector", collector, priority=10)
             ...     manager.register_module("processor", processor, priority=30)
             ...     manager.register_module("display", display, priority=50)
+            ...     manager.start_all()  # 手动调用
             ...     manager.run()
             # 自动调用 shutdown()
         """
-        self._logger.debug("进入 with 块，调用 start_all()")
-        self.start_all()
+        self._logger.debug("进入 with 块")
         return self
     
     def __exit__(self, exc_type, exc_val, exc_tb) -> Literal[False]:

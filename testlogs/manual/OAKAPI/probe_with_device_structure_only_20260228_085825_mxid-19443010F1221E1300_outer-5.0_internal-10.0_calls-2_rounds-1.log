@@ -1,0 +1,92 @@
+{
+  "meta": {
+    "run_ts": "20260228_085825",
+    "mxid": "19443010F1221E1300",
+    "outer_gap_sec": 5.0,
+    "internal_gap_sec": 10.0,
+    "n_calls": 2,
+    "rounds": 1
+  }
+}
+================================================================================
+{
+  "ts": 1772240305.7708287,
+  "name": "getAllAvailableDevices",
+  "ok": true,
+  "duration_sec": 0.539343800000097,
+  "params": {
+    "call_index": 0,
+    "internal_gap_sec": 0.0,
+    "continuous": false,
+    "n_calls": 1,
+    "use_bootloader": false
+  },
+  "result": {
+    "mxids": [
+      "19443010C122201300",
+      "19443010F1221E1300"
+    ],
+    "count": 2
+  },
+  "error": null
+}
+--------------------------------------------------------------------------------
+{
+  "ts": 1772240309.4283257,
+  "name": "with Device structure only",
+  "ok": true,
+  "duration_sec": 3.6465737999997145,
+  "params": {
+    "call_index": 0,
+    "mxid": "19443010F1221E1300",
+    "internal_gap_sec": 10.0,
+    "continuous": true,
+    "n_calls": 2,
+    "usb2_mode": true
+  },
+  "result": {
+    "entered": true
+  },
+  "error": null
+}
+--------------------------------------------------------------------------------
+{
+  "ts": 1772240323.0729241,
+  "name": "with Device structure only",
+  "ok": true,
+  "duration_sec": 3.640604799999892,
+  "params": {
+    "call_index": 1,
+    "mxid": "19443010F1221E1300",
+    "internal_gap_sec": 10.0,
+    "continuous": true,
+    "n_calls": 2,
+    "usb2_mode": true
+  },
+  "result": {
+    "entered": true
+  },
+  "error": null
+}
+--------------------------------------------------------------------------------
+{
+  "ts": 1772240323.610254,
+  "name": "getAllAvailableDevices",
+  "ok": true,
+  "duration_sec": 0.5361585999999079,
+  "params": {
+    "call_index": 0,
+    "internal_gap_sec": 0.0,
+    "continuous": false,
+    "n_calls": 1,
+    "use_bootloader": false
+  },
+  "result": {
+    "mxids": [
+      "19443010C122201300"
+    ],
+    "count": 1
+  },
+  "error": null
+}
+--------------------------------------------------------------------------------

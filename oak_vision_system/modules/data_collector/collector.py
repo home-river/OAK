@@ -13,7 +13,7 @@ OAK数据采集模块，负责启动OAK设备的pipeline并采集数据，发布
 
 """
 from __future__ import annotations
-from typing import Optional, Dict, Union, List
+from typing import Optional, Dict, Union, List, Set
 import threading
 import time
 from oak_vision_system.modules.data_collector.pipelinemanager import PipelineManager
@@ -30,17 +30,30 @@ from oak_vision_system.core.dto import (
     VideoFrameDTO,
 )
 from oak_vision_system.core.dto.config_dto.oak_module_config_dto import OAKModuleConfigDTO
-from oak_vision_system.core.dto.config_dto import DeviceRoleBindingDTO
+from oak_vision_system.core.dto.config_dto import DeviceRoleBindingDTO, DeviceMetadataDTO
 from oak_vision_system.core.event_bus import EventBus, EventType, get_event_bus
 import logging
 import depthai as dai
-
-
+from oak_vision_system.modules.config_manager.device_discovery import OAKDeviceDiscovery
 
 
 class OAKDataCollector:
-    def __init__(self,config:OAKModuleConfigDTO,event_bus: Optional[EventBus]=None) -> None:
-        """初始化采集器，注入 PipelineManager、事件总线与系统配置"""
+    def __init__(
+        self,
+        config: OAKModuleConfigDTO,
+        event_bus: Optional[EventBus] = None,
+        available_devices: Optional[List[DeviceMetadataDTO]] = None
+    ) -> None:
+        """
+        初始化采集器，注入 PipelineManager、事件总线与系统配置
+        
+        Args:
+            config: OAK模块配置
+            event_bus: 事件总线实例（可选，默认使用全局单例）
+            available_devices: 可用设备元数据列表（可选）
+                用于在 start() 时预检设备可用性，避免启动不可用的设备
+                如果为 None，则跳过预检（向后兼容）
+        """
         self.config = config
         self.pipeline_manager = PipelineManager(config.hardware_config)
         self.event_bus = event_bus or get_event_bus()
@@ -48,6 +61,19 @@ class OAKDataCollector:
         self._worker_threads: Dict[str, threading.Thread] = {}
         self._running_lock = threading.Lock()
         self.logger = logging.getLogger(__name__)
+
+        # 存储可用设备列表（用于启动前预检）
+        self._available_devices = available_devices
+        self._available_mxids: Set[str] = set()
+        if available_devices is not None:
+            self._available_mxids = {device.mxid for device in available_devices}
+            self.logger.debug(
+                "初始化时提供了 %d 个可用设备: %s",
+                len(self._available_mxids),
+                list(self._available_mxids)
+            )
+            # 执行设备可用性检查
+            self._validate_device_availability()
 
         # 背压配置
         self._bp_lock = threading.Lock()
@@ -99,22 +125,53 @@ class OAKDataCollector:
         
         return running_dict
     
-    def _init_pipeline(self) -> None:
+    def _validate_device_availability(self) -> None:
         """
-        初始化 DepthAI Pipeline。
-
-        根据配置中的 enable_depth_output 决定使用哪个方法创建pipeline。
-        创建后的 pipeline 将保存在 PipelineManager 中（self.pipeline_manager.pipeline）。
-
+        验证配置中的设备是否在可用设备列表中
+        
+        在初始化时调用，如果所有配置的设备都不可用，则抛出异常。
+        这样可以在创建实例时就发现配置错误，而不是等到 start() 时才失败。
+        
         Raises:
-            RuntimeError: 管线创建失败时抛出异常
+            RuntimeError: 如果所有配置的设备都不可用
         """
-        enable_depth_output = self.config.hardware_config.enable_depth_output
-        if enable_depth_output:
-            self.pipeline_manager.create_pipeline()
-        else:
-            self.pipeline_manager.create_pipeline_with_no_depth_output()
-
+        # 收集所有需要的设备 MXID
+        required_mxids = set()
+        for binding in self.config.role_bindings.values():
+            if binding.active_mxid:
+                required_mxids.add(binding.active_mxid)
+        
+        # 如果没有配置任何设备，跳过检查
+        if not required_mxids:
+            self.logger.warning("配置中没有绑定任何设备")
+            return
+        
+        # 检查是否有任何设备可用
+        unavailable_mxids = required_mxids - self._available_mxids
+        available_mxids = required_mxids & self._available_mxids
+        
+        if unavailable_mxids:
+            self.logger.warning(
+                "检测到不可用的设备: %s",
+                list(unavailable_mxids)
+            )
+        
+        if not available_mxids:
+            # 所有设备都不可用，抛出异常
+            error_msg = (
+                f"所有配置的设备都不可用。"
+                f"需要的设备: {list(required_mxids)}, "
+                f"可用设备: {list(self._available_mxids)}"
+            )
+            self.logger.error(error_msg)
+            raise RuntimeError(error_msg)
+        
+        self.logger.info(
+            "设备可用性检查通过: %d/%d 个设备可用",
+            len(available_mxids),
+            len(required_mxids)
+        )
+    
     def _init_subscribers(self) -> None:
         """
         初始化内部订阅
@@ -342,6 +399,45 @@ class OAKDataCollector:
             )
             return None
 
+    def _create_pipeline_for_device(self, device_binding: DeviceRoleBindingDTO) -> dai.Pipeline:
+        """
+        为指定设备创建 pipeline（根据配置选择创建方式）
+        
+        当前策略：优先使用旧版 pipeline 进行调试，验证线程内创建方案的可行性。
+        等旧版 pipeline 调试通过后，再启用根据配置创建的逻辑。
+        
+        Args:
+            device_binding: 设备角色绑定信息
+            
+        Returns:
+            dai.Pipeline: 创建的 pipeline 对象
+            
+        Raises:
+            RuntimeError: pipeline 创建失败
+        """
+        # ========== 调试阶段：使用旧版 pipeline ==========
+        # 旧版 pipeline 已验证可行，用于测试线程内创建方案
+        # self.logger.info(
+        #     f"[调试模式] 为设备 {device_binding.role.value} 创建旧版风格 pipeline"
+        # )
+        # pipeline = self.pipeline_manager.create_pipeline_legacy()
+        # return pipeline
+        
+        
+        enable_depth_output = self.config.hardware_config.enable_depth_output
+        
+        if enable_depth_output:
+            self.logger.info(
+                f"为设备 {device_binding.role.value} 创建带深度输出的 pipeline"
+            )
+            pipeline = self.pipeline_manager.create_pipeline_new()
+        else:
+            self.logger.info(
+                f"为设备 {device_binding.role.value} 创建不带深度输出的 pipeline"
+            )
+            pipeline = self.pipeline_manager.create_pipeline_new_no_depth()
+        
+        return pipeline
 
 
     def _start_OAK_with_device(self, device_binding: DeviceRoleBindingDTO) -> None:
@@ -354,18 +450,26 @@ class OAKDataCollector:
 
         Raises:
             ValueError: 设备未绑定MXid，无法启动采集
-            RuntimeError: 启动OAK设备失败
+            RuntimeError: 启动OAK设备失败，包括 pipeline 创建失败
         """
-        if self.pipeline_manager.pipeline is None:
-            self._init_pipeline()
-            self.logger.warning("Pipeline 尚未创建，已使用默认创建pipeline")
-
+        # 验证设备绑定
         if device_binding.active_mxid is None:
             self.logger.error("设备%s未绑定MXid，无法启动采集", device_binding.role)
             raise ValueError(f"设备{device_binding.role}未绑定MXid，无法启动采集")
 
+        # 线程内创建 pipeline（局部变量）
+        try:
+            self.logger.info(f"为设备 {device_binding.role.value} 创建 pipeline...")
+            pipeline = self._create_pipeline_for_device(device_binding)
+            self.logger.info(f"设备 {device_binding.role.value} 的 pipeline 创建成功")
+        except Exception as e:
+            self.logger.error(
+                f"为设备 {device_binding.role.value} 创建 pipeline 失败: {e}",
+                exc_info=True
+            )
+            raise RuntimeError(f"创建 pipeline 失败: {e}") from e
+
         # 使用dai.Device启动OAK设备
-        pipeline = self.pipeline_manager.pipeline
         device_info = dai.DeviceInfo(device_binding.active_mxid)
         usb_mode = self.config.hardware_config.usb2_mode
         enable_depth_output = self.config.hardware_config.enable_depth_output
@@ -471,15 +575,84 @@ class OAKDataCollector:
     
 
 
-    def start(self) -> Dict[str, Union[List[str], Dict[str, str]]]:
+    def _wait_for_required_mxids_visible(
+        self,
+        required_mxids: Set[str],
+        timeout_sec: float,
+        poll_interval_sec: float,
+    ) -> bool:
+        """
+        等待所有指定的 MXID 都可见，或超时。
+        
+        注意：该方法是阻塞的，直到所有 MXID 都可见，或超时。
+        
+        Args:
+            required_mxids (Set[str]): 要等待的 MXID 集合
+            timeout_sec (float): 等待超时时间（秒）
+            poll_interval_sec (float): 检查设备状态的间隔时间（秒）
+            
+        Returns:
+            bool: 是否成功等待所有 MXID 可见
+        """
+        if not required_mxids:
+            return True
+
+        t0 = time.perf_counter()
+        while True:
+            elapsed = time.perf_counter() - t0
+            if elapsed >= timeout_sec:
+                return False
+
+            infos = OAKDeviceDiscovery.get_all_available_devices(verbose=False)
+            present_mxids = {info.mxid for info in infos}
+            missing = required_mxids - present_mxids
+            if not missing:
+                return True
+
+            time.sleep(poll_interval_sec)
+
+
+    def start(self) -> Union[Dict[str, Union[List[str], Dict[str, str]]], bool]:
         """
         启动采集流程，按设备角色启动对应的线程。
+        
+        注意：设备可用性检查已在 __init__() 中完成。
+        如果所有设备都不可用，__init__() 会抛出异常。
+        这里只处理部分设备不可用的情况（跳过不可用的设备）。
 
         Returns:
             Dict: 结构化结果，包含以下键：
                 - started: List[str]，成功启动的角色列表（role.value）
-                - skipped: Dict[str, str]，跳过的角色及原因（例如 "no_active_mxid"）
+                - skipped: Dict[str, str]，跳过的角色及原因
+                    - "no_active_mxid": 未绑定 MXid
+                    - "device_not_available": 设备不可用
         """
+        required_mxids: Set[str] = set()
+        for role, binding in self.config.role_bindings.items():
+            if binding.active_mxid:
+                if self._available_devices is not None and binding.active_mxid not in self._available_mxids:
+                    continue
+                required_mxids.add(binding.active_mxid)
+
+        if required_mxids:
+            wait_timeout_sec = 20.0
+            wait_poll_interval_sec = 0.2
+            ok = self._wait_for_required_mxids_visible(
+                required_mxids=required_mxids,
+                timeout_sec=wait_timeout_sec,
+                poll_interval_sec=wait_poll_interval_sec,
+            )
+            if not ok:
+                infos = OAKDeviceDiscovery.get_all_available_devices(verbose=False)
+                present_mxids = {info.mxid for info in infos}
+                missing = required_mxids - present_mxids
+                self.logger.error(
+                    "启动前等待设备可见超时(timeout=%ss): missing=%s",
+                    wait_timeout_sec,
+                    sorted(list(missing)),
+                )
+                return False
+
         # 遍历 binding，启动对应的设备
         self._worker_threads.clear()
         result: Dict[str, Union[List[str], Dict[str, str]]] = {
@@ -494,6 +667,20 @@ class OAKDataCollector:
                 assert isinstance(cast_skipped, dict)
                 cast_skipped[role_key] = "no_active_mxid"
                 continue
+            
+            # 如果提供了可用设备列表，检查设备是否可用
+            if self._available_devices is not None:
+                if binding.active_mxid not in self._available_mxids:
+                    # 设备不可用，跳过
+                    cast_skipped = result["skipped"]  # type: ignore[assignment]
+                    assert isinstance(cast_skipped, dict)
+                    cast_skipped[role_key] = "device_not_available"
+                    self.logger.warning(
+                        "跳过设备 %s (role=%s): 设备不可用",
+                        binding.active_mxid,
+                        role_key
+                    )
+                    continue
 
             t = threading.Thread(
                 target=self._start_OAK_with_device,
@@ -506,6 +693,17 @@ class OAKDataCollector:
             cast_started = result["started"]  # type: ignore[assignment]
             assert isinstance(cast_started, list)
             cast_started.append(role_key)
+            
+            # 可选：在设备线程启动之间添加短暂间隔（额外的保险措施）
+            # 理论上不需要，因为每个线程独立创建 pipeline，但这可以进一步降低并发压力
+            if len(self._worker_threads) < len(self.config.role_bindings):
+                time.sleep(0.1)  # 100ms
+        
+        # 检查是否至少启动了一个设备
+        if not result["started"]:
+            self.logger.error("没有启动任何设备")
+            return False
+        
         return result
 
     def stop(self, timeout: float = 5.0) -> bool:

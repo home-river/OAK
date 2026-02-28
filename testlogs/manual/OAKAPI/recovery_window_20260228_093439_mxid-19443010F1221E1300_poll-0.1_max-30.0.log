@@ -1,0 +1,408 @@
+{
+  "meta": {
+    "run_ts": "20260228_093439",
+    "mxid": "19443010F1221E1300",
+    "usb2_mode": true,
+    "poll_interval_sec": 0.1,
+    "max_wait_sec": 30.0
+  }
+}
+================================================================================
+{
+  "ts": 1772242479.9185061,
+  "name": "getAllAvailableDevices",
+  "ok": true,
+  "duration_sec": 0.5378053000004002,
+  "params": {
+    "call_index": 0,
+    "internal_gap_sec": 0.0,
+    "continuous": false,
+    "n_calls": 1,
+    "use_bootloader": false
+  },
+  "result": {
+    "mxids": [
+      "19443010C122201300",
+      "19443010F1221E1300"
+    ],
+    "count": 2
+  },
+  "error": null
+}
+--------------------------------------------------------------------------------
+{
+  "ts": 1772242480.4701545,
+  "name": "getAllAvailableDevices",
+  "ok": true,
+  "duration_sec": 0.5407311999997546,
+  "params": {
+    "call_index": 0,
+    "internal_gap_sec": 0.0,
+    "continuous": false,
+    "n_calls": 1,
+    "use_bootloader": true
+  },
+  "result": {
+    "mxids": [
+      "19443010C122201300",
+      "19443010F1221E1300"
+    ],
+    "count": 2
+  },
+  "error": null
+}
+--------------------------------------------------------------------------------
+{
+  "ts": 1772242484.1513178,
+  "name": "with Device structure only",
+  "ok": true,
+  "duration_sec": 3.679332799999429,
+  "params": {
+    "call_index": 0,
+    "mxid": "19443010F1221E1300",
+    "internal_gap_sec": 0.0,
+    "continuous": false,
+    "n_calls": 1,
+    "usb2_mode": true
+  },
+  "result": {
+    "entered": true
+  },
+  "error": null
+}
+--------------------------------------------------------------------------------
+{
+  "trigger": {
+    "duration_sec": 3.680991499999436,
+    "ok": true
+  }
+}
+================================================================================
+{
+  "ts": 1772242484.6864977,
+  "name": "getAllAvailableDevices",
+  "ok": true,
+  "duration_sec": 0.5329604999997173,
+  "params": {
+    "call_index": 0,
+    "internal_gap_sec": 0.0,
+    "continuous": false,
+    "n_calls": 1,
+    "use_bootloader": false
+  },
+  "result": {
+    "mxids": [
+      "19443010C122201300"
+    ],
+    "count": 1
+  },
+  "error": null
+}
+--------------------------------------------------------------------------------
+{
+  "ts": 1772242485.2265902,
+  "name": "getAllAvailableDevices",
+  "ok": true,
+  "duration_sec": 0.5385798999996041,
+  "params": {
+    "call_index": 0,
+    "internal_gap_sec": 0.0,
+    "continuous": false,
+    "n_calls": 1,
+    "use_bootloader": true
+  },
+  "result": {
+    "mxids": [
+      "19443010C122201300"
+    ],
+    "count": 1
+  },
+  "error": null
+}
+--------------------------------------------------------------------------------
+{
+  "poll": {
+    "attempt": 1,
+    "elapsed_sec": 2.8000004022032954e-06,
+    "present": {
+      "normal": false,
+      "bootloader": false
+    }
+  }
+}
+================================================================================
+{
+  "ts": 1772242485.8768747,
+  "name": "getAllAvailableDevices",
+  "ok": true,
+  "duration_sec": 0.5419670000001133,
+  "params": {
+    "call_index": 0,
+    "internal_gap_sec": 0.0,
+    "continuous": false,
+    "n_calls": 1,
+    "use_bootloader": false
+  },
+  "result": {
+    "mxids": [
+      "19443010C122201300"
+    ],
+    "count": 1
+  },
+  "error": null
+}
+--------------------------------------------------------------------------------
+{
+  "ts": 1772242486.4148896,
+  "name": "getAllAvailableDevices",
+  "ok": true,
+  "duration_sec": 0.5363646999994671,
+  "params": {
+    "call_index": 0,
+    "internal_gap_sec": 0.0,
+    "continuous": false,
+    "n_calls": 1,
+    "use_bootloader": true
+  },
+  "result": {
+    "mxids": [
+      "19443010C122201300"
+    ],
+    "count": 1
+  },
+  "error": null
+}
+--------------------------------------------------------------------------------
+{
+  "poll": {
+    "attempt": 2,
+    "elapsed_sec": 1.1815268000000287,
+    "present": {
+      "normal": false,
+      "bootloader": false
+    }
+  }
+}
+================================================================================
+{
+  "ts": 1772242487.0598764,
+  "name": "getAllAvailableDevices",
+  "ok": true,
+  "duration_sec": 0.5371710999997958,
+  "params": {
+    "call_index": 0,
+    "internal_gap_sec": 0.0,
+    "continuous": false,
+    "n_calls": 1,
+    "use_bootloader": false
+  },
+  "result": {
+    "mxids": [
+      "19443010C122201300"
+    ],
+    "count": 1
+  },
+  "error": null
+}
+--------------------------------------------------------------------------------
+{
+  "ts": 1772242487.5971968,
+  "name": "getAllAvailableDevices",
+  "ok": true,
+  "duration_sec": 0.5353703000000678,
+  "params": {
+    "call_index": 0,
+    "internal_gap_sec": 0.0,
+    "continuous": false,
+    "n_calls": 1,
+    "use_bootloader": true
+  },
+  "result": {
+    "mxids": [
+      "19443010C122201300"
+    ],
+    "count": 1
+  },
+  "error": null
+}
+--------------------------------------------------------------------------------
+{
+  "poll": {
+    "attempt": 3,
+    "elapsed_sec": 2.369255200000225,
+    "present": {
+      "normal": false,
+      "bootloader": false
+    }
+  }
+}
+================================================================================
+{
+  "ts": 1772242488.2436993,
+  "name": "getAllAvailableDevices",
+  "ok": true,
+  "duration_sec": 0.5400449999997363,
+  "params": {
+    "call_index": 0,
+    "internal_gap_sec": 0.0,
+    "continuous": false,
+    "n_calls": 1,
+    "use_bootloader": false
+  },
+  "result": {
+    "mxids": [
+      "19443010C122201300"
+    ],
+    "count": 1
+  },
+  "error": null
+}
+--------------------------------------------------------------------------------
+{
+  "ts": 1772242488.7821987,
+  "name": "getAllAvailableDevices",
+  "ok": true,
+  "duration_sec": 0.5368827000002057,
+  "params": {
+    "call_index": 0,
+    "internal_gap_sec": 0.0,
+    "continuous": false,
+    "n_calls": 1,
+    "use_bootloader": true
+  },
+  "result": {
+    "mxids": [
+      "19443010C122201300"
+    ],
+    "count": 1
+  },
+  "error": null
+}
+--------------------------------------------------------------------------------
+{
+  "poll": {
+    "attempt": 4,
+    "elapsed_sec": 3.5502403000000413,
+    "present": {
+      "normal": false,
+      "bootloader": false
+    }
+  }
+}
+================================================================================
+{
+  "ts": 1772242489.4313803,
+  "name": "getAllAvailableDevices",
+  "ok": true,
+  "duration_sec": 0.5407875999999305,
+  "params": {
+    "call_index": 0,
+    "internal_gap_sec": 0.0,
+    "continuous": false,
+    "n_calls": 1,
+    "use_bootloader": false
+  },
+  "result": {
+    "mxids": [
+      "19443010C122201300"
+    ],
+    "count": 1
+  },
+  "error": null
+}
+--------------------------------------------------------------------------------
+{
+  "ts": 1772242489.970336,
+  "name": "getAllAvailableDevices",
+  "ok": true,
+  "duration_sec": 0.5370951000004425,
+  "params": {
+    "call_index": 0,
+    "internal_gap_sec": 0.0,
+    "continuous": false,
+    "n_calls": 1,
+    "use_bootloader": true
+  },
+  "result": {
+    "mxids": [
+      "19443010C122201300"
+    ],
+    "count": 1
+  },
+  "error": null
+}
+--------------------------------------------------------------------------------
+{
+  "poll": {
+    "attempt": 5,
+    "elapsed_sec": 4.737241799999538,
+    "present": {
+      "normal": false,
+      "bootloader": false
+    }
+  }
+}
+================================================================================
+{
+  "ts": 1772242490.5987363,
+  "name": "getAllAvailableDevices",
+  "ok": true,
+  "duration_sec": 0.5215899000004356,
+  "params": {
+    "call_index": 0,
+    "internal_gap_sec": 0.0,
+    "continuous": false,
+    "n_calls": 1,
+    "use_bootloader": false
+  },
+  "result": {
+    "mxids": [
+      "19443010C122201300",
+      "19443010F1221E1300"
+    ],
+    "count": 2
+  },
+  "error": null
+}
+--------------------------------------------------------------------------------
+{
+  "ts": 1772242491.135182,
+  "name": "getAllAvailableDevices",
+  "ok": true,
+  "duration_sec": 0.5347725999999966,
+  "params": {
+    "call_index": 0,
+    "internal_gap_sec": 0.0,
+    "continuous": false,
+    "n_calls": 1,
+    "use_bootloader": true
+  },
+  "result": {
+    "mxids": [
+      "19443010C122201300",
+      "19443010F1221E1300"
+    ],
+    "count": 2
+  },
+  "error": null
+}
+--------------------------------------------------------------------------------
+{
+  "poll": {
+    "attempt": 6,
+    "elapsed_sec": 5.9237364999999045,
+    "present": {
+      "normal": true,
+      "bootloader": true
+    }
+  }
+}
+================================================================================
+{
+  "summary": {
+    "recovered": true,
+    "recovered_in": "normal",
+    "recovered_elapsed_sec": 5.9237364999999045,
+    "max_wait_sec": 30.0
+  }
+}

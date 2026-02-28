@@ -18,7 +18,14 @@ from oak_vision_system.modules.display_modules.render_packet_packager import (
     RenderPacket,
     RenderPacketPackager,
 )
-
+from oak_vision_system.modules.display_modules.render_config import (
+    STATUS_COLOR_MAP,
+    DEFAULT_DETECTION_COLOR,
+    BBOX_THICKNESS,
+    LABEL_FONT,
+    LABEL_FONT_SCALE,
+    LABEL_THICKNESS,
+)
 
 class DisplayRenderer:
     """显示渲染器
@@ -29,24 +36,9 @@ class DisplayRenderer:
     - 实时FPS显示和统计
     - 检测框、标签、坐标的可视化
     - 全屏模式和窗口位置控制
+    
+    注意：颜色映射配置已移至 render_config.py 模块，实现集中配置管理
     """
-    
-    # 状态标签到颜色的映射字典（BGR格式）
-    # 当启用 bbox_color_by_label 时，根据状态标签选择对应颜色
-    STATE_LABEL_COLOR_MAP = {
-        # 抓取物状态 (0-99)
-        DetectionStatusLabel.OBJECT_GRASPABLE: (0, 255, 0),      # 绿色 - 可抓取
-        DetectionStatusLabel.OBJECT_DANGEROUS: (0, 0, 255),      # 红色 - 危险
-        DetectionStatusLabel.OBJECT_OUT_OF_RANGE: (128, 128, 128),  # 灰色 - 超出范围
-        DetectionStatusLabel.OBJECT_PENDING_GRASP: (0, 255, 255),   # 黄色 - 待抓取
-        
-        # 人类状态 (100-199)
-        DetectionStatusLabel.HUMAN_SAFE: (0, 255, 0),            # 绿色 - 安全
-        DetectionStatusLabel.HUMAN_DANGEROUS: (0, 0, 255),       # 红色 - 危险
-    }
-    
-    # 默认颜色（当状态标签未定义或未启用按标签着色时使用）
-    DEFAULT_BBOX_COLOR = (0, 255, 0)  # 绿色
     
     def __init__(
         self,
@@ -58,7 +50,7 @@ class DisplayRenderer:
         enable_depth_output: bool = False,
         event_bus = None,
     ) -> None:
-        """初始化显示渲染器（子任务 5.1 + 6.1）
+        """初始化显示渲染器
         
         Args:
             config: 显示配置
@@ -66,40 +58,39 @@ class DisplayRenderer:
             devices_list: 设备ID列表
             role_bindings: 设备角色绑定（role -> mxid 映射），可选参数
                           由外部通过配置管理器获取并传入
-                          用于设备在线状态检测和自动切换逻辑
-            enable_depth_output: 是否启用深度数据处理（子任务 6.1）
-                                从硬件配置传入，控制是否处理深度帧
-            event_bus: 事件总线实例，用于发布 SYSTEM_SHUTDOWN 事件
+            enable_depth_output: 是否启用深度数据处理
+            event_bus: 事件总线实例（未使用，保留用于向后兼容）
         """
         self._config = config
         self._packager = packager
         self._devices_list = devices_list
-        self._role_bindings = role_bindings or {}  # 存储角色绑定（子任务 5.1）
-        self._enable_depth_output = enable_depth_output  # 存储深度输出配置（子任务 6.1）
-        self._event_bus = event_bus  # 存储事件总线实例
+        self._role_bindings = role_bindings or {}  # 存储角色绑定
+        self._enable_depth_output = enable_depth_output  # 存储深度输出配置
+        self._event_bus = event_bus  # 保留用于向后兼容
         
         # 单窗口管理
         self._main_window_name = "OAK Display"
         self._window_created = False
         self._is_fullscreen = False
         
-        # 显示模式状态管理（子任务 3.2）
-        # 显示模式：单设备索引（0, 1, 2...）或 "combined"
+        # 双状态驱动架构（任务 3.4）
+        # 状态 1：显示模式 - "combined" | "single"
         self._display_mode = "combined"  # 默认为 Combined 模式
-        self._selected_device_index = 0  # 当前选中的设备索引
+        # 状态 2：选中的设备角色（单设备模式下使用）
+        self._selected_device_role = DeviceRole.LEFT_CAMERA  # 默认选择左相机
         
-        # 线程控制
-        self._stop_event = threading.Event()
-        self._thread: Optional[threading.Thread] = None
-        self._running_lock = threading.RLock()
-        self._is_running = False
+        # 窗口层尺寸配置（任务 3.4）
+        self._window_width = 1280
+        self._window_height = 720  # 16:9
+        self._fullscreen_width = 1920
+        self._fullscreen_height = 1080  # 16:9
         
         # 统计信息（需求 13.2）
         self._stats = {
             "frames_rendered": 0,
             "start_time": 0.0,
             "fps": 0.0,
-            "fps_history": [],  # FPS 历史记录（需求 13.2）
+            "fps_history": [],  # FPS 历史记录
         }
         self._stats_lock = threading.Lock()
         
@@ -109,7 +100,7 @@ class DisplayRenderer:
         self._last_fps_update_time = 0.0
         self._fps_history_max_length = 60  # 保留最近60秒的FPS历史
         
-        # 帧率限制（需求 12.1, 12.2）
+        # 帧率限制
         self._target_frame_interval = 1.0 / config.target_fps if config.target_fps > 0 else 0.0
         self._last_frame_time = 0.0
         
@@ -121,70 +112,39 @@ class DisplayRenderer:
             "启用" if self._enable_depth_output else "禁用"
         )
     
-    def start(self) -> bool:
-        """启动渲染器线程
+    def initialize(self) -> None:
+        """初始化渲染器（任务 3.2）
         
-        Returns:
-            bool: 启动成功返回True，已在运行返回False
+        功能：
+        - 初始化统计信息
+        - 准备窗口创建（但不立即创建）
+        - 设置初始状态
         """
-        with self._running_lock:
-            if self._is_running:
-                return False
-            
-            self._stop_event.clear()
-            self._is_running = True
-            
-            with self._stats_lock:
-                self._stats["start_time"] = time.time()
-            
-            self._thread = threading.Thread(
-                target=self._run_main_loop,
-                name="DisplayRenderer",
-                daemon=False
-            )
-            self._thread.start()
-            
-            self.logger.info("DisplayRenderer 已启动")
-            return True
+        with self._stats_lock:
+            self._stats["start_time"] = time.time()
+        
+        self._window_created = False
+        self.logger.info("DisplayRenderer 已初始化")
     
-    def stop(self, timeout: float = 5.0) -> bool:
-        """停止渲染器线程
+    def cleanup(self) -> None:
+        """清理渲染器资源（任务 3.3）
         
-        Args:
-            timeout: 等待线程结束的超时时间（秒）
-            
-        Returns:
-            bool: 停止成功返回True，超时返回False
+        功能：
+        - 关闭所有 OpenCV 窗口
+        - 输出统计信息
+        - 清理状态
         """
-        with self._running_lock:
-            if not self._is_running:
-                return True
+        cv2.destroyAllWindows()
+        
+        with self._stats_lock:
+            runtime = time.time() - self._stats["start_time"]
+            frames = self._stats["frames_rendered"]
+            avg_fps = frames / runtime if runtime > 0 else 0
             
-            self._stop_event.set()
-            
-            if self._thread is not None:
-                self._thread.join(timeout=timeout)
-                
-                if self._thread.is_alive():
-                    self.logger.warning("DisplayRenderer 停止超时")
-                    self._is_running = False
-                    return False
-            
-            self._is_running = False
-            self._thread = None
-            
-            # 输出运行统计
-            with self._stats_lock:
-                runtime = time.time() - self._stats["start_time"]
-                frames = self._stats["frames_rendered"]
-                avg_fps = frames / runtime if runtime > 0 else 0
-                
-                self.logger.info(
-                    "DisplayRenderer 已停止 - 帧数: %d, 时长: %.1fs, 平均FPS: %.1f",
-                    frames, runtime, avg_fps
-                )
-            
-            return True
+            self.logger.info(
+                "DisplayRenderer 已清理 - 帧数: %d, 时长: %.1fs, 平均FPS: %.1f",
+                frames, runtime, avg_fps
+            )
     
     def get_stats(self) -> dict:
         """获取渲染统计信息（需求 13.1, 13.2）
@@ -198,7 +158,6 @@ class DisplayRenderer:
                 - min_fps: 最小FPS（基于历史记录）
                 - max_fps: 最大FPS（基于历史记录）
                 - runtime_sec: 运行时长（秒）
-                - is_running: 是否正在运行
         """
         with self._stats_lock:
             runtime = time.time() - self._stats["start_time"] if self._stats["start_time"] > 0 else 0.0
@@ -217,134 +176,124 @@ class DisplayRenderer:
                 "min_fps": min_fps,
                 "max_fps": max_fps,
                 "runtime_sec": runtime,
-                "is_running": self._is_running,
             }
     
-    @property
-    def is_running(self) -> bool:
-        """检查渲染器是否正在运行"""
-        with self._running_lock:
-            return self._is_running
-    
-    def _run_main_loop(self) -> None:
-        """主渲染循环
+    def render_once(self) -> bool:
+        """执行一次渲染循环（任务 3.5 - 主线程调用）
         
-        持续获取渲染数据包并显示，处理键盘输入：
-        - 'q': 退出
-        - 'f': 切换全屏
-        - '1', '2', '3'...: 切换到对应设备
-        - '3' (或最后一个数字键): 切换到 Combined 模式
+        Returns:
+            bool: True 表示用户按下 'q' 键请求退出，False 表示继续运行
         
-        实现帧率限制（需求 12.1, 12.2）：
-        - 根据 target_fps 计算帧间隔
-        - 测量实际渲染时间
-        - 动态调整休眠时间以达到目标帧率
+        实现流程（状态驱动 + 惰性渲染 + Stretch Resize）：
+        1. 根据状态 1（显示模式）选择取包策略：
+           - 单设备模式：调用 get_packet_by_mxid(device_mxid, timeout)
+           - 拼接模式：调用 get_packets(timeout)
+        2. 根据状态 2（视图属性）确定目标分辨率
+        3. 渲染当前模式的帧（按需分支，内部使用 Stretch Resize）
+        4. 创建窗口（如果尚未创建）
+        5. 显示帧（已经是目标尺寸，无需再次 resize）
+        6. 处理键盘输入
+        7. 更新统计信息
+        8. 返回退出信号
         """
-        try:
-            while not self._stop_event.is_set():
-                # 记录帧开始时间
-                frame_start_time = time.time()
-                
-                packets = self._packager.get_packets(timeout=0.1)
-                
-                if not packets:
-                    continue
-                
-                # 单窗口渲染
-                frame = self._render_current_mode(packets)
-                
-                if frame is not None:
-                    # 创建窗口（如果尚未创建）
-                    if not self._window_created:
-                        self._create_main_window()
-                    
-                    cv2.imshow(self._main_window_name, frame)
-                    
-                    with self._stats_lock:
-                        self._stats["frames_rendered"] += 1
-                    
-                    self._update_fps()
-                
-                # 处理键盘输入
+        # 1. 根据显示模式选择取包策略（惰性渲染）
+        if self._display_mode == "combined":
+            # 拼接模式：获取所有设备的渲染包
+            packets = self._packager.get_packets(timeout=0.01)
+            
+            if not packets:
+                # 无数据时仍需处理按键
                 key = cv2.waitKey(1) & 0xFF
                 if key == ord('q'):
-                    # 发布 SYSTEM_SHUTDOWN 事件，通知 SystemManager 关闭系统
-                    if self._event_bus is not None:
-                        from oak_vision_system.core.system_manager import ShutdownEvent
-                        self._event_bus.publish(
-                            "SYSTEM_SHUTDOWN",
-                            ShutdownEvent(reason="user_quit")
-                        )
-                        self.logger.info("用户按下 'q' 键，已发布 SYSTEM_SHUTDOWN 事件")
-                    else:
-                        # 如果没有 event_bus（向后兼容），使用旧的行为
-                        self.logger.info("用户按下 'q' 键，停止渲染器")
-                        self._stop_event.set()
-                        break
-                    # 继续运行，等待 SystemManager 调用 stop()
-                elif key == ord('f'):
-                    self._toggle_fullscreen()
-                elif key == ord('1'):
-                    self._switch_to_device(0)
-                elif key == ord('2'):
-                    self._switch_to_device(1)
-                elif key == ord('3'):
-                    self._switch_to_combined()
+                    return True
+                return False
+            
+            # 渲染拼接帧（内部已完成 Stretch Resize 到目标尺寸）
+            frame = self._render_combined_devices(packets)
+        else:
+            # 单设备模式：仅获取当前设备的渲染包（惰性渲染）
+            # 根据当前选中的角色（LEFT_CAMERA 或 RIGHT_CAMERA）获取 mxid
+            if self._selected_device_role in self._role_bindings:
+                device_mxid = self._role_bindings[self._selected_device_role]
+                packet = self._packager.get_packet_by_mxid(device_mxid, timeout=0.01)
                 
-                # 帧率限制：计算需要休眠的时间（需求 12.1, 12.2）
-                if self._target_frame_interval > 0:
-                    frame_elapsed = time.time() - frame_start_time
-                    sleep_time = self._target_frame_interval - frame_elapsed
-                    
-                    if sleep_time > 0:
-                        time.sleep(sleep_time)
+                if packet is None:
+                    # 无数据时仍需处理按键
+                    key = cv2.waitKey(1) & 0xFF
+                    if key == ord('q'):
+                        return True
+                    return False
                 
-                self._last_frame_time = time.time()
-        finally:
-            cv2.destroyAllWindows()
-            # 同步状态：线程退出时将 _is_running 置为 False
-            # 这样 display_manager.is_running 能立即反映渲染线程的退出状态
-            with self._running_lock:
-                self._is_running = False
+                # 渲染单设备帧（内部已完成 Stretch Resize 到目标尺寸）
+                frame = self._render_single_device(packet)
+            else:
+                return False
+        
+        if frame is not None:
+            # 2. 创建窗口（如果尚未创建）
+            if not self._window_created:
+                self._create_main_window()
+            
+            # 3. 显示帧（已经是目标尺寸，无需再次 resize）
+            cv2.imshow(self._main_window_name, frame)
+            
+            # 更新统计
+            with self._stats_lock:
+                self._stats["frames_rendered"] += 1
+            
+            self._update_fps()
+        
+        # 4. 处理键盘输入（任务 3.10）
+        key = cv2.waitKey(1) & 0xFF
+        if key == ord('q'):
+            self.logger.info("用户按下 'q' 键")
+            return True
+        elif key == ord('f'):
+            self._toggle_fullscreen()
+        elif key == ord('1'):
+            self._switch_to_device(DeviceRole.LEFT_CAMERA)  # 切换到左相机
+        elif key == ord('2'):
+            self._switch_to_device(DeviceRole.RIGHT_CAMERA)  # 切换到右相机
+        elif key == ord('3'):
+            self._switch_to_combined()  # 切换到拼接模式
+        
+        # 5. 帧率限制
+        if self._target_frame_interval > 0:
+            current_time = time.time()
+            elapsed = current_time - self._last_frame_time
+            sleep_time = self._target_frame_interval - elapsed
+            
+            if sleep_time > 0:
+                time.sleep(sleep_time)
+            
+            self._last_frame_time = time.time()
+        
+        return False
     
     def _create_main_window(self) -> None:
-        """创建单个主窗口（子任务 3.1 + 5.4 + 7.3）
+        """创建主窗口
         
-        根据配置设置窗口大小、位置和全屏状态。
-        
-        子任务 5.4：固定窗口大小（双设备场景）
-        - 单设备模式：使用配置的窗口大小（默认640x480）
-        - Combined模式：固定为双倍宽度（1280x480）
-        
-        子任务 7.3：设置初始窗口标题
+        策略：
+        1. 创建 WINDOW_NORMAL 类型窗口（可调整大小）
+        2. 不使用 cv2.resizeWindow()（渲染方法内部已完成 resize）
+        3. 根据全屏配置设置窗口属性
+        4. 渲染方法返回的帧已经是目标尺寸，可直接 imshow
         """
         cv2.namedWindow(self._main_window_name, cv2.WINDOW_NORMAL)
         
-        # 子任务 5.4：根据显示模式设置窗口大小
-        if self._display_mode == "combined":
-            # Combined 模式：双倍宽度（1280x480）
-            window_width = self._config.window_width * 2 if self._config.window_width else 1280
-            window_height = self._config.window_height if self._config.window_height else 480
-        else:
-            # 单设备模式：使用配置的窗口大小（默认640x480）
-            window_width = self._config.window_width if self._config.window_width else 640
-            window_height = self._config.window_height if self._config.window_height else 480
-        
-        cv2.resizeWindow(self._main_window_name, window_width, window_height)
-        
-        # 子任务 7.2：设置窗口位置
+        # 设置窗口位置（如果配置了）
         if self._config.window_position_x or self._config.window_position_y:
             cv2.moveWindow(
-                self._main_window_name, 
-                self._config.window_position_x, 
+                self._main_window_name,
+                self._config.window_position_x,
                 self._config.window_position_y
             )
         
         # 设置全屏模式
         if self._config.enable_fullscreen:
             cv2.setWindowProperty(
-                self._main_window_name, 
-                cv2.WND_PROP_FULLSCREEN, 
+                self._main_window_name,
+                cv2.WND_PROP_FULLSCREEN,
                 cv2.WINDOW_FULLSCREEN
             )
             self._is_fullscreen = True
@@ -352,88 +301,124 @@ class DisplayRenderer:
             self._is_fullscreen = False
         
         self._window_created = True
-        
-        # 子任务 7.3：设置初始窗口标题
-        self._update_window_title()
-        
-        self.logger.info(f"主窗口已创建: {self._main_window_name} ({window_width}x{window_height})")
-    
-    def _get_active_devices(self) -> List[str]:
-        """获取当前有数据的设备列表（子任务 5.2）
-        
-        基于 role_bindings 和 packager 缓存检测设备在线状态。
-        检查两个设备是否有最近的数据（未过期）。
-        
-        Returns:
-            在线设备ID列表（最多2个）
-        """
-        active = []
-        now = time.time()
-        
-        # 只检查前两个设备（固定双设备场景）
-        for device_id in self._devices_list[:2]:
-            # 检查该设备是否有最近的数据
-            if device_id in self._packager._latest_packets:
-                packet = self._packager._latest_packets[device_id]
-                if packet is not None:
-                    # 检查数据是否过期
-                    cached_at = self._packager._packet_timestamps.get(device_id, 0.0)
-                    age = now - cached_at
-                    if age <= self._packager.cache_max_age_sec:
-                        active.append(device_id)
-        
-        return active
-    
-    def _render_current_mode(self, packets: Dict[str, RenderPacket]) -> Optional[np.ndarray]:
-        """根据当前显示模式渲染帧（子任务 5.3 + 7.3 - 添加自动切换逻辑）
-        
-        Args:
-            packets: 所有设备的渲染包字典
-            
-        Returns:
-            渲染后的帧，如果无法渲染则返回 None
-        """
-        if not packets:
-            return None
-        
-        # 子任务 5.3：实现单设备自动切换逻辑
-        # 获取在线设备列表
-        active_devices = self._get_active_devices()
-        
-        # 记录之前的显示模式，用于检测是否发生了自动切换
-        previous_mode = self._display_mode
-        
-        # 如果只有一个设备在线，自动切换到单设备模式
-        if len(active_devices) == 1:
-            if self._display_mode != "single":
-                self.logger.info(f"检测到只有一个设备在线，自动切换到单设备模式")
-                self._display_mode = "single"
-            # 找到在线设备的索引
-            device_id = active_devices[0]
-            if device_id in self._devices_list:
-                self._selected_device_index = self._devices_list.index(device_id)
-        # 如果两个设备都在线，且当前是单设备模式，可以考虑切换回 Combined
-        # 但这里我们保持用户的选择，不自动切换回去
-        
-        # 子任务 7.3：如果显示模式发生了自动切换，更新窗口标题
-        if previous_mode != self._display_mode and self._window_created:
-            self._update_window_title()
-        
-        if self._display_mode == "combined":
-            return self._render_combined_devices(packets)
-        else:
-            # 单设备模式
-            if self._selected_device_index < len(self._devices_list):
-                device_id = self._devices_list[self._selected_device_index]
-                if device_id in packets:
-                    return self._render_single_device(packets[device_id])
-            return None
+        self.logger.info(f"主窗口已创建: {self._main_window_name}")
     
     # ==================== 绘制方法 ====================
     
+    def _draw_detection_boxes_normalized(
+        self,
+        canvas: np.ndarray,
+        detections,
+        roiW: int,
+        roiH: int,
+        offsetX: int
+    ) -> None:
+        """在画布上绘制归一化坐标的检测框（任务 3.8）
+        
+        Args:
+            canvas: 已 resize 到目标尺寸的画布
+            detections: 包含归一化坐标的检测结果
+            roiW: 当前 ROI 宽度
+            roiH: 当前 ROI 高度（通常等于 target_height）
+            offsetX: 水平偏移量（合并模式用，单图模式为0）
+        
+        实现：
+        1. 遍历检测结果
+        2. 根据 status_label 从 render_config 获取颜色
+        3. 将归一化坐标映射到画布像素坐标
+        4. 使用状态对应的颜色绘制矩形框和标签
+        """
+        
+        
+        # 检查是否有检测框
+        if detections.coords.shape[0] == 0:
+            return
+        
+        bboxes = detections.bbox
+        state_labels = detections.state_label
+        labels = detections.labels
+        confidences = detections.confidence
+        
+        if bboxes is None or len(bboxes) == 0:
+            return
+        
+        for i, bbox in enumerate(bboxes):
+            # 1. 获取状态标签对应的颜色
+            if self._config.bbox_color_by_label and state_labels and i < len(state_labels):
+                status_label = state_labels[i]
+                color = STATUS_COLOR_MAP.get(status_label, DEFAULT_DETECTION_COLOR)
+            else:
+                color = DEFAULT_DETECTION_COLOR
+            
+            # 2. 归一化坐标映射到画布像素坐标
+            xmin, ymin, xmax, ymax = bbox
+            x1 = int(xmin * roiW) + offsetX
+            y1 = int(ymin * roiH)
+            x2 = int(xmax * roiW) + offsetX
+            y2 = int(ymax * roiH)
+            
+            # 3. 使用状态对应的颜色绘制矩形框
+            cv2.rectangle(canvas, (x1, y1), (x2, y2), color, BBOX_THICKNESS)
+            
+            # 4. 绘制标签（如果启用）
+            if self._config.show_labels:
+                label_id = int(labels[i])
+                label_text = f"Label_{label_id}"
+                
+                # 添加置信度
+                if self._config.show_confidence:
+                    confidence = confidences[i]
+                    confidence_percent = round(confidence * 100)
+                    label_text = f"{label_text} {confidence_percent}%"
+                
+                # 计算标签背景位置
+                (label_w, label_h), baseline = cv2.getTextSize(
+                    label_text, LABEL_FONT, LABEL_FONT_SCALE, LABEL_THICKNESS
+                )
+                
+                # 绘制标签背景（填充矩形）
+                cv2.rectangle(
+                    canvas,
+                    (x1, y1 - label_h - baseline - 5),
+                    (x1 + label_w, y1),
+                    color,
+                    -1  # 填充
+                )
+                
+                # 绘制标签文字（白色，确保可读性）
+                cv2.putText(
+                    canvas,
+                    label_text,
+                    (x1, y1 - baseline - 5),
+                    LABEL_FONT,
+                    LABEL_FONT_SCALE,
+                    (255, 255, 255),  # 白色文字
+                    LABEL_THICKNESS
+                )
+            
+            # 5. 绘制3D坐标（如果启用）
+            if self._config.show_coordinates:
+                coords = detections.coords
+                x, y, z = coords[i]
+                coord_text = f"({int(x)}, {int(y)}, {int(z)}) mm"
+                
+                # 计算文本位置
+                text_x = x1
+                text_y = y2 + 20
+                if text_y > canvas.shape[0] - 10:
+                    text_y = y2 - 10
+                
+                self._draw_text_with_background(
+                    canvas, coord_text, (text_x, text_y), 
+                    font_scale=self._config.text_scale,
+                    text_color=(255, 255, 255), bg_color=(0, 0, 0), thickness=1
+                )
+    
     def _draw_detection_boxes(self, frame: np.ndarray, processed_data) -> None:
-        """在帧上绘制检测框"""
-
+        """在帧上绘制检测框（旧方法，保留用于向后兼容）
+        
+        注意：此方法使用 render_config 中的颜色映射配置
+        """
         # 检查是否有检测框
         if processed_data.coords.shape[0] == 0:
             return
@@ -446,26 +431,24 @@ class DisplayRenderer:
         if bboxes is None or len(bboxes) == 0:
             return
         
-        # 设置检测框的厚度
-        thickness = 2
-        
         for i, bbox in enumerate(bboxes):
             xmin, ymin, xmax, ymax = bbox
             
             # 根据配置和状态标签选择颜色
             if self._config.bbox_color_by_label and state_labels and i < len(state_labels):
-                # 从映射字典中获取状态标签对应的颜色
+                # 从 render_config 映射字典中获取状态标签对应的颜色
                 state_label = state_labels[i]
-                color = self.STATE_LABEL_COLOR_MAP.get(state_label, self.DEFAULT_BBOX_COLOR)
+                color = STATUS_COLOR_MAP.get(state_label, DEFAULT_DETECTION_COLOR)
             else:
-                color = self.DEFAULT_BBOX_COLOR
+                color = DEFAULT_DETECTION_COLOR
+            
             # 绘制检测框
             cv2.rectangle(
                 frame, 
                 (int(xmin), int(ymin)), 
                 (int(xmax), int(ymax)), 
                 color, 
-                thickness
+                BBOX_THICKNESS
             )
     
     def _draw_text_with_background(
@@ -776,218 +759,193 @@ class DisplayRenderer:
     # ==================== 显示模式 ====================
     
     def _render_single_device(self, packet: RenderPacket) -> Optional[np.ndarray]:
-        """渲染单个设备的RGB帧（子任务 3.3）
+        """渲染单设备模式（任务 3.6 - 返回已 resize 到目标尺寸的帧）
         
-        Args:
-            packet: 单个设备的渲染包
-            
+        Stretch Resize 策略：
+        - 直接 stretch resize 到目标尺寸（窗口模式 1280x720 / 全屏 1920x1080）
+        - 在最终画布上绘制 UI（使用归一化坐标映射）
+        
         Returns:
-            渲染后的帧
+            已经 resize 到目标尺寸（窗口或全屏）的画布，可直接用于 cv2.imshow()
         """
-        # 使用视图而非复制（需求 12.5）
         frame = packet.video_frame.rgb_frame
         
-        # 检查帧是否可写，如果不可写则复制
-        if not frame.flags.writeable:
-            frame = frame.copy()
+        # 确定目标尺寸（根据状态 2：视图属性）
+        if self._is_fullscreen:
+            target_width = self._fullscreen_width
+            target_height = self._fullscreen_height
+        else:
+            target_width = self._window_width
+            target_height = self._window_height
         
-        # 绘制检测信息
-        self._draw_detection_boxes(frame, packet.processed_detections)
-        self._draw_labels(frame, packet.processed_detections)
-        self._draw_coordinates(frame, packet.processed_detections)
+        # Stretch resize 到目标尺寸（直接拉伸，不保持宽高比）
+        frame_resized = cv2.resize(frame, (target_width, target_height))
         
-        # 绘制设备信息叠加
-        device_id = packet.processed_detections.device_id
-        device_alias = packet.processed_detections.device_alias
+        # 检查可写性
+        if not frame_resized.flags.writeable:
+            frame_resized = frame_resized.copy()
         
-        # 在左上角显示设备名称（大字体）
-        device_name = device_alias or device_id
-        self._draw_text_with_background(
-            frame, device_name, (10, 50), font_scale=1.0,
-            text_color=(0, 255, 255), bg_color=(0, 0, 0), thickness=2
+        # 绘制检测信息（使用归一化坐标映射）
+        self._draw_detection_boxes_normalized(
+            frame_resized, packet.processed_detections,
+            target_width, target_height, offsetX=0
         )
         
-        # 绘制FPS
-        self._draw_fps(frame)
+        # 绘制叠加信息
+        device_name = packet.processed_detections.device_alias or packet.processed_detections.device_id
+        self._draw_text_with_background(
+            frame_resized, device_name, (10, 50), 
+            font_scale=1.0, text_color=(0, 255, 255)
+        )
         
-        # 在右上角显示设备详细信息
+        self._draw_fps(frame_resized)
+        
         if self._config.show_device_info:
-            self._draw_device_info(frame, device_id, packet.processed_detections)
+            self._draw_device_info(frame_resized, packet.processed_detections.device_id, packet.processed_detections)
         
-        # 绘制按键提示信息（子任务 4.4）
-        self._draw_key_hints(frame)
+        self._draw_key_hints(frame_resized)
         
-        return frame
+        return frame_resized
     
     def _render_combined_devices(self, packets: Dict[str, RenderPacket]) -> Optional[np.ndarray]:
-        """渲染多设备RGB水平拼接（子任务 3.4 - 新的Combined模式）
+        """渲染合并模式（任务 3.7 - 返回已 resize 到目标尺寸的帧）
         
-        Args:
-            packets: 所有设备的渲染包字典
-            
+        Stretch Resize 策略：
+        1. 确定目标画布尺寸（Target_W, Target_H）
+        2. 计算每路 ROI 尺寸（roiW_left, roiW_right）
+        3. 分别 stretch resize 到 ROI 尺寸
+        4. 水平拼接到画布
+        5. 在最终画布上绘制 UI（使用归一化坐标映射）
+        
         Returns:
-            水平拼接后的帧
+            已经 resize 到目标尺寸（窗口或全屏）的画布，可直接用于 cv2.imshow()
         """
-        if not packets:
-            return None
+        # 确定目标画布尺寸（根据状态 2：视图属性）
+        if self._is_fullscreen:
+            target_width = self._fullscreen_width
+            target_height = self._fullscreen_height
+        else:
+            target_width = self._window_width
+            target_height = self._window_height
+        
+        # 计算 ROI 尺寸
+        roiW_left = target_width // 2
+        roiW_right = target_width - roiW_left
         
         rgb_frames = []
-        device_names = []
         
-        # 按设备列表顺序收集RGB帧
-        for device_id in self._devices_list:
+        # 处理每个设备
+        for i, device_id in enumerate(self._devices_list):
             if device_id in packets:
                 packet = packets[device_id]
-                
-                # 渲染单个设备的帧（包含检测框等）
                 frame = packet.video_frame.rgb_frame
                 
-                # 检查帧是否可写，如果不可写则复制
-                if not frame.flags.writeable:
-                    frame = frame.copy()
+                # 确定当前设备的 ROI 尺寸
+                roiW = roiW_left if i == 0 else roiW_right
                 
-                # 绘制检测信息
-                self._draw_detection_boxes(frame, packet.processed_detections)
-                self._draw_labels(frame, packet.processed_detections)
-                self._draw_coordinates(frame, packet.processed_detections)
+                # Stretch resize 到 ROI 尺寸（直接拉伸，不保持宽高比）
+                frame_resized = cv2.resize(frame, (roiW, target_height))
                 
-                rgb_frames.append(frame)
-                device_names.append(packet.processed_detections.device_alias or device_id)
+                # 检查可写性
+                if not frame_resized.flags.writeable:
+                    frame_resized = frame_resized.copy()
+                
+                # 添加设备名称标签
+                device_name = packet.processed_detections.device_alias or device_id
+                self._draw_text_with_background(
+                    frame_resized, device_name, (10, 30), 
+                    font_scale=0.7, text_color=(0, 255, 255)
+                )
+                
+                rgb_frames.append(frame_resized)
         
         if not rgb_frames:
             return None
         
-        # 水平拼接
-        if len(rgb_frames) == 1:
-            combined = rgb_frames[0]
-        else:
-            combined = np.hstack(rgb_frames)
+        # 水平拼接（拼接后的画布尺寸正好是 target_width × target_height）
+        combined = np.hstack(rgb_frames)
+
+        # 在最终画布上绘制检测信息（使用归一化坐标映射）
+        # 说明：检测框坐标使用归一化坐标（0~1），映射到目标画布 ROI 后，再加 offsetX
+        for i, device_id in enumerate(self._devices_list):
+            if device_id in packets:
+                packet = packets[device_id]
+                roiW = roiW_left if i == 0 else roiW_right
+                offsetX = 0 if i == 0 else roiW_left
+                self._draw_detection_boxes_normalized(
+                    combined, packet.processed_detections,
+                    roiW, target_height, offsetX
+                )
         
-        # 在每个设备图像上添加设备名称标签
-        frame_width = rgb_frames[0].shape[1]
-        for i, name in enumerate(device_names):
-            x_offset = i * frame_width
-            self._draw_text_with_background(
-                combined, name, (x_offset + 10, 30), font_scale=0.7,
-                text_color=(0, 255, 255), bg_color=(0, 0, 0), thickness=2
-            )
-        
-        # 在整个拼接图像上绘制FPS（左上角）
+        # 绘制全局叠加信息
         self._draw_fps(combined)
-        
-        # 绘制按键提示信息（子任务 4.4）
         self._draw_key_hints(combined)
         
         return combined
     
-    def _render_rgb_mode(self, packet: RenderPacket) -> Optional[np.ndarray]:
-        """渲染RGB模式
-        
-        优化：直接在原始帧上绘制，避免不必要的复制（需求 12.4, 12.5）
-        """
-        # 使用视图而非复制（需求 12.5）
-        frame = packet.video_frame.rgb_frame
-        
-        # 检查帧是否可写，如果不可写则复制
-        if not frame.flags.writeable:
-            frame = frame.copy()
-        
-        self._draw_detection_boxes(frame, packet.processed_detections)
-        self._draw_labels(frame, packet.processed_detections)
-        self._draw_coordinates(frame, packet.processed_detections)
-        self._draw_fps(frame)
-        
-        device_id = packet.processed_detections.device_id
-        self._draw_device_info(frame, device_id, packet.processed_detections)
-        
-        return frame
+
     
     # ==================== 窗口控制 ====================
     
-    def _switch_to_device(self, device_index: int) -> None:
-        """切换到指定设备的单设备显示（子任务 4.2 + 5.4 + 7.3）
+    def _switch_to_device(self, device_role: DeviceRole) -> None:
+        """切换到指定角色的设备显示（任务 3.9 - 基于 DeviceRole）
         
         Args:
-            device_index: 设备索引（0, 1, 2...）
+            device_role: 设备角色（DeviceRole.LEFT_CAMERA 或 DeviceRole.RIGHT_CAMERA）
+        
+        实现：
+        1. 检查 role_bindings 中是否存在该角色
+        2. 切换显示模式为 "single"
+        3. 更新 _selected_device_role
+        4. 记录日志
         """
-        if device_index < len(self._devices_list):
-            self._display_mode = "single"
-            self._selected_device_index = device_index
-            device_id = self._devices_list[device_index]
-            
-            # 子任务 5.4：调整窗口大小为单设备模式
-            if self._window_created and not self._is_fullscreen:
-                window_width = self._config.window_width if self._config.window_width else 640
-                window_height = self._config.window_height if self._config.window_height else 480
-                cv2.resizeWindow(self._main_window_name, window_width, window_height)
-            
-            # 子任务 7.3：更新窗口标题（单设备模式：显示设备名称）
-            if self._window_created:
-                self._update_window_title()
-            
-            self.logger.info(f"切换到设备 {device_index + 1}: {device_id}")
+        if device_role not in self._role_bindings:
+            self.logger.warning(f"角色 {device_role} 不存在于 role_bindings 中")
+            return
+        
+        self._display_mode = "single"
+        self._selected_device_role = device_role
+        device_mxid = self._role_bindings[device_role]
+        
+        self.logger.info(f"切换到设备角色 {device_role.name}: {device_mxid}")
     
     def _switch_to_combined(self) -> None:
-        """切换到Combined模式（多设备拼接）（子任务 4.3 + 5.4 + 7.3）"""
+        """切换到Combined模式（多设备拼接）"""
         self._display_mode = "combined"
-        
-        # 子任务 5.4：调整窗口大小为 Combined 模式（双倍宽度）
-        if self._window_created and not self._is_fullscreen:
-            window_width = self._config.window_width * 2 if self._config.window_width else 1280
-            window_height = self._config.window_height if self._config.window_height else 480
-            cv2.resizeWindow(self._main_window_name, window_width, window_height)
-        
-        # 子任务 7.3：更新窗口标题（Combined模式：显示 "Combined View"）
-        if self._window_created:
-            self._update_window_title()
-        
         self.logger.info("切换到 Combined 模式")
     
     def _toggle_fullscreen(self) -> None:
-        """切换主窗口的全屏状态"""
-        if not self._window_created:
-            return
+        """切换全屏/窗口模式
         
-        self._is_fullscreen = not self._is_fullscreen
-        mode = cv2.WINDOW_FULLSCREEN if self._is_fullscreen else cv2.WINDOW_NORMAL
-        cv2.setWindowProperty(self._main_window_name, cv2.WND_PROP_FULLSCREEN, mode)
-        
-        status = "全屏" if self._is_fullscreen else "窗口"
-        self.logger.info(f"切换到{status}模式")
-    
-    def _update_window_title(self) -> None:
-        """更新窗口标题（子任务 7.3）
-        
-        根据当前显示模式更新窗口标题：
-        - 单设备模式：显示设备名称（例如："left_camera - OAK Display"）
-        - Combined模式：显示 "Combined View - OAK Display"
+        策略：
+        1. 切换 _is_fullscreen 标志
+        2. 使用 cv2.setWindowProperty 切换窗口属性
+        3. 下一帧渲染时，_render_single_device() 或 _render_combined_devices() 
+           会根据 _is_fullscreen 选择对应的目标尺寸进行 resize
         """
         if not self._window_created:
             return
         
-        if self._display_mode == "combined":
-            # Combined 模式：显示 "Combined View"
-            new_title = "Combined View - OAK Display"
-        else:
-            # 单设备模式：显示设备名称
-            if self._selected_device_index < len(self._devices_list):
-                device_id = self._devices_list[self._selected_device_index]
-                
-                # 尝试从最近的渲染包中获取设备别名
-                device_name = device_id
-                try:
-                    latest_packets = self._packager._latest_packets
-                    if device_id in latest_packets:
-                        packet = latest_packets[device_id]
-                        if packet and packet.processed_detections.device_alias:
-                            device_name = packet.processed_detections.device_alias
-                except Exception:
-                    pass  # 如果获取失败，使用设备ID
-                
-                new_title = f"{device_name} - OAK Display"
-            else:
-                new_title = "OAK Display"
+        # 切换标志
+        self._is_fullscreen = not self._is_fullscreen
         
-        # 更新窗口标题
-        cv2.setWindowTitle(self._main_window_name, new_title)
-        self.logger.debug(f"窗口标题已更新: {new_title}")
+        # 设置窗口属性
+        if self._is_fullscreen:
+            cv2.setWindowProperty(
+                self._main_window_name,
+                cv2.WND_PROP_FULLSCREEN,
+                cv2.WINDOW_FULLSCREEN
+            )
+            self.logger.info("切换到全屏模式")
+        else:
+            cv2.setWindowProperty(
+                self._main_window_name,
+                cv2.WND_PROP_FULLSCREEN,
+                cv2.WINDOW_NORMAL
+            )
+            self.logger.info("切换到窗口模式")
+        
+        # 注意：不需要手动 resize 窗口
+        # 下一帧渲染时会根据 _is_fullscreen 自动选择目标尺寸
+    
+

@@ -332,8 +332,8 @@ class TestErrorHandlingIntegration:
         manager = DeviceConfigManager(str(tmp_path / "dummy.json"), auto_create=False)
         
         # 未加载配置时导出应该失败
-        with pytest.raises(ConfigValidationError, match="当前无可运行配置可导出"):
+        with pytest.raises(ConfigValidationError, match="当前无可运行配置可导出，请先加载或创建配置"):
             manager.export_to_yaml(str(yaml_export))
         
-        with pytest.raises(ConfigValidationError, match="当前无可运行配置可导出"):
+        with pytest.raises(ConfigValidationError, match="当前无可运行配置可导出，请先加载或创建配置"):
             manager.export_to_json(str(json_export))

@@ -7,6 +7,7 @@
 - `config.json` - 系统完整配置文件
 - `README.md` - 本说明文件
 
+
 ## 配置文件结构
 
 配置文件包含以下部分：
@@ -114,7 +115,7 @@ manager.load_config()
 config = manager.get_runnable_config()
 ```
 
-### 方法 2: 直接读取 JSON
+### 方法 2: 直接读取文件
 
 ```python
 import json
@@ -134,11 +135,12 @@ with open(config_path) as f:
 2. 某些参数修改后需要重启系统
 3. 坐标变换参数需要通过校准工具获取
 
+
 ## 下一步
 
 1. **绑定设备**
    ```bash
-   python tools/discover_devices.py
+   python tools/config_tools/discover_devices.py
    ```
    将获取的 MXid 填入 `oak_module.role_bindings` 中
 
@@ -155,6 +157,18 @@ with open(config_path) as f:
    manager.load_config()
    is_valid, errors = manager.validate_config()
    ```
+
+## 格式转换
+
+如需在 JSON 和 YAML 格式之间转换：
+
+```bash
+# JSON 转 YAML
+python tools/config_tools/convert_config.py config.json --format yaml
+
+# 转换后验证
+python tools/config_tools/convert_config.py config.json --format yaml --validate
+```
 
 ## 参考资料
 

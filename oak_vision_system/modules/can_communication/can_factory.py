@@ -104,70 +104,78 @@ def create_can_communicator(
         3. 查看详细的错误日志获取更多信息
     """
     try:
-        logger.info("=" * 60)
-        logger.info("🏭 CAN 通信器工厂开始创建实例")
-        logger.info("=" * 60)
-        logger.info(f"📋 配置信息:")
-        logger.info(f"  • enable_can: {config.enable_can}")
-        logger.info(f"  • can_interface: {config.can_interface}")
-        logger.info(f"  • can_channel: {config.can_channel}")
-        logger.info(f"  • can_bitrate: {config.can_bitrate}")
-        logger.info("")
+        logger.info(
+            "创建 CAN 通信器: enable_can=%s, interface=%s, channel=%s, bitrate=%s",
+            config.enable_can,
+            config.can_interface,
+            config.can_channel,
+            config.can_bitrate,
+        )
+
+        logger.debug("=" * 60)
+        logger.debug("CAN 通信器工厂开始创建实例")
+        logger.debug("=" * 60)
+        logger.debug("配置信息:")
+        logger.debug(f"  • enable_can: {config.enable_can}")
+        logger.debug(f"  • can_interface: {config.can_interface}")
+        logger.debug(f"  • can_channel: {config.can_channel}")
+        logger.debug(f"  • can_bitrate: {config.can_bitrate}")
+        logger.debug("")
         
         if config.enable_can:
             # 创建真实 CAN 通信器
-            logger.info("🔧 enable_can=True，创建真实 CAN 通信器 (CANCommunicator)")
-            logger.info("📦 正在导入 CANCommunicator...")
+            logger.info("enable_can=True，创建真实 CAN 通信器 (CANCommunicator)")
+            logger.debug("正在导入 CANCommunicator...")
             
             try:
                 from .can_communicator import CANCommunicator
-                logger.info("✅ CANCommunicator 导入成功")
+                logger.debug("CANCommunicator 导入成功")
             except ImportError as e:
-                logger.error(f"❌ 导入 CANCommunicator 失败: {e}")
-                logger.error("💡 故障排除建议:")
+                logger.error(f"导入 CANCommunicator 失败: {e}")
+                logger.error("故障排除建议:")
                 logger.error("  • 检查 python-can 库是否已安装: pip install python-can")
                 logger.error("  • 检查系统是否支持所选的 CAN 接口类型")
                 logger.error("  • 在 Linux 系统上检查 CAN 内核模块是否已加载")
                 raise ImportError(f"无法导入 CANCommunicator: {e}") from e
             
-            logger.info("🚀 正在创建 CANCommunicator 实例...")
+            logger.debug("正在创建 CANCommunicator 实例...")
             communicator = CANCommunicator(config, decision_layer, event_bus)
             
-            logger.info("✅ CANCommunicator 实例创建成功")
-            logger.info("🎯 适用场景:")
-            logger.info("  • 生产环境")
-            logger.info("  • 有 CAN 硬件的测试环境")
-            logger.info("  • Linux 系统（支持自动配置）")
-            logger.info("  • 需要真实 CAN 消息收发的场景")
+            logger.debug("CANCommunicator 实例创建成功")
+            logger.debug("适用场景:")
+            logger.debug("  • 生产环境")
+            logger.debug("  • 有 CAN 硬件的测试环境")
+            logger.debug("  • Linux 系统（支持自动配置）")
+            logger.debug("  • 需要真实 CAN 消息收发的场景")
             
         else:
             # 创建虚拟 CAN 通信器
-            logger.info("🔧 enable_can=False，创建虚拟 CAN 通信器 (VirtualCANCommunicator)")
-            logger.info("📦 正在导入 VirtualCANCommunicator...")
+            logger.info("enable_can=False，创建虚拟 CAN 通信器 (VirtualCANCommunicator)")
+            logger.debug("正在导入 VirtualCANCommunicator...")
             
             try:
                 from .virtual_can_communicator import VirtualCANCommunicator
-                logger.info("✅ VirtualCANCommunicator 导入成功")
+                logger.debug("VirtualCANCommunicator 导入成功")
             except ImportError as e:
-                logger.error(f"❌ 导入 VirtualCANCommunicator 失败: {e}")
-                logger.error("💡 这通常不应该发生，因为虚拟实现没有外部依赖")
+                logger.error(f"导入 VirtualCANCommunicator 失败: {e}")
+                logger.error("这通常不应该发生，因为虚拟实现没有外部依赖")
                 raise ImportError(f"无法导入 VirtualCANCommunicator: {e}") from e
             
-            logger.info("🚀 正在创建 VirtualCANCommunicator 实例...")
+            logger.debug("正在创建 VirtualCANCommunicator 实例...")
             communicator = VirtualCANCommunicator(config, decision_layer, event_bus)
             
-            logger.info("✅ VirtualCANCommunicator 实例创建成功")
-            logger.info("🎯 适用场景:")
-            logger.info("  • 开发环境")
-            logger.info("  • 无硬件的测试场景")
-            logger.info("  • Windows 等非 Linux 系统")
-            logger.info("  • 功能验证和调试")
-            logger.info("  • 事件流测试")
+            logger.debug("VirtualCANCommunicator 实例创建成功")
+            logger.debug("适用场景:")
+            logger.debug("  • 开发环境")
+            logger.debug("  • 无硬件的测试场景")
+            logger.debug("  • Windows 等非 Linux 系统")
+            logger.debug("  • 功能验证和调试")
+            logger.debug("  • 事件流测试")
         
-        logger.info("")
-        logger.info(f"🎉 CAN 通信器创建完成: {communicator.__class__.__name__}")
-        logger.info("📝 接下来可以调用 communicator.start() 启动通信器")
-        logger.info("=" * 60)
+        logger.debug("")
+        logger.info(f"CAN 通信器创建完成: {communicator.__class__.__name__}")
+        logger.debug("接下来可以调用 communicator.start() 启动通信器")
+        logger.debug("=" * 60)
         
         return communicator
         
@@ -176,8 +184,8 @@ def create_can_communicator(
         raise
     except Exception as e:
         # 捕获其他未预期的异常
-        logger.error(f"❌ 创建 CAN 通信器时发生未预期的异常: {e}", exc_info=True)
-        logger.error("💡 故障排除建议:")
+        logger.error(f"创建 CAN 通信器时发生未预期的异常: {e}", exc_info=True)
+        logger.error("故障排除建议:")
         logger.error("  • 检查配置参数是否有效")
         logger.error("  • 检查 decision_layer 和 event_bus 是否已正确初始化")
         logger.error("  • 查看上述详细错误信息")

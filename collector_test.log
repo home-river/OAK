@@ -1,0 +1,188 @@
+2026-02-27 09:02:57,506 - __main__ - INFO - ============================================================
+2026-02-27 09:02:57,506 - __main__ - INFO - Collector 数据采集测试
+2026-02-27 09:02:57,506 - __main__ - INFO - ============================================================
+2026-02-27 09:02:57,506 - __main__ - INFO - 配置文件: assets/test_config/config.json
+2026-02-27 09:02:57,506 - __main__ - INFO - 测试时长: 30 秒
+2026-02-27 09:02:57,506 - __main__ - INFO - 日志目录: test_logs/collector
+2026-02-27 09:02:57,506 - __main__ - INFO - 
+2026-02-27 09:02:57,508 - __main__ - INFO - 加载配置文件: assets/test_config/config.json
+2026-02-27 09:02:57,508 - oak_vision_system.modules.config_manager.device_config_manager - INFO - 检测到配置文件格式: json, path=assets\test_config\config.json
+2026-02-27 09:02:57,509 - oak_vision_system.modules.config_manager.device_config_manager - INFO - 配置已加载: path=assets\test_config\config.json, format=json
+2026-02-27 09:02:57,509 - oak_vision_system.modules.config_manager.device_config_manager - INFO - 加载后已清空 active_mxid，准备基于在线设备重新匹配
+2026-02-27 09:02:57,509 - oak_vision_system.modules.config_manager.device_discovery - INFO - 开始发现OAK设备
+2026-02-27 09:03:05,390 - oak_vision_system.modules.config_manager.device_discovery - INFO - 发现OAK设备 2 台
+2026-02-27 09:03:05,391 - oak_vision_system.modules.config_manager.device_config_manager - INFO - 发现 2 个在线设备
+2026-02-27 09:03:05,392 - oak_vision_system.modules.config_manager.device_match - INFO - Start binding devices to roles.
+2026-02-27 09:03:05,393 - oak_vision_system.modules.config_manager.device_match - INFO - 成功更新 left_camera 的绑定配置
+2026-02-27 09:03:05,394 - oak_vision_system.modules.config_manager.device_match - INFO - 成功绑定 left_camera 到设备 19443010F1221E1300
+2026-02-27 09:03:05,394 - oak_vision_system.modules.config_manager.device_match - INFO - 成功更新 right_camera 的绑定配置
+2026-02-27 09:03:05,394 - oak_vision_system.modules.config_manager.device_match - INFO - 成功绑定 right_camera 到设备 19443010C122201300
+2026-02-27 09:03:05,394 - oak_vision_system.modules.config_manager.device_match - INFO - update match_result
+2026-02-27 09:03:05,395 - oak_vision_system.modules.config_manager.device_match - INFO - update result_type to full_match
+2026-02-27 09:03:05,395 - oak_vision_system.modules.config_manager.device_match - INFO - 设备匹配完成: result=full_match, matched=2/2, available=0
+2026-02-27 09:03:05,396 - oak_vision_system.modules.config_manager.device_config_manager - INFO - 设备匹配完成: full_match, 已匹配=2/2
+2026-02-27 09:03:05,397 - oak_vision_system.modules.config_manager.device_config_manager - INFO - 已晋升当前草稿为可运行配置
+2026-02-27 09:03:05,398 - oak_vision_system.modules.config_manager.device_config_manager - INFO - 配置已验证并晋升为可运行配置
+2026-02-27 09:03:05,398 - __main__ - INFO - 配置加载成功
+2026-02-27 09:03:05,399 - __main__ - INFO - 发现 OAK 设备...
+2026-02-27 09:03:05,942 - __main__ - INFO - 发现 1 个设备
+2026-02-27 09:03:05,942 - __main__ - INFO - 创建 OAKDataCollector...
+2026-02-27 09:03:05,943 - oak_vision_system.modules.data_collector.pipelinemanager - INFO - PipelineManager 初始化完成（工厂模式，无状态）
+2026-02-27 09:03:05,944 - oak_vision_system.modules.data_collector.collector - WARNING - 检测到不可用的设备: ['19443010F1221E1300']
+2026-02-27 09:03:05,944 - oak_vision_system.modules.data_collector.collector - INFO - 设备可用性检查通过: 1/2 个设备可用
+2026-02-27 09:03:05,944 - oak_vision_system.core.event_bus.event_bus - INFO - 订阅事件: event_type=backpressure_signal, subscription_id=backpressure_signal:2714401973504:1772154185944861000, priority=NORMAL, subscriber_name=OAKDataCollector._handle_backpressure_signal
+2026-02-27 09:03:05,945 - __main__ - INFO - 创建 CollectorReceiver...
+2026-02-27 09:03:05,945 - CollectorReceiver - INFO - CollectorReceiver 初始化完成: log_dir=test_logs/collector
+2026-02-27 09:03:05,946 - CollectorReceiver - INFO - CollectorReceiver 初始化: frame_queue=100, detection_queue=100
+2026-02-27 09:03:05,946 - __main__ - INFO - 启动 Collector...
+2026-02-27 09:03:05,946 - oak_vision_system.modules.data_collector.collector - WARNING - 跳过设备 19443010F1221E1300 (role=left_camera): 设备不可用
+2026-02-27 09:03:05,947 - oak_vision_system.modules.data_collector.collector - INFO - 为设备 right_camera 创建 pipeline...
+2026-02-27 09:03:05,947 - oak_vision_system.modules.data_collector.collector - INFO - 为设备 right_camera 创建带深度输出的 pipeline
+2026-02-27 09:03:05,948 - oak_vision_system.modules.data_collector.pipelinemanager - INFO - create_pipeline_new: start (新版风格)
+2026-02-27 09:03:05,978 - oak_vision_system.modules.data_collector.pipelinemanager - INFO - pipeline创建完成（新版风格）
+2026-02-27 09:03:05,978 - oak_vision_system.modules.data_collector.collector - INFO - 设备 right_camera 的 pipeline 创建成功
+2026-02-27 09:03:05,979 - oak_vision_system.modules.data_collector.collector - INFO - 尝试连接设备: MXID=19443010C122201300, USB2模式=False
+2026-02-27 09:03:06,050 - __main__ - INFO - Collector 启动成功
+2026-02-27 09:03:06,050 - __main__ - INFO - 启动 CollectorReceiver...
+2026-02-27 09:03:06,051 - oak_vision_system.core.event_bus.event_bus - INFO - 订阅事件: event_type=raw_frame_data, subscription_id=raw_frame_data:2714411369344:1772154186051178400, priority=NORMAL, subscriber_name=CollectorReceiver._on_frame_received
+2026-02-27 09:03:06,051 - CollectorReceiver - INFO - 已订阅事件: raw_frame_data
+2026-02-27 09:03:06,052 - oak_vision_system.core.event_bus.event_bus - INFO - 订阅事件: event_type=raw_detection_data, subscription_id=raw_detection_data:2714411377664:1772154186052175000, priority=NORMAL, subscriber_name=CollectorReceiver._on_detection_received
+2026-02-27 09:03:06,052 - CollectorReceiver - INFO - 已订阅事件: raw_detection_data
+2026-02-27 09:03:06,052 - CollectorReceiver - INFO - 工作线程已启动
+2026-02-27 09:03:06,052 - CollectorReceiver - INFO - CollectorReceiver 已启动
+2026-02-27 09:03:06,053 - __main__ - INFO - CollectorReceiver 启动成功
+2026-02-27 09:03:06,053 - __main__ - INFO - 
+2026-02-27 09:03:06,053 - __main__ - INFO - ============================================================
+2026-02-27 09:03:06,053 - __main__ - INFO - 数据采集中...
+2026-02-27 09:03:06,054 - __main__ - INFO - ============================================================
+2026-02-27 09:03:06,055 - __main__ - INFO - 按 Ctrl+C 可提前停止
+2026-02-27 09:03:06,055 - __main__ - INFO - 
+2026-02-27 09:03:11,104 - __main__ - INFO - ============================================================
+2026-02-27 09:03:11,104 - __main__ - INFO - 实时统计信息
+2026-02-27 09:03:11,105 - __main__ - INFO - ============================================================
+2026-02-27 09:03:11,105 - __main__ - INFO - 运行时长: 5.1 秒
+2026-02-27 09:03:11,106 - __main__ - INFO - 
+2026-02-27 09:03:11,106 - __main__ - INFO - 视频帧:
+2026-02-27 09:03:11,106 - __main__ - INFO -   - 接收: 42
+2026-02-27 09:03:11,107 - __main__ - INFO -   - 处理: 42
+2026-02-27 09:03:11,107 - __main__ - INFO -   - 丢弃: 0
+2026-02-27 09:03:11,107 - __main__ - INFO -   - 队列: 0
+2026-02-27 09:03:11,107 - __main__ - INFO -   - 速率: 8.31 帧/秒
+2026-02-27 09:03:11,108 - __main__ - INFO - 
+2026-02-27 09:03:11,108 - __main__ - INFO - 检测数据:
+2026-02-27 09:03:11,108 - __main__ - INFO -   - 接收: 42
+2026-02-27 09:03:11,109 - __main__ - INFO -   - 处理: 42
+2026-02-27 09:03:11,109 - __main__ - INFO -   - 丢弃: 0
+2026-02-27 09:03:11,109 - __main__ - INFO -   - 队列: 0
+2026-02-27 09:03:11,110 - __main__ - INFO -   - 速率: 8.31 帧/秒
+2026-02-27 09:03:11,110 - __main__ - INFO - ============================================================
+2026-02-27 09:03:16,176 - __main__ - INFO - ============================================================
+2026-02-27 09:03:16,176 - __main__ - INFO - 实时统计信息
+2026-02-27 09:03:16,177 - __main__ - INFO - ============================================================
+2026-02-27 09:03:16,177 - __main__ - INFO - 运行时长: 10.1 秒
+2026-02-27 09:03:16,178 - __main__ - INFO - 
+2026-02-27 09:03:16,178 - __main__ - INFO - 视频帧:
+2026-02-27 09:03:16,179 - __main__ - INFO -   - 接收: 122
+2026-02-27 09:03:16,179 - __main__ - INFO -   - 处理: 122
+2026-02-27 09:03:16,179 - __main__ - INFO -   - 丢弃: 0
+2026-02-27 09:03:16,180 - __main__ - INFO -   - 队列: 0
+2026-02-27 09:03:16,180 - __main__ - INFO -   - 速率: 12.05 帧/秒
+2026-02-27 09:03:16,181 - __main__ - INFO - 
+2026-02-27 09:03:16,181 - __main__ - INFO - 检测数据:
+2026-02-27 09:03:16,182 - __main__ - INFO -   - 接收: 122
+2026-02-27 09:03:16,182 - __main__ - INFO -   - 处理: 122
+2026-02-27 09:03:16,182 - __main__ - INFO -   - 丢弃: 0
+2026-02-27 09:03:16,183 - __main__ - INFO -   - 队列: 0
+2026-02-27 09:03:16,183 - __main__ - INFO -   - 速率: 12.05 帧/秒
+2026-02-27 09:03:16,184 - __main__ - INFO - ============================================================
+2026-02-27 09:03:21,242 - __main__ - INFO - ============================================================
+2026-02-27 09:03:21,243 - __main__ - INFO - 实时统计信息
+2026-02-27 09:03:21,243 - __main__ - INFO - ============================================================
+2026-02-27 09:03:21,244 - __main__ - INFO - 运行时长: 15.2 秒
+2026-02-27 09:03:21,244 - __main__ - INFO - 
+2026-02-27 09:03:21,245 - __main__ - INFO - 视频帧:
+2026-02-27 09:03:21,245 - __main__ - INFO -   - 接收: 202
+2026-02-27 09:03:21,246 - __main__ - INFO -   - 处理: 202
+2026-02-27 09:03:21,246 - __main__ - INFO -   - 丢弃: 0
+2026-02-27 09:03:21,247 - __main__ - INFO -   - 队列: 0
+2026-02-27 09:03:21,247 - __main__ - INFO -   - 速率: 13.30 帧/秒
+2026-02-27 09:03:21,248 - __main__ - INFO - 
+2026-02-27 09:03:21,248 - __main__ - INFO - 检测数据:
+2026-02-27 09:03:21,249 - __main__ - INFO -   - 接收: 202
+2026-02-27 09:03:21,249 - __main__ - INFO -   - 处理: 202
+2026-02-27 09:03:21,250 - __main__ - INFO -   - 丢弃: 0
+2026-02-27 09:03:21,250 - __main__ - INFO -   - 队列: 0
+2026-02-27 09:03:21,250 - __main__ - INFO -   - 速率: 13.30 帧/秒
+2026-02-27 09:03:21,251 - __main__ - INFO - ============================================================
+2026-02-27 09:03:26,321 - __main__ - INFO - ============================================================
+2026-02-27 09:03:26,322 - __main__ - INFO - 实时统计信息
+2026-02-27 09:03:26,322 - __main__ - INFO - ============================================================
+2026-02-27 09:03:26,323 - __main__ - INFO - 运行时长: 20.3 秒
+2026-02-27 09:03:26,323 - __main__ - INFO - 
+2026-02-27 09:03:26,323 - __main__ - INFO - 视频帧:
+2026-02-27 09:03:26,324 - __main__ - INFO -   - 接收: 282
+2026-02-27 09:03:26,324 - __main__ - INFO -   - 处理: 282
+2026-02-27 09:03:26,325 - __main__ - INFO -   - 丢弃: 0
+2026-02-27 09:03:26,325 - __main__ - INFO -   - 队列: 0
+2026-02-27 09:03:26,325 - __main__ - INFO -   - 速率: 13.91 帧/秒
+2026-02-27 09:03:26,326 - __main__ - INFO - 
+2026-02-27 09:03:26,326 - __main__ - INFO - 检测数据:
+2026-02-27 09:03:26,326 - __main__ - INFO -   - 接收: 282
+2026-02-27 09:03:26,327 - __main__ - INFO -   - 处理: 282
+2026-02-27 09:03:26,327 - __main__ - INFO -   - 丢弃: 0
+2026-02-27 09:03:26,328 - __main__ - INFO -   - 队列: 0
+2026-02-27 09:03:26,328 - __main__ - INFO -   - 速率: 13.91 帧/秒
+2026-02-27 09:03:26,329 - __main__ - INFO - ============================================================
+2026-02-27 09:03:31,401 - __main__ - INFO - ============================================================
+2026-02-27 09:03:31,401 - __main__ - INFO - 实时统计信息
+2026-02-27 09:03:31,402 - __main__ - INFO - ============================================================
+2026-02-27 09:03:31,402 - __main__ - INFO - 运行时长: 25.4 秒
+2026-02-27 09:03:31,403 - __main__ - INFO - 
+2026-02-27 09:03:31,403 - __main__ - INFO - 视频帧:
+2026-02-27 09:03:31,403 - __main__ - INFO -   - 接收: 363
+2026-02-27 09:03:31,404 - __main__ - INFO -   - 处理: 363
+2026-02-27 09:03:31,405 - __main__ - INFO -   - 丢弃: 0
+2026-02-27 09:03:31,405 - __main__ - INFO -   - 队列: 0
+2026-02-27 09:03:31,405 - __main__ - INFO -   - 速率: 14.32 帧/秒
+2026-02-27 09:03:31,406 - __main__ - INFO - 
+2026-02-27 09:03:31,406 - __main__ - INFO - 检测数据:
+2026-02-27 09:03:31,407 - __main__ - INFO -   - 接收: 363
+2026-02-27 09:03:31,407 - __main__ - INFO -   - 处理: 363
+2026-02-27 09:03:31,407 - __main__ - INFO -   - 丢弃: 0
+2026-02-27 09:03:31,407 - __main__ - INFO -   - 队列: 0
+2026-02-27 09:03:31,408 - __main__ - INFO -   - 速率: 14.32 帧/秒
+2026-02-27 09:03:31,408 - __main__ - INFO - ============================================================
+2026-02-27 09:03:33,869 - oak_vision_system.modules.data_collector.collector - WARNING - 启用深度模式但未提供深度数据: device=right_camera
+2026-02-27 09:03:36,142 - __main__ - INFO - 
+2026-02-27 09:03:36,143 - __main__ - INFO - 测试时长已到，准备停止...
+2026-02-27 09:03:36,143 - __main__ - INFO - 停止 CollectorReceiver...
+2026-02-27 09:03:36,146 - CollectorReceiver - INFO - 工作线程已退出
+2026-02-27 09:03:36,147 - CollectorReceiver - INFO - CollectorReceiver 已停止，统计: {'duration_seconds': 30.096788}
+2026-02-27 09:03:36,147 - __main__ - INFO - 停止 Collector...
+2026-02-27 09:03:36,148 - oak_vision_system.modules.data_collector.collector - INFO - 正在停止 OAKDataCollector...
+2026-02-27 09:03:41,156 - oak_vision_system.modules.data_collector.collector - ERROR - 设备线程停止超时 (5.0s): device=right_camera
+2026-02-27 09:03:41,157 - oak_vision_system.modules.data_collector.collector - ERROR - OAKDataCollector 停止失败：部分线程未能在超时时间内停止
+2026-02-27 09:03:41,157 - __main__ - INFO - 
+2026-02-27 09:03:41,158 - __main__ - INFO - ============================================================
+2026-02-27 09:03:41,159 - __main__ - INFO - 最终统计信息
+2026-02-27 09:03:41,159 - __main__ - INFO - ============================================================
+2026-02-27 09:03:41,159 - __main__ - INFO - 运行时长: 30.1 秒
+2026-02-27 09:03:41,160 - __main__ - INFO - 
+2026-02-27 09:03:41,160 - __main__ - INFO - 视频帧:
+2026-02-27 09:03:41,161 - __main__ - INFO -   - 接收: 437
+2026-02-27 09:03:41,161 - __main__ - INFO -   - 处理: 436
+2026-02-27 09:03:41,161 - __main__ - INFO -   - 丢弃: 0
+2026-02-27 09:03:41,162 - __main__ - INFO -   - 平均速率: 14.52 帧/秒
+2026-02-27 09:03:41,162 - __main__ - INFO - 
+2026-02-27 09:03:41,163 - __main__ - INFO - 检测数据:
+2026-02-27 09:03:41,163 - __main__ - INFO -   - 接收: 438
+2026-02-27 09:03:41,164 - __main__ - INFO -   - 处理: 438
+2026-02-27 09:03:41,164 - __main__ - INFO -   - 丢弃: 0
+2026-02-27 09:03:41,164 - __main__ - INFO -   - 平均速率: 14.55 帧/秒
+2026-02-27 09:03:41,165 - __main__ - INFO - ============================================================
+2026-02-27 09:03:41,165 - __main__ - INFO - 
+2026-02-27 09:03:41,165 - __main__ - INFO - 数据日志已保存到: test_logs/collector
+2026-02-27 09:03:41,166 - __main__ - INFO - 可以使用以下命令查看日志文件:
+2026-02-27 09:03:41,166 - __main__ - INFO -   ls test_logs/collector
+2026-02-27 09:03:41,167 - __main__ - INFO - 
+2026-02-27 09:03:41,167 - __main__ - INFO - 测试完成！

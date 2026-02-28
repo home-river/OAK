@@ -1,0 +1,251 @@
+{
+  "meta": {
+    "run_ts": "20260228_093541",
+    "mxid": "19443010F1221E1300",
+    "usb2_mode": true,
+    "poll_interval_sec": 0.1,
+    "max_wait_sec": 30.0,
+    "enum_every_n_polls": 0
+  }
+}
+
+{
+  "ts": 1772242542.0049653,
+  "name": "getAllAvailableDevices",
+  "ok": true,
+  "duration_sec": 0.5305172000007587,
+  "params": {
+    "call_index": 0,
+    "internal_gap_sec": 0.0,
+    "continuous": false,
+    "n_calls": 2,
+    "use_bootloader": false
+  },
+  "result": {
+    "mxids": [
+      "19443010C122201300",
+      "19443010F1221E1300"
+    ],
+    "count": 2
+  },
+  "error": null
+}
+--------------------------------------------------------------------------------
+{
+  "ts": 1772242542.5424778,
+  "name": "getAllAvailableDevices",
+  "ok": true,
+  "duration_sec": 0.5266606000004685,
+  "params": {
+    "call_index": 0,
+    "internal_gap_sec": 0.0,
+    "continuous": false,
+    "n_calls": 2,
+    "use_bootloader": true
+  },
+  "result": {
+    "mxids": [
+      "19443010C122201300",
+      "19443010F1221E1300"
+    ],
+    "count": 2
+  },
+  "error": null
+}
+--------------------------------------------------------------------------------
+{
+  "ts": 1772242546.2024503,
+  "name": "with Device structure only",
+  "ok": true,
+  "duration_sec": 3.657794499999909,
+  "params": {
+    "call_index": 0,
+    "mxid": "19443010F1221E1300",
+    "internal_gap_sec": 0.0,
+    "continuous": false,
+    "n_calls": 1,
+    "usb2_mode": true
+  },
+  "result": {
+    "entered": true
+  },
+  "error": null
+}
+--------------------------------------------------------------------------------
+{
+  "ts": 1772242546.8613253,
+  "name": "with Device structure only",
+  "ok": false,
+  "duration_sec": 0.5515124000003198,
+  "params": {
+    "call_index": 0,
+    "mxid": "19443010F1221E1300",
+    "internal_gap_sec": 0.0,
+    "continuous": false,
+    "n_calls": 1,
+    "usb2_mode": true
+  },
+  "result": {},
+  "error": "RuntimeError: Cannot find any device with given deviceInfo"
+}
+--------------------------------------------------------------------------------
+{
+  "ts": 1772242547.5212255,
+  "name": "with Device structure only",
+  "ok": false,
+  "duration_sec": 0.5494474999995873,
+  "params": {
+    "call_index": 0,
+    "mxid": "19443010F1221E1300",
+    "internal_gap_sec": 0.0,
+    "continuous": false,
+    "n_calls": 1,
+    "usb2_mode": true
+  },
+  "result": {},
+  "error": "RuntimeError: Cannot find any device with given deviceInfo"
+}
+--------------------------------------------------------------------------------
+{
+  "ts": 1772242548.1826985,
+  "name": "with Device structure only",
+  "ok": false,
+  "duration_sec": 0.5501471999996284,
+  "params": {
+    "call_index": 0,
+    "mxid": "19443010F1221E1300",
+    "internal_gap_sec": 0.0,
+    "continuous": false,
+    "n_calls": 1,
+    "usb2_mode": true
+  },
+  "result": {},
+  "error": "RuntimeError: Cannot find any device with given deviceInfo"
+}
+--------------------------------------------------------------------------------
+{
+  "ts": 1772242548.842903,
+  "name": "with Device structure only",
+  "ok": false,
+  "duration_sec": 0.5492942000000767,
+  "params": {
+    "call_index": 0,
+    "mxid": "19443010F1221E1300",
+    "internal_gap_sec": 0.0,
+    "continuous": false,
+    "n_calls": 1,
+    "usb2_mode": true
+  },
+  "result": {},
+  "error": "RuntimeError: Cannot find any device with given deviceInfo"
+}
+--------------------------------------------------------------------------------
+{
+  "ts": 1772242549.5101902,
+  "name": "with Device structure only",
+  "ok": false,
+  "duration_sec": 0.5552533999998559,
+  "params": {
+    "call_index": 0,
+    "mxid": "19443010F1221E1300",
+    "internal_gap_sec": 0.0,
+    "continuous": false,
+    "n_calls": 1,
+    "usb2_mode": true
+  },
+  "result": {},
+  "error": "RuntimeError: Cannot find any device with given deviceInfo"
+}
+--------------------------------------------------------------------------------
+{
+  "ts": 1772242550.169496,
+  "name": "with Device structure only",
+  "ok": false,
+  "duration_sec": 0.5479973000001337,
+  "params": {
+    "call_index": 0,
+    "mxid": "19443010F1221E1300",
+    "internal_gap_sec": 0.0,
+    "continuous": false,
+    "n_calls": 1,
+    "usb2_mode": true
+  },
+  "result": {},
+  "error": "RuntimeError: Cannot find any device with given deviceInfo"
+}
+--------------------------------------------------------------------------------
+{
+  "ts": 1772242553.9346287,
+  "name": "with Device structure only",
+  "ok": true,
+  "duration_sec": 3.6490576000005603,
+  "params": {
+    "call_index": 0,
+    "mxid": "19443010F1221E1300",
+    "internal_gap_sec": 0.0,
+    "continuous": false,
+    "n_calls": 1,
+    "usb2_mode": true
+  },
+  "result": {
+    "entered": true
+  },
+  "error": null
+}
+--------------------------------------------------------------------------------
+{
+  "ts": 1772242554.4757814,
+  "name": "getAllAvailableDevices",
+  "ok": true,
+  "duration_sec": 0.5393954000001031,
+  "params": {
+    "call_index": 0,
+    "internal_gap_sec": 0.0,
+    "continuous": false,
+    "n_calls": 2,
+    "use_bootloader": false
+  },
+  "result": {
+    "mxids": [
+      "19443010C122201300"
+    ],
+    "count": 1
+  },
+  "error": null
+}
+--------------------------------------------------------------------------------
+{
+  "ts": 1772242555.0147228,
+  "name": "getAllAvailableDevices",
+  "ok": true,
+  "duration_sec": 0.5377890999998272,
+  "params": {
+    "call_index": 0,
+    "internal_gap_sec": 0.0,
+    "continuous": false,
+    "n_calls": 2,
+    "use_bootloader": true
+  },
+  "result": {
+    "mxids": [
+      "19443010C122201300"
+    ],
+    "count": 1
+  },
+  "error": null
+}
+--------------------------------------------------------------------------------
+
+{
+  "summary": {
+    "mxid": "19443010F1221E1300",
+    "usb2_mode": true,
+    "poll_interval_sec": 0.1,
+    "max_wait_sec": 30.0,
+    "enum_every_n_polls": 0,
+    "recovered": true,
+    "recovered_elapsed_sec": 7.732200000000375,
+    "trigger_ok": true,
+    "attempts": 7
+  }
+}

@@ -1,0 +1,283 @@
+{
+  "meta": {
+    "run_ts": "20260228_144954",
+    "mxid": "19443010F1221E1300",
+    "poll_interval_sec": 0.1,
+    "max_wait_sec": 30.0,
+    "usb2_mode_for_with": true,
+    "record_baseline_enum": true
+  }
+}
+
+{
+  "ts": 1772261395.075634,
+  "name": "getAllAvailableDevices",
+  "ok": true,
+  "duration_sec": 0.5349354999998468,
+  "params": {
+    "call_index": 0,
+    "internal_gap_sec": 0.0,
+    "continuous": false,
+    "n_calls": 1,
+    "use_bootloader": false
+  },
+  "result": {
+    "mxids": [
+      "19443010C122201300",
+      "19443010F1221E1300"
+    ],
+    "count": 2
+  },
+  "error": null
+}
+--------------------------------------------------------------------------------
+{
+  "ts": 1772261395.6155753,
+  "name": "getAllAvailableDevices",
+  "ok": true,
+  "duration_sec": 0.5298476999996637,
+  "params": {
+    "call_index": 0,
+    "internal_gap_sec": 0.0,
+    "continuous": false,
+    "n_calls": 1,
+    "use_bootloader": true
+  },
+  "result": {
+    "mxids": [
+      "19443010C122201300",
+      "19443010F1221E1300"
+    ],
+    "count": 2
+  },
+  "error": null
+}
+--------------------------------------------------------------------------------
+{
+  "ts": 1772261399.1769845,
+  "name": "readCalibration+getEepromData",
+  "ok": true,
+  "duration_sec": 3.561137400000007,
+  "params": {
+    "call_index": 0,
+    "mxid": "19443010F1221E1300",
+    "internal_gap_sec": 0.0,
+    "continuous": false,
+    "n_calls": 1,
+    "usb2_mode": true
+  },
+  "result": {
+    "product_name": "OAK-D-S2-FF"
+  },
+  "error": null
+}
+--------------------------------------------------------------------------------
+{
+  "trigger": {
+    "name": "probe_get_eeprom_datav2",
+    "ok": true,
+    "duration_sec": 3.5618132000017795
+  }
+}
+================================================================================
+{
+  "ts": 1772261399.835168,
+  "name": "with Device structure only",
+  "ok": false,
+  "duration_sec": 0.5580006000018329,
+  "params": {
+    "call_index": 0,
+    "mxid": "19443010F1221E1300",
+    "internal_gap_sec": 0.0,
+    "continuous": false,
+    "n_calls": 1,
+    "usb2_mode": true
+  },
+  "result": {},
+  "error": "RuntimeError: Cannot find any device with given deviceInfo"
+}
+--------------------------------------------------------------------------------
+{
+  "with_poll": {
+    "attempt": 1,
+    "start_elapsed_sec": 3.00002284348011e-07,
+    "finish_elapsed_sec": 0.6581982000025164,
+    "ok": false,
+    "error": "RuntimeError: Cannot find any device with given deviceInfo"
+  }
+}
+================================================================================
+{
+  "ts": 1772261400.4987743,
+  "name": "with Device structure only",
+  "ok": false,
+  "duration_sec": 0.5568476000007649,
+  "params": {
+    "call_index": 0,
+    "mxid": "19443010F1221E1300",
+    "internal_gap_sec": 0.0,
+    "continuous": false,
+    "n_calls": 1,
+    "usb2_mode": true
+  },
+  "result": {},
+  "error": "RuntimeError: Cannot find any device with given deviceInfo"
+}
+--------------------------------------------------------------------------------
+{
+  "with_poll": {
+    "attempt": 2,
+    "start_elapsed_sec": 0.6584237999995821,
+    "finish_elapsed_sec": 1.321575699999812,
+    "ok": false,
+    "error": "RuntimeError: Cannot find any device with given deviceInfo"
+  }
+}
+================================================================================
+{
+  "ts": 1772261401.1617653,
+  "name": "with Device structure only",
+  "ok": false,
+  "duration_sec": 0.553908699999738,
+  "params": {
+    "call_index": 0,
+    "mxid": "19443010F1221E1300",
+    "internal_gap_sec": 0.0,
+    "continuous": false,
+    "n_calls": 1,
+    "usb2_mode": true
+  },
+  "result": {},
+  "error": "RuntimeError: Cannot find any device with given deviceInfo"
+}
+--------------------------------------------------------------------------------
+{
+  "with_poll": {
+    "attempt": 3,
+    "start_elapsed_sec": 1.321813700000348,
+    "finish_elapsed_sec": 1.9842132000012498,
+    "ok": false,
+    "error": "RuntimeError: Cannot find any device with given deviceInfo"
+  }
+}
+================================================================================
+{
+  "ts": 1772261401.821476,
+  "name": "with Device structure only",
+  "ok": false,
+  "duration_sec": 0.5535481000006257,
+  "params": {
+    "call_index": 0,
+    "mxid": "19443010F1221E1300",
+    "internal_gap_sec": 0.0,
+    "continuous": false,
+    "n_calls": 1,
+    "usb2_mode": true
+  },
+  "result": {},
+  "error": "RuntimeError: Cannot find any device with given deviceInfo"
+}
+--------------------------------------------------------------------------------
+{
+  "with_poll": {
+    "attempt": 4,
+    "start_elapsed_sec": 1.9844703000017034,
+    "finish_elapsed_sec": 2.643777500001306,
+    "ok": false,
+    "error": "RuntimeError: Cannot find any device with given deviceInfo"
+  }
+}
+================================================================================
+{
+  "ts": 1772261402.482965,
+  "name": "with Device structure only",
+  "ok": false,
+  "duration_sec": 0.5548505000006116,
+  "params": {
+    "call_index": 0,
+    "mxid": "19443010F1221E1300",
+    "internal_gap_sec": 0.0,
+    "continuous": false,
+    "n_calls": 1,
+    "usb2_mode": true
+  },
+  "result": {},
+  "error": "RuntimeError: Cannot find any device with given deviceInfo"
+}
+--------------------------------------------------------------------------------
+{
+  "with_poll": {
+    "attempt": 5,
+    "start_elapsed_sec": 2.6439891000009084,
+    "finish_elapsed_sec": 3.3056452000018908,
+    "ok": false,
+    "error": "RuntimeError: Cannot find any device with given deviceInfo"
+  }
+}
+================================================================================
+{
+  "ts": 1772261403.14164,
+  "name": "with Device structure only",
+  "ok": false,
+  "duration_sec": 0.5522952999999688,
+  "params": {
+    "call_index": 0,
+    "mxid": "19443010F1221E1300",
+    "internal_gap_sec": 0.0,
+    "continuous": false,
+    "n_calls": 1,
+    "usb2_mode": true
+  },
+  "result": {},
+  "error": "RuntimeError: Cannot find any device with given deviceInfo"
+}
+--------------------------------------------------------------------------------
+{
+  "with_poll": {
+    "attempt": 6,
+    "start_elapsed_sec": 3.3058641999996325,
+    "finish_elapsed_sec": 3.964130500000465,
+    "ok": false,
+    "error": "RuntimeError: Cannot find any device with given deviceInfo"
+  }
+}
+================================================================================
+{
+  "ts": 1772261406.8939261,
+  "name": "with Device structure only",
+  "ok": true,
+  "duration_sec": 3.646654399999534,
+  "params": {
+    "call_index": 0,
+    "mxid": "19443010F1221E1300",
+    "internal_gap_sec": 0.0,
+    "continuous": false,
+    "n_calls": 1,
+    "usb2_mode": true
+  },
+  "result": {
+    "entered": true
+  },
+  "error": null
+}
+--------------------------------------------------------------------------------
+{
+  "with_poll": {
+    "attempt": 7,
+    "start_elapsed_sec": 3.964369200002693,
+    "finish_elapsed_sec": 7.7175548000013805,
+    "ok": true,
+    "error": null
+  }
+}
+================================================================================
+{
+  "summary": {
+    "trigger_ok": true,
+    "with_recovered": true,
+    "with_recovered_start_elapsed_sec": 3.964369200002693,
+    "with_recovered_finish_elapsed_sec": 7.7175548000013805,
+    "attempts": 7,
+    "max_wait_sec": 30.0
+  }
+}

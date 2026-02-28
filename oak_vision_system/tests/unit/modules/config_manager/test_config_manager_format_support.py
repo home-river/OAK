@@ -194,7 +194,7 @@ class TestConfigExport:
         manager = DeviceConfigManager(str(tmp_path / "nonexistent.json"), auto_create=False)
         
         # 尝试导出应该失败
-        with pytest.raises(ConfigValidationError, match="当前无可运行配置可导出"):
+        with pytest.raises(ConfigValidationError, match="当前无可运行配置可导出，请先加载或创建配置"):
             manager.export_to_yaml(str(yaml_export))
     
     def test_export_json_without_loaded_config(self, tmp_path):
@@ -205,7 +205,7 @@ class TestConfigExport:
         manager = DeviceConfigManager(str(tmp_path / "nonexistent.json"), auto_create=False)
         
         # 尝试导出应该失败
-        with pytest.raises(ConfigValidationError, match="当前无可运行配置可导出"):
+        with pytest.raises(ConfigValidationError, match="当前无可运行配置可导出，请先加载或创建配置"):
             manager.export_to_json(str(json_export))
     
     def test_export_yaml_preserves_content(self, tmp_path):

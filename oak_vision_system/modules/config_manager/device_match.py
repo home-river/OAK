@@ -308,7 +308,7 @@ class DeviceMatchManager:
                 self.bindings[i] = new_binding
                 unbound_count += 1
         self._sync_result_from_bindings()
-        # ✅ 合并为一条有意义的聚合日志
+        # 合并为一条有意义的聚合日志
         if unbound_count > 0:
             self.logger.info("已解除 %d 个角色的设备绑定", unbound_count)
         return (True, "成功解除所有设备与角色的绑定")
@@ -365,7 +365,7 @@ class DeviceMatchManager:
         Example:
             >>> success, msg = matcher.swap_devices(DeviceRole.LEFT_CAMERA, DeviceRole.RIGHT_CAMERA)
             >>> if success:
-            ...     print(msg)  # "成功交换 left_camera 和 right_camera 的设备绑定"
+            >>>     print(msg)  # "成功交换 left_camera 和 right_camera 的设备绑定"
         """
         # 1. 查找两个角色的绑定
         binding1 = self.get_binding_by_role(role1)
@@ -541,10 +541,10 @@ class DeviceMatchManager:
         
         # 1. 匹配类型标题
         type_messages = {
-            MatchResultType.FULL_MATCH: "✓ 完全匹配 - 所有角色已成功匹配设备",
-            MatchResultType.PARTIAL_MATCH: "⚠ 部分匹配 - 部分角色未匹配到设备",
-            MatchResultType.NO_MATCH: "✗ 无匹配 - 所有角色均未匹配到设备",
-            MatchResultType.INVALID_CONFIG: "✗ 配置错误 - 绑定配置不合法"
+            MatchResultType.FULL_MATCH: "完全匹配 - 所有角色已成功匹配设备",
+            MatchResultType.PARTIAL_MATCH: "部分匹配 - 部分角色未匹配到设备",
+            MatchResultType.NO_MATCH: "无匹配 - 所有角色均未匹配到设备",
+            MatchResultType.INVALID_CONFIG: "配置错误 - 绑定配置不合法"
         }
         lines.append(f"【匹配结果】{type_messages.get(result.result_type, '未知状态')}")
         lines.append("")

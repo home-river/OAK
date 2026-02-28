@@ -78,7 +78,7 @@ class DisplayManager:
             devices_list=devices_list,
             role_bindings=role_bindings,  # 传入角色绑定（子任务 5.1）
             enable_depth_output=enable_depth_output,  # 传入深度输出配置（子任务 6.1）
-            event_bus=self._packager.event_bus,  # 传入事件总线，用于发布 SYSTEM_SHUTDOWN 事件
+            event_bus=self._packager.event_bus,  # 传入事件总线（保留用于向后兼容，当前未使用）
         )
         
         # 日志（需求 5.5）
@@ -97,14 +97,16 @@ class DisplayManager:
         )
 
     def start(self) -> bool:
-        """启动显示模块
+        """启动显示模块（任务 4.1）
         
-        启动流程：
+        启动流程（主线程渲染架构）：
         1. 检查幂等性（如果已启动则返回False）
         2. 启动 RenderPacketPackager（订阅事件，启动工作线程）
-        3. 根据 enable_display 配置决定是否启动 DisplayRenderer
-        4. 使用 AND 逻辑判断：两个子模块都成功启动才算成功
+        3. 初始化 DisplayRenderer（但不启动渲染线程）
+        4. 设置 _is_running = True
         5. 如果启动失败，清理已启动的子模块（需求 5.5）
+        
+        注意：DisplayRenderer 不再创建独立线程，渲染由 SystemManager 主循环驱动
         
         Returns:
             bool: 是否成功启动
@@ -119,34 +121,26 @@ class DisplayManager:
                 return False
             
             packager_started = False
-            renderer_started = False
             
             try:
-                # 2. 启动 RenderPacketPackager
+                # 2. 启动 RenderPacketPackager（打包线程）
                 self.logger.info("启动 RenderPacketPackager...")
                 packager_started = self._packager.start()
                 
                 if not packager_started:
                     raise RuntimeError("RenderPacketPackager 启动失败")
                 
-                # 3. 根据配置决定是否启动 DisplayRenderer
+                # 3. 初始化 DisplayRenderer（但不启动渲染线程）
                 if self._config.enable_display:
-                    self.logger.info("启动 DisplayRenderer...")
-                    renderer_started = self._renderer.start()
-                    
-                    if not renderer_started:
-                        raise RuntimeError("DisplayRenderer 启动失败")
+                    self.logger.info("初始化 DisplayRenderer（主线程渲染模式）...")
+                    self._renderer.initialize()
                 else:
                     self.logger.info("DisplayRenderer 已禁用（enable_display=False）")
-                    renderer_started = True  # 未启用时视为成功
                 
-                # 4. 使用 AND 逻辑：两个子模块都成功才算成功
-                if packager_started and renderer_started:
-                    self._is_running = True
-                    self.logger.info("DisplayManager 已成功启动")
-                    return True
-                else:
-                    raise RuntimeError("子模块启动未完全成功")
+                # 4. 设置运行状态
+                self._is_running = True
+                self.logger.info("DisplayManager 已成功启动（主线程渲染模式）")
+                return True
                 
             except Exception as e:
                 # 5. 子模块启动失败时清理并抛出异常（需求 5.5）
@@ -162,20 +156,22 @@ class DisplayManager:
                 raise
 
     def stop(self, timeout: float = 5.0) -> bool:
-        """停止显示模块
+        """停止显示模块（任务 4.2）
         
-        停止流程：
+        停止流程（主线程渲染架构）：
         1. 幂等性检查：如果未运行则直接返回True
-        2. 停止 DisplayRenderer（关闭窗口，停止线程）
+        2. 清理 DisplayRenderer 资源（关闭窗口等）
         3. 停止 RenderPacketPackager（取消订阅，停止线程）
-        4. 使用 AND 逻辑：两个子模块都成功停止才算成功
+        4. 设置 _is_running = False
         5. 输出统计信息
+        
+        注意：DisplayRenderer 没有独立线程，只需清理资源
         
         Args:
             timeout: 等待超时时间（秒）
             
         Returns:
-            bool: 是否成功停止（两个子模块都成功才返回True）
+            bool: 是否成功停止
             
         错误处理：
         - 停止超时时记录警告日志
@@ -192,19 +188,15 @@ class DisplayManager:
             renderer_success = True
             packager_success = True
             
-            # 2. 停止 DisplayRenderer
+            # 2. 清理 DisplayRenderer 资源（不需要停止线程）
             if self._renderer is not None:
-                self.logger.info("停止 DisplayRenderer...")
+                self.logger.info("清理 DisplayRenderer 资源...")
                 try:
-                    renderer_success = self._renderer.stop(timeout=timeout)
-                    if not renderer_success:
-                        self.logger.warning(
-                            "DisplayRenderer 停止超时 (%.1f秒)",
-                            timeout
-                        )
+                    self._renderer.cleanup()
+                    renderer_success = True
                 except Exception as e:
                     self.logger.error(
-                        "停止 DisplayRenderer 时发生异常: %s",
+                        "清理 DisplayRenderer 时发生异常: %s",
                         e,
                         exc_info=True
                     )
@@ -339,6 +331,50 @@ class DisplayManager:
             stats["renderer"] = self._renderer.get_stats()
         
         return stats
+
+    def render_once(self) -> bool:
+        """执行一次渲染循环（任务 4.3）
+        
+        由 SystemManager 主循环调用，执行一次渲染并立即返回控制权。
+        
+        实现：
+        1. 检查 enable_display 配置
+        2. 检查 _renderer 是否存在
+        3. 调用 self._renderer.render_once() 并返回结果
+        4. 捕获异常并记录错误日志，返回 False
+        
+        Returns:
+            bool: True 表示用户请求退出（按下 'q' 键），False 表示继续运行
+            
+        错误处理：
+        - 如果 enable_display=False，立即返回 False
+        - 如果 renderer 不存在，返回 False
+        - 如果渲染过程中发生异常，记录错误日志并返回 False
+        
+        需求：6.1, 6.2, 6.3, 6.4, 6.5, 9.1, 9.2
+        """
+        # 检查是否启用显示（需求 6.5）
+        if not self._config.enable_display:
+            return False
+        
+        # 检查 renderer 是否存在
+        if self._renderer is None:
+            return False
+        
+        try:
+            # 调用 DisplayRenderer.render_once() 并返回结果
+            # True = 用户按下 'q' 键请求退出
+            # False = 继续运行
+            return self._renderer.render_once()
+        except Exception as e:
+            # 捕获异常并记录错误日志（需求 9.1, 9.2）
+            self.logger.error(
+                "渲染过程中发生异常: %s",
+                e,
+                exc_info=True
+            )
+            # 返回 False 以继续运行（需求 9.2）
+            return False
 
     @property
     def is_running(self) -> bool:

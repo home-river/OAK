@@ -1,0 +1,4 @@
+# file: D:\pythonWork\graspWithVision\OAK\oak_vision_system\modules\config_manager\device_config_manager.py
+# hypothesis_version: 6.150.2
+
+['.tmp', '.tmp.json', '; ', 'active_mxid', 'config', 'device_config.json', 'device_swapped', 'full_match', 'no_match', 'online_devices 不能为空', 'partial_match', 'utf-8', 'yaml', '不存在可运行配置快照，无法回档', '初始化日志失败: %s', '匹配失败：至少需要一个角色完成绑定', '发现 %d 个在线设备', '已保存可运行配置: path=%s', '已回档到最近的可运行配置快照', '已晋升当前草稿为可运行配置', '当前无可运行配置，请先创建或加载配置', '当前无草稿配置，请先创建或加载配置', '未发现任何可用设备，将创建空设备配置', '未发现任何可用设备，将创建空设备配置模板', '根据系统配置初始化日志失败: %s', '设备匹配失败: %s，将使用未匹配的配置', '配置已保存: path=%s', '配置已导出为 JSON: path=%s', '配置已验证并晋升为可运行配置', '配置文件不存在且未启用自动创建: %s', '配置未加载', '默认配置已创建', '默认配置已验证并晋升为可运行配置']

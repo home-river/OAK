@@ -9,6 +9,10 @@ DTO基类模块
 - 不可变性保证
 """
 
+try:
+    from typing import Self  # Python 3.11+
+except ImportError:
+    from typing_extensions import Self  # Python < 3.11
 import json
 import time
 from abc import ABC, abstractmethod
@@ -231,7 +235,7 @@ class BaseDTO(ABC):
         )
 
     # 便捷的不可变更新接口：返回一个带有变更字段的新实例
-    def with_updates(self, **changes: Any) -> "BaseDTO":
+    def with_updates(self, **changes: Any) -> Self:
         """
         基于 dataclasses.replace 的轻量封装，用于便捷地构造带更新字段的新实例。
 

@@ -185,7 +185,10 @@ class TestSystemManagerE2ENormalFlow(unittest.TestCase):
         self.manager.start_all()
         
         # 在后台线程中运行 manager.run()
-        run_thread = threading.Thread(target=self.manager.run, daemon=True)
+        run_thread = threading.Thread(
+            target=lambda: self.manager.run(force_exit_on_shutdown_failure=False),
+            daemon=True
+        )
         run_thread.start()
         
         # 等待一小段时间确保 run() 进入主循环
@@ -232,9 +235,8 @@ class TestSystemManagerE2EFailureScenarios(unittest.TestCase):
         except:
             pass
     
-    @patch('os._exit')
-    def test_module_stop_returns_false(self, mock_exit):
-        """测试模块 stop() 返回 False 触发兜底机制"""
+    def test_module_stop_returns_false(self):
+        """测试模块 stop() 返回 False 时 shutdown 返回 False"""
         # 创建一个会返回 False 的模块
         failing_module = MockModule("failing_module", stop_return_false=True)
         
@@ -242,19 +244,18 @@ class TestSystemManagerE2EFailureScenarios(unittest.TestCase):
         self.manager.register_module("failing_module", failing_module, priority=10)
         self.manager.start_all()
         
-        # 关闭系统（应该触发兜底机制）
-        self.manager.shutdown()
+        # 关闭系统
+        result = self.manager.shutdown()
         
-        # 验证 os._exit(1) 被调用
-        mock_exit.assert_called_once_with(1)
+        # 验证 shutdown 返回 False（表示失败）
+        self.assertFalse(result)
         
         # 验证模块状态为 ERROR
         status = self.manager.get_status()
         self.assertEqual(status["failing_module"], "error")
     
-    @patch('os._exit')
-    def test_module_stop_raises_exception(self, mock_exit):
-        """测试模块 stop() 抛出异常触发兜底机制"""
+    def test_module_stop_raises_exception(self):
+        """测试模块 stop() 抛出异常时 shutdown 返回 False"""
         # 创建一个会抛出异常的模块
         failing_module = MockModule("failing_module", should_fail_stop=True)
         
@@ -262,19 +263,18 @@ class TestSystemManagerE2EFailureScenarios(unittest.TestCase):
         self.manager.register_module("failing_module", failing_module, priority=10)
         self.manager.start_all()
         
-        # 关闭系统（应该触发兜底机制）
-        self.manager.shutdown()
+        # 关闭系统
+        result = self.manager.shutdown()
         
-        # 验证 os._exit(1) 被调用
-        mock_exit.assert_called_once_with(1)
+        # 验证 shutdown 返回 False（表示失败）
+        self.assertFalse(result)
         
         # 验证模块状态为 ERROR
         status = self.manager.get_status()
         self.assertEqual(status["failing_module"], "error")
     
-    @patch('os._exit')
-    def test_multiple_modules_fail(self, mock_exit):
-        """测试多个模块停止失败触发兜底机制"""
+    def test_multiple_modules_fail(self):
+        """测试多个模块停止失败时 shutdown 返回 False"""
         # 创建多个会失败的模块
         failing_module1 = MockModule("failing1", stop_return_false=True)
         failing_module2 = MockModule("failing2", should_fail_stop=True)
@@ -284,11 +284,11 @@ class TestSystemManagerE2EFailureScenarios(unittest.TestCase):
         self.manager.register_module("failing2", failing_module2, priority=20)
         self.manager.start_all()
         
-        # 关闭系统（应该触发兜底机制）
-        self.manager.shutdown()
+        # 关闭系统
+        result = self.manager.shutdown()
         
-        # 验证 os._exit(1) 被调用
-        mock_exit.assert_called_once_with(1)
+        # 验证 shutdown 返回 False（表示失败）
+        self.assertFalse(result)
         
         # 验证所有失败模块状态为 ERROR
         status = self.manager.get_status()
@@ -320,9 +320,8 @@ class TestSystemManagerE2EMixedScenarios(unittest.TestCase):
         except:
             pass
     
-    @patch('os._exit')
-    def test_partial_failure(self, mock_exit):
-        """测试部分模块成功、部分失败的场景"""
+    def test_partial_failure(self):
+        """测试部分模块成功、部分失败时 shutdown 返回 False"""
         # 创建模块：一个成功，两个失败
         success_module = MockModule("success")
         failing_module1 = MockModule("failing1", stop_return_false=True)
@@ -335,7 +334,10 @@ class TestSystemManagerE2EMixedScenarios(unittest.TestCase):
         self.manager.start_all()
         
         # 关闭系统
-        self.manager.shutdown()
+        result = self.manager.shutdown()
+        
+        # 验证 shutdown 返回 False（表示失败）
+        self.assertFalse(result)
         
         # 验证成功的模块正常关闭
         self.assertTrue(success_module.stop_called)
@@ -345,12 +347,8 @@ class TestSystemManagerE2EMixedScenarios(unittest.TestCase):
         # 验证失败的模块状态为 ERROR
         self.assertEqual(status["failing1"], "error")
         self.assertEqual(status["failing2"], "error")
-        
-        # 验证触发兜底机制
-        mock_exit.assert_called_once_with(1)
     
-    @patch('os._exit')
-    def test_failure_does_not_block_other_modules(self, mock_exit):
+    def test_failure_does_not_block_other_modules(self):
         """测试失败的模块不会阻塞其他模块的关闭"""
         # 创建模块：第一个失败，后面的应该继续执行
         failing_module = MockModule("failing", should_fail_stop=True)
@@ -364,7 +362,10 @@ class TestSystemManagerE2EMixedScenarios(unittest.TestCase):
         self.manager.start_all()
         
         # 关闭系统
-        self.manager.shutdown()
+        result = self.manager.shutdown()
+        
+        # 验证 shutdown 返回 False（表示失败）
+        self.assertFalse(result)
         
         # 验证所有模块的 stop() 都被调用（即使第一个失败）
         self.assertTrue(failing_module.stop_called)
@@ -378,9 +379,6 @@ class TestSystemManagerE2EMixedScenarios(unittest.TestCase):
         
         # 验证失败的模块状态为 ERROR
         self.assertEqual(status["failing"], "error")
-        
-        # 验证触发兜底机制
-        mock_exit.assert_called_once_with(1)
 
 
 class TestSystemManagerE2EStartupFailure(unittest.TestCase):
@@ -473,7 +471,8 @@ class TestSystemManagerE2EContextManager(unittest.TestCase):
         
         # 使用上下文管理器
         with manager:
-            # __enter__ 会自动调用 start_all()
+            # 手动调用 start_all()（__enter__ 不再自动调用）
+            manager.start_all()
             # 验证模块已启动
             self.assertTrue(module.start_called)
         
@@ -497,7 +496,8 @@ class TestSystemManagerE2EContextManager(unittest.TestCase):
         # 使用上下文管理器，并在内部抛出异常
         with self.assertRaises(ValueError):
             with manager:
-                # __enter__ 会自动调用 start_all()
+                # 手动调用 start_all()（__enter__ 不再自动调用）
+                manager.start_all()
                 # 验证模块已启动
                 self.assertTrue(module.start_called)
                 
@@ -505,6 +505,203 @@ class TestSystemManagerE2EContextManager(unittest.TestCase):
                 raise ValueError("Test exception")
         
         # __exit__ 仍然会调用 shutdown()
+        # 验证模块已停止
+        self.assertTrue(module.stop_called)
+
+
+class TestSystemManagerE2EDisplayModule(unittest.TestCase):
+    """测试 SystemManager 与显示模块的集成"""
+    
+    def setUp(self):
+        """测试前准备"""
+        # 创建独立的事件总线
+        self.event_bus = EventBus()
+        
+        # 创建 SystemManager
+        self.manager = SystemManager(
+            event_bus=self.event_bus,
+            system_config=None,
+            default_stop_timeout=5.0,
+            force_exit_grace_period=1.0
+        )
+    
+    def tearDown(self):
+        """测试后清理"""
+        # 确保事件总线关闭
+        try:
+            self.event_bus.close(wait=False, cancel_pending=True)
+        except:
+            pass
+    
+    def test_register_display_module(self):
+        """测试注册显示模块"""
+        # 创建模拟显示模块
+        display_module = MockModule("display")
+        
+        # 注册显示模块
+        self.manager.register_display_module("display", display_module, priority=50)
+        
+        # 验证模块已注册
+        status = self.manager.get_status()
+        self.assertEqual(status["display"], "not_started")
+        
+        # 验证 _display_module 被设置
+        self.assertIsNotNone(self.manager._display_module)
+        self.assertEqual(self.manager._display_module, display_module)
+    
+    def test_cannot_register_multiple_display_modules(self):
+        """测试不能重复注册显示模块"""
+        # 创建两个模拟显示模块
+        display1 = MockModule("display1")
+        display2 = MockModule("display2")
+        
+        # 注册第一个显示模块
+        self.manager.register_display_module("display1", display1, priority=50)
+        
+        # 尝试注册第二个显示模块（应该失败）
+        with self.assertRaises(ValueError) as context:
+            self.manager.register_display_module("display2", display2, priority=50)
+        
+        # 验证错误消息
+        self.assertIn("已经注册了显示模块", str(context.exception))
+    
+    def test_run_with_display_module_calls_render_once(self):
+        """测试 run() 循环调用 display_module.render_once()"""
+        # 创建模拟显示模块
+        display_module = Mock()
+        display_module.start.return_value = True
+        display_module.stop.return_value = True
+        
+        # 配置 render_once：前几次返回 False，最后返回 True 触发退出
+        render_calls = [False, False, False, True]
+        display_module.render_once.side_effect = render_calls
+        
+        # 注册并启动显示模块
+        self.manager.register_display_module("display", display_module, priority=50)
+        self.manager.start_all()
+        
+        # 在后台线程中运行 run()
+        run_thread = threading.Thread(
+            target=lambda: self.manager.run(force_exit_on_shutdown_failure=False),
+            daemon=True
+        )
+        run_thread.start()
+        
+        # 等待 run() 线程结束
+        run_thread.join(timeout=5.0)
+        
+        # 验证线程已结束
+        self.assertFalse(run_thread.is_alive())
+        
+        # 验证 render_once() 被调用了 4 次
+        self.assertEqual(display_module.render_once.call_count, 4)
+        
+        # 验证模块已停止
+        self.assertTrue(display_module.stop.called)
+    
+    def test_render_once_returns_true_triggers_shutdown(self):
+        """测试 render_once() 返回 True 触发系统关闭"""
+        # 创建模拟显示模块
+        display_module = Mock()
+        display_module.start.return_value = True
+        display_module.stop.return_value = True
+        display_module.render_once.return_value = True  # 立即返回 True
+        
+        # 注册并启动显示模块
+        self.manager.register_display_module("display", display_module, priority=50)
+        self.manager.start_all()
+        
+        # 在后台线程中运行 run()
+        run_thread = threading.Thread(
+            target=lambda: self.manager.run(force_exit_on_shutdown_failure=False),
+            daemon=True
+        )
+        run_thread.start()
+        
+        # 等待 run() 线程结束
+        run_thread.join(timeout=5.0)
+        
+        # 验证线程已结束
+        self.assertFalse(run_thread.is_alive())
+        
+        # 验证 render_once() 被调用
+        self.assertTrue(display_module.render_once.called)
+        
+        # 验证系统正在关闭
+        self.assertTrue(self.manager.is_shutting_down())
+        
+        # 验证模块已停止
+        self.assertTrue(display_module.stop.called)
+    
+    def test_render_once_exception_does_not_stop_loop(self):
+        """测试 render_once() 异常不会中断主循环"""
+        # 创建模拟显示模块
+        display_module = Mock()
+        display_module.start.return_value = True
+        display_module.stop.return_value = True
+        
+        # 配置 render_once：前两次抛异常，第三次返回 True 触发退出
+        render_calls = [
+            RuntimeError("渲染错误1"),
+            RuntimeError("渲染错误2"),
+            True
+        ]
+        display_module.render_once.side_effect = render_calls
+        
+        # 注册并启动显示模块
+        self.manager.register_display_module("display", display_module, priority=50)
+        self.manager.start_all()
+        
+        # 在后台线程中运行 run()
+        run_thread = threading.Thread(
+            target=lambda: self.manager.run(force_exit_on_shutdown_failure=False),
+            daemon=True
+        )
+        run_thread.start()
+        
+        # 等待 run() 线程结束
+        run_thread.join(timeout=5.0)
+        
+        # 验证线程已结束
+        self.assertFalse(run_thread.is_alive())
+        
+        # 验证 render_once() 被调用了 3 次（异常后继续运行）
+        self.assertEqual(display_module.render_once.call_count, 3)
+        
+        # 验证模块已停止
+        self.assertTrue(display_module.stop.called)
+    
+    def test_run_without_display_module_uses_wait_logic(self):
+        """测试没有显示模块时使用等待逻辑"""
+        # 创建普通模块（非显示模块）
+        module = MockModule("module")
+        
+        # 注册并启动模块
+        self.manager.register_module("module", module, priority=10)
+        self.manager.start_all()
+        
+        # 在后台线程中运行 run()
+        run_thread = threading.Thread(
+            target=lambda: self.manager.run(force_exit_on_shutdown_failure=False),
+            daemon=True
+        )
+        run_thread.start()
+        
+        # 等待一小段时间确保 run() 进入主循环
+        time.sleep(0.5)
+        
+        # 发布 SYSTEM_SHUTDOWN 事件触发退出
+        self.event_bus.publish(
+            "SYSTEM_SHUTDOWN",
+            ShutdownEvent(reason="test_shutdown")
+        )
+        
+        # 等待 run() 线程结束
+        run_thread.join(timeout=5.0)
+        
+        # 验证线程已结束
+        self.assertFalse(run_thread.is_alive())
+        
         # 验证模块已停止
         self.assertTrue(module.stop_called)
 

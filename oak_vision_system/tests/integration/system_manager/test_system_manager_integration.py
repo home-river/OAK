@@ -256,7 +256,7 @@ class TestSystemManagerKeyboardInterrupt:
         # 在另一个线程中运行 manager.run()
         def run_manager():
             try:
-                manager.run()
+                manager.run(force_exit_on_shutdown_failure=False)
             except Exception as e:
                 # 捕获可能的异常
                 pass
@@ -308,7 +308,7 @@ class TestSystemManagerKeyboardInterrupt:
         # 在另一个线程中运行 manager.run()
         def run_manager():
             try:
-                manager.run()
+                manager.run(force_exit_on_shutdown_failure=False)
             except Exception:
                 pass
         
@@ -361,7 +361,7 @@ class TestSystemManagerShutdownEvent:
         # 在另一个线程中运行 manager.run()
         def run_manager():
             try:
-                manager.run()
+                manager.run(force_exit_on_shutdown_failure=False)
             except Exception:
                 pass
         
@@ -411,7 +411,7 @@ class TestSystemManagerShutdownEvent:
         # 在另一个线程中运行 manager.run()
         def run_manager():
             try:
-                manager.run()
+                manager.run(force_exit_on_shutdown_failure=False)
             except Exception:
                 pass
         
@@ -456,7 +456,7 @@ class TestSystemManagerShutdownEvent:
         # 在另一个线程中运行 manager.run()
         def run_manager():
             try:
-                manager.run()
+                manager.run(force_exit_on_shutdown_failure=False)
             except Exception:
                 pass
         
@@ -876,7 +876,7 @@ class TestSystemManagerComplexScenarios:
         # 在另一个线程中运行 manager.run()
         def run_manager():
             try:
-                manager.run()
+                manager.run(force_exit_on_shutdown_failure=False)
             except Exception:
                 pass
         

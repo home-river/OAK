@@ -351,8 +351,8 @@ class TestSystemManagerRollback:
             # 验证包含启动失败的错误日志
             assert any("模块启动失败: module2" in record.message for record in error_logs)
             
-            # 验证包含回滚停止失败的错误日志
-            assert any("回滚停止模块失败: module1" in record.message for record in error_logs)
+            # 验证包含回滚停止失败的错误日志（可能是"返回 False"或"抛出异常"）
+            assert any("回滚停止模块失败" in record.message and "module1" in record.message for record in error_logs)
     
     def test_rollback_with_empty_started_modules_list(self, caplog):
         """

@@ -28,18 +28,17 @@ class PipelineManager:
         self.rgb_resolution = self._convert_rgb_resolution()
         self.filterkernel = self._convert_filterkernel()
         self.monocamera_resolution = self._convert_depth_resolution()
-        self.pipeline = None
+        # 移除 self.pipeline 存储 - PipelineManager 现在是无状态工厂
         self.enable_depth_output = enable_depth_output
         self.system_config = system_config or SystemConfigDTO()
         self.__post_init__()
-        self.logger.info("PipelineManager 初始化完成")
 
     def __post_init__(self):
         # 解析深度输出配置
         self.enable_depth_output = self.__resolve_enable_depth_output()
-        # Pipeline 创建延迟到外部显式调用（如 Collector._init_pipeline()）
-        # 这样可以避免在测试初始化时就需要真实的模型文件
-        self.logger.info("PipelineManager 初始化完成（Pipeline 延迟创建）")
+        # PipelineManager 现在是无状态工厂，不再存储 pipeline 对象
+        # Pipeline 将在每个设备线程中按需创建
+        self.logger.info("PipelineManager 初始化完成（工厂模式，无状态）")
 
     def __resolve_enable_depth_output(self) -> bool:
         if self.enable_depth_output is not None:
@@ -47,9 +46,22 @@ class PipelineManager:
         return getattr(self.config, "enable_depth_output", False)
 
 
-    def create_pipeline(self):
-        """创建pipeline"""
-        self.logger.info("create_pipeline: start")
+    def create_pipeline_new(self):
+        """
+        创建新版风格的 pipeline（带深度输出）
+        
+        新版特征：
+        - 使用 spatialDetectionNetwork.passthrough 作为 RGB 输出源
+        - RGB 与检测结果完全同步
+        - 不设置 videoSize
+        
+        Returns:
+            dai.Pipeline: 新创建的 pipeline 对象
+            
+        Raises:
+            RuntimeError: pipeline 创建失败
+        """
+        self.logger.info("create_pipeline_new: start (新版风格)")
         stage = "init"
         try:
             stage = "pipeline_init"
@@ -118,18 +130,44 @@ class PipelineManager:
             stereo.depth.link(spatialDetectionNetwork.inputDepth)
             spatialDetectionNetwork.passthroughDepth.link(xoutDepth.input)
             # spatialDetectionNetwork.outNetwork.link(nnNetworkOut.input) # tensor输出无用
-            self.logger.info("pipeline创建完成")
-            self.pipeline = pipeline
+            self.logger.info("pipeline创建完成（新版风格）")
+            return pipeline
         except Exception as e:
-            self.pipeline = None
-            self.logger.exception("create_pipeline 失败，阶段=%s", stage)
-            raise RuntimeError(f"create_pipeline 失败（阶段={stage}）") from e
+            self.logger.exception("create_pipeline_new 失败，阶段=%s", stage)
+            raise RuntimeError(f"create_pipeline_new 失败（阶段={stage}）") from e
+
+    def create_pipeline(self):
+        """
+        创建 pipeline（向后兼容方法）
+        
+        默认调用 create_pipeline_new()，保持向后兼容性。
+        
+        Returns:
+            dai.Pipeline: 新创建的 pipeline 对象
+            
+        Raises:
+            RuntimeError: pipeline 创建失败
+        """
+        return self.create_pipeline_new()
 
         
 
-    def create_pipeline_with_no_depth_output(self):
-        """创建无深度图的pipeline"""
-        self.logger.info("create_pipeline_with_no_depth_output: start")
+    def create_pipeline_new_no_depth(self):
+        """
+        创建新版风格的 pipeline（不带深度输出）
+        
+        新版特征：
+        - 使用 spatialDetectionNetwork.passthrough 作为 RGB 输出源
+        - RGB 与检测结果完全同步
+        - 不输出深度图（节省带宽）
+        
+        Returns:
+            dai.Pipeline: 新创建的 pipeline 对象
+            
+        Raises:
+            RuntimeError: pipeline 创建失败
+        """
+        self.logger.info("create_pipeline_new_no_depth: start (新版风格，无深度输出)")
         stage = "init"
         try:
             stage = "pipeline_init"
@@ -196,37 +234,209 @@ class PipelineManager:
             spatialDetectionNetwork.out.link(xoutNN.input)
             stereo.depth.link(spatialDetectionNetwork.inputDepth)
             # spatialDetectionNetwork.outNetwork.link(nnNetworkOut.input)
-            self.logger.info("pipeline创建完成（无深度输出）")
-            self.pipeline = pipeline
+            self.logger.info("pipeline创建完成（新版风格，无深度输出）")
+            return pipeline
         except Exception as e:
-            self.pipeline = None
-            self.logger.exception("create_pipeline_with_no_depth_output 失败，阶段=%s", stage)
-            raise RuntimeError(f"create_pipeline_with_no_depth_output 失败（阶段={stage}）") from e
+            self.logger.exception("create_pipeline_new_no_depth 失败，阶段=%s", stage)
+            raise RuntimeError(f"create_pipeline_new_no_depth 失败（阶段={stage}）") from e
+
+    def create_pipeline_with_no_depth_output(self):
+        """
+        创建无深度输出的 pipeline（向后兼容方法）
         
-    def get_pipeline(self):
-        """
-        获取已创建的 pipeline 实例。
-
-        如果 pipeline 尚未初始化，则抛出异常。
-        此方法用于外部获取当前 PipelineManager 管理的 pipeline 对象。
-
+        默认调用 create_pipeline_new_no_depth()，保持向后兼容性。
+        
         Returns:
-            depthai.Pipeline: 已初始化的 pipeline 实例。
-
+            dai.Pipeline: 新创建的 pipeline 对象
+            
         Raises:
-            RuntimeError: 如果 pipeline 尚未创建。
-            TypeError: 如果 pipeline 类型异常。
+            RuntimeError: pipeline 创建失败
         """
-        if self.pipeline is None:
-            msg = "Pipeline 尚未创建。请先调用 create_pipeline() 或 create_pipeline_with_no_depth_output()。"
-            self.logger.error(msg)
-            raise RuntimeError(msg)
-        if not isinstance(self.pipeline, dai.Pipeline):
-            msg = "Pipeline 类型异常：期望为 depthai.Pipeline。"
-            self.logger.error(msg)
-            raise TypeError(msg)
-        return self.pipeline
-          
+        return self.create_pipeline_new_no_depth()
+        
+    def create_pipeline_legacy(self):
+        """
+        创建旧版风格的 pipeline（带深度输出）
+        
+        旧版特征（完全照抄 dual_detectionv2.py）：
+        - 使用 camRgb.video 作为 RGB 输出源（解决 FF 设备兼容性）
+        - 显式设置 videoSize 为 rgb_resolution
+        - 可选输出 nnNetwork（用于调试）
+        - 高分辨率 RGB 输出
+        
+        Returns:
+            dai.Pipeline: 新创建的 pipeline 对象
+            
+        Raises:
+            RuntimeError: pipeline 创建失败
+        """
+        self.logger.info("create_pipeline_legacy: start (旧版风格，FF 兼容)")
+        stage = "init"
+        try:
+            stage = "pipeline_init"
+            pipeline = dai.Pipeline()
+            
+            # 创建节点
+            stage = "node_creation"
+            camRgb = pipeline.create(dai.node.ColorCamera)
+            spatialDetectionNetwork = pipeline.create(dai.node.YoloSpatialDetectionNetwork)
+            monoLeft = pipeline.create(dai.node.MonoCamera)
+            monoRight = pipeline.create(dai.node.MonoCamera)
+            stereo = pipeline.create(dai.node.StereoDepth)
+            
+            # 输出队列
+            stage = "xlink_creation"
+            xoutRgb = pipeline.create(dai.node.XLinkOut)
+            xoutNN = pipeline.create(dai.node.XLinkOut)
+            xoutDepth = pipeline.create(dai.node.XLinkOut)
+            nnNetworkOut = pipeline.create(dai.node.XLinkOut)  # 旧版启用
+            
+            xoutRgb.setStreamName("rgb")
+            xoutNN.setStreamName("detections")
+            xoutDepth.setStreamName("depth")
+            nnNetworkOut.setStreamName("nnNetwork")  # 旧版启用
+            
+            # 配置相机（关键差异：显式设置 videoSize）
+            stage = "camera_config"
+            camRgb.setPreviewSize(self.config.preview_resolution[0], self.config.preview_resolution[1])
+            camRgb.setVideoSize(self.config.rgb_resolution[0], self.config.rgb_resolution[1])  # ⚠️ 关键：旧版设置 videoSize
+            camRgb.setResolution(self.rgb_resolution)
+            camRgb.setInterleaved(False)
+            camRgb.setColorOrder(dai.ColorCameraProperties.ColorOrder.BGR)
+            monoLeft.setResolution(self.monocamera_resolution)
+            monoLeft.setCamera("left")
+            monoRight.setResolution(self.monocamera_resolution)
+            monoRight.setCamera("right")
+            
+            # 配置立体深度
+            stage = "stereo_config"
+            stereo.setDefaultProfilePreset(dai.node.StereoDepth.PresetMode.DEFAULT)
+            stereo.setDepthAlign(dai.CameraBoardSocket.CAM_A)
+            stereo.setOutputSize(monoLeft.getResolutionWidth(), monoLeft.getResolutionHeight())
+            stereo.initialConfig.setMedianFilter(self.filterkernel)
+            stereo.setSubpixel(self.config.subpixel)
+            stereo.setLeftRightCheck(self.config.left_right_check)
+            stereo.setExtendedDisparity(self.config.extended_disparity)
+            
+            # 配置检测网络
+            stage = "nn_config"
+            spatialDetectionNetwork.setBlobPath(self.config.model_path)
+            spatialDetectionNetwork.setConfidenceThreshold(self.config.confidence_threshold)
+            spatialDetectionNetwork.input.setBlocking(False)
+            spatialDetectionNetwork.setBoundingBoxScaleFactor(0.5)
+            spatialDetectionNetwork.setDepthLowerThreshold(self.config.depth_min_threshold)
+            spatialDetectionNetwork.setDepthUpperThreshold(self.config.depth_max_threshold)
+            spatialDetectionNetwork.setNumClasses(self.config.num_classes)
+            spatialDetectionNetwork.setCoordinateSize(4)
+            spatialDetectionNetwork.setIouThreshold(0.5)
+            
+            # 连接节点（关键差异：使用 camRgb.video 而不是 passthrough）
+            stage = "link_nodes"
+            monoLeft.out.link(stereo.left)
+            monoRight.out.link(stereo.right)
+            camRgb.preview.link(spatialDetectionNetwork.input)
+            camRgb.video.link(xoutRgb.input)  # ⚠️ 关键：旧版使用 video 输出
+            spatialDetectionNetwork.out.link(xoutNN.input)
+            stereo.depth.link(spatialDetectionNetwork.inputDepth)
+            spatialDetectionNetwork.passthroughDepth.link(xoutDepth.input)
+            spatialDetectionNetwork.outNetwork.link(nnNetworkOut.input)  # 旧版启用
+            
+            self.logger.info("pipeline创建完成（旧版风格，FF 兼容）")
+            return pipeline
+        except Exception as e:
+            self.logger.exception("create_pipeline_legacy 失败，阶段=%s", stage)
+            raise RuntimeError(f"create_pipeline_legacy 失败（阶段={stage}）") from e
+    
+    def create_pipeline_legacy_no_depth(self):
+        """
+        创建旧版风格的 pipeline（不带深度输出）
+        
+        旧版特征（完全照抄 dual_detectionv2.py）：
+        - 使用 camRgb.video 作为 RGB 输出源（解决 FF 设备兼容性）
+        - 显式设置 videoSize 为 rgb_resolution
+        - 不输出深度图（节省带宽）
+        - 高分辨率 RGB 输出
+        
+        Returns:
+            dai.Pipeline: 新创建的 pipeline 对象
+            
+        Raises:
+            RuntimeError: pipeline 创建失败
+        """
+        self.logger.info("create_pipeline_legacy_no_depth: start (旧版风格，FF 兼容，无深度输出)")
+        stage = "init"
+        try:
+            stage = "pipeline_init"
+            pipeline = dai.Pipeline()
+                
+            # 创建节点
+            stage = "node_creation"
+            camRgb = pipeline.create(dai.node.ColorCamera)
+            spatialDetectionNetwork = pipeline.create(dai.node.YoloSpatialDetectionNetwork)
+            monoLeft = pipeline.create(dai.node.MonoCamera)
+            monoRight = pipeline.create(dai.node.MonoCamera)
+            stereo = pipeline.create(dai.node.StereoDepth)
+            
+            # 输出队列（不输出深度图）
+            stage = "xlink_creation"
+            xoutRgb = pipeline.create(dai.node.XLinkOut)
+            xoutNN = pipeline.create(dai.node.XLinkOut)
+            nnNetworkOut = pipeline.create(dai.node.XLinkOut)  # 旧版启用
+            
+            xoutRgb.setStreamName("rgb")
+            xoutNN.setStreamName("detections")
+            nnNetworkOut.setStreamName("nnNetwork")  # 旧版启用
+            
+            # 配置相机（关键差异：显式设置 videoSize）
+            stage = "camera_config"
+            camRgb.setPreviewSize(self.config.preview_resolution[0], self.config.preview_resolution[1])
+            camRgb.setVideoSize(self.config.rgb_resolution[0], self.config.rgb_resolution[1])  # ⚠️ 关键：旧版设置 videoSize
+            camRgb.setResolution(self.rgb_resolution)
+            camRgb.setInterleaved(False)
+            camRgb.setColorOrder(dai.ColorCameraProperties.ColorOrder.BGR)
+            monoLeft.setResolution(self.monocamera_resolution)
+            monoLeft.setCamera("left")
+            monoRight.setResolution(self.monocamera_resolution)
+            monoRight.setCamera("right")
+            
+            # 配置立体深度
+            stage = "stereo_config"
+            stereo.setDefaultProfilePreset(dai.node.StereoDepth.PresetMode.DEFAULT)
+            stereo.setDepthAlign(dai.CameraBoardSocket.CAM_A)
+            stereo.setOutputSize(monoLeft.getResolutionWidth(), monoLeft.getResolutionHeight())
+            stereo.initialConfig.setMedianFilter(self.filterkernel)
+            stereo.setSubpixel(self.config.subpixel)
+            stereo.setLeftRightCheck(self.config.left_right_check)
+            stereo.setExtendedDisparity(self.config.extended_disparity)
+            
+            # 配置检测网络
+            stage = "nn_config"
+            spatialDetectionNetwork.setBlobPath(self.config.model_path)
+            spatialDetectionNetwork.setConfidenceThreshold(self.config.confidence_threshold)
+            spatialDetectionNetwork.input.setBlocking(False)
+            spatialDetectionNetwork.setBoundingBoxScaleFactor(0.5)
+            spatialDetectionNetwork.setDepthLowerThreshold(self.config.depth_min_threshold)
+            spatialDetectionNetwork.setDepthUpperThreshold(self.config.depth_max_threshold)
+            spatialDetectionNetwork.setNumClasses(self.config.num_classes)
+            spatialDetectionNetwork.setCoordinateSize(4)
+            spatialDetectionNetwork.setIouThreshold(0.5)
+            
+            # 连接节点（关键差异：使用 camRgb.video 而不是 passthrough）
+            stage = "link_nodes"
+            monoLeft.out.link(stereo.left)
+            monoRight.out.link(stereo.right)
+            camRgb.preview.link(spatialDetectionNetwork.input)
+            camRgb.video.link(xoutRgb.input)  # ⚠️ 关键：旧版使用 video 输出
+            spatialDetectionNetwork.out.link(xoutNN.input)
+            stereo.depth.link(spatialDetectionNetwork.inputDepth)
+            spatialDetectionNetwork.outNetwork.link(nnNetworkOut.input)  # 旧版启用
+            
+            self.logger.info("pipeline创建完成（旧版风格，FF 兼容，无深度输出）")
+            return pipeline
+        except Exception as e:
+            self.logger.exception("create_pipeline_legacy_no_depth 失败，阶段=%s", stage)
+            raise RuntimeError(f"create_pipeline_legacy_no_depth 失败（阶段={stage}）") from e
+        
         
         
         

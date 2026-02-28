@@ -206,6 +206,8 @@ class TestContextManagerLogging:
         - __enter__ 记录日志
         - 日志级别为 DEBUG
         
+        注意：__enter__ 不再自动调用 start_all()（需要手动调用）
+        
         Requirements: 14.3
         """
         # 设置日志级别为 DEBUG
@@ -220,7 +222,7 @@ class TestContextManagerLogging:
                 
                 # 验证：记录了 DEBUG 日志
                 assert any("进入 with 块" in record.message for record in caplog.records)
-                assert any("调用 start_all()" in record.message for record in caplog.records)
+                # 注意：不再验证 "调用 start_all()"，因为 __enter__ 不再自动调用
             finally:
                 event_bus.close(wait=False, cancel_pending=True)
     

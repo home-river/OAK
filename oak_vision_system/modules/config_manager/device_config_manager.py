@@ -209,6 +209,17 @@ class DeviceConfigManager:
             dto = DeviceConfigManager.get_default_config(devices)
             if dto is None:
                 raise ConfigValidationError("默认配置创建失败：get_default_config 未实现或返回 None")
+            # 2.1.1 基于在线设备进行一次匹配（首次启动也尽量产出可运行配置）
+            try:
+                dto, match_result = self._match_config_internal(
+                    dto,
+                    online_devices=devices,
+                    auto_bind_new_devices=True,
+                    require_at_least_one_binding=False,
+                )
+                self._last_match_result = match_result
+            except Exception as e:
+                self.logger.warning("默认配置匹配失败: %s，将使用未匹配的默认配置", e)
             # 2.2 可选校验（不含运行态）
             if validate:
                 ok, errors = validate_dto_structure(dto)
@@ -216,18 +227,29 @@ class DeviceConfigManager:
                     raise ConfigValidationError("; ".join(errors))
             # 2.3 写盘并入内存
             try:
-                json_text = dto.to_json(indent=2, include_metadata=False)
+                dto_to_save = self._clear_active_mxids(dto)
+                json_text = dto_to_save.to_json(indent=2, include_metadata=False)
                 self._atomic_write_json(path, json_text)
             except OSError as e:
                 raise ConfigValidationError(f"写入配置文件失败: {e}")
-            self._config = dto
-            self._runnable_config = dto  # 自动创建时同时作为可运行基线
-            self._dirty = False
+            self._config = dto_to_save
             self._config_path = str(path)
             try:
                 self._last_modified = path.stat().st_mtime
             except OSError:
                 self._last_modified = None
+            
+            # 2.4 晋升为可运行配置（包含完整验证）
+            try:
+                self.promote_runnable_if_valid(
+                    include_runtime_checks=True,
+                    persist=False
+                )
+                self.logger.info("配置已验证并晋升为可运行配置")
+            except ConfigValidationError as e:
+                self.logger.warning("配置验证失败: %s，配置已创建为草稿但不可运行", e)
+                # 配置创建成功，但未通过验证，_runnable_config 保持为 None
+            
             try:
                 configure_logging(dto.system_config)
             except Exception as e:
@@ -283,19 +305,58 @@ class DeviceConfigManager:
             if not ok:
                 raise ConfigValidationError("; ".join(errors))
 
-        # 6) 入内存并记录元信息
+        # 6) 清空 active_mxid（运行时状态不应该从配置文件恢复）
+        dto = self._clear_active_mxids(dto)
+        self.logger.info("加载后已清空 active_mxid，准备基于在线设备重新匹配")
+
+        # 7) 发现在线设备并进行匹配
+        online_devices = OAKDeviceDiscovery.discover_devices(verbose=False)
+        self.logger.info("发现 %d 个在线设备", len(online_devices))
+        
+        # 8) 基于历史记录和在线设备进行匹配
+        try:
+            dto, match_result = self._match_config_internal(
+                dto,
+                online_devices=online_devices,
+                auto_bind_new_devices=True,
+                require_at_least_one_binding=False  # 加载时不强制要求绑定
+            )
+            self._last_match_result = match_result
+            self.logger.info(
+                "设备匹配完成: %s, 已匹配=%d/%d",
+                match_result.result_type.value,
+                len(match_result.matched_bindings),
+                len(dto.oak_module.role_bindings)
+            )
+        except Exception as e:
+            self.logger.warning("设备匹配失败: %s，将使用未匹配的配置", e)
+            # 匹配失败不影响配置加载，只是 active_mxid 保持为 None
+
+        # 9) 入内存并记录元信息
         self._config = dto
-        self._runnable_config = dto  # 加载后将配置作为可运行基线
-        self._dirty = False  # 加载后草稿与可运行配置对齐
         self._config_path = str(path)
         try:
             self._last_modified = path.stat().st_mtime
         except OSError:
             self._last_modified = None
+        
+        # 10) 晋升为可运行配置（包含完整验证）
+        try:
+            self.promote_runnable_if_valid(
+                include_runtime_checks=True,
+                persist=False
+            )
+            self.logger.info("配置已验证并晋升为可运行配置")
+        except ConfigValidationError as e:
+            self.logger.warning("配置验证失败: %s，配置已加载为草稿但不可运行", e)
+            # 配置加载成功，但未通过验证，_runnable_config 保持为 None
+        
+        # 11) 配置日志系统
         try:
             configure_logging(dto.system_config)
         except Exception as e:
             self.logger.error("根据系统配置初始化日志失败: %s", e, exc_info=True)
+        
         return True
 
     def _atomic_write_json(self, output_path: Path, json_text: str) -> None:
@@ -307,6 +368,51 @@ class DeviceConfigManager:
             if temp_path.exists():
                 temp_path.unlink()
             raise e
+    
+    def _clear_active_mxids(self, config: DeviceManagerConfigDTO) -> DeviceManagerConfigDTO:
+        """
+        清空配置中所有角色绑定的 active_mxid（私有方法）
+        
+        使用场景：
+        - load_config() 后清空运行时状态
+        - save_config() 前清空运行时状态
+        - 确保 active_mxid 不被持久化到配置文件
+        
+        设计理念：
+        - active_mxid 是运行时状态，不应该从配置文件恢复或保存
+        - 配置文件只保存 historical_mxids 和 last_active_mxid（历史记录）
+        - 每次启动时基于当前在线设备重新匹配
+        
+        Args:
+            config: 要清空 active_mxid 的配置对象
+        
+        Returns:
+            DeviceManagerConfigDTO: 清空 active_mxid 后的新配置对象
+        """
+        # 遍历所有 role_bindings，只对有 active_mxid 的进行清空
+        updated_bindings = {}
+        cleared_count = 0
+        
+        for role, binding in config.oak_module.role_bindings.items():
+            if binding.active_mxid is not None:
+                # 使用 DTO 自带的 with_updates() 方法清空 active_mxid
+                updated_bindings[role] = binding.with_updates(active_mxid=None)
+                cleared_count += 1
+            else:
+                # active_mxid 已经是 None，保持原对象（避免不必要的对象创建）
+                updated_bindings[role] = binding
+        
+        # 如果没有任何 active_mxid 需要清空，直接返回原配置
+        if cleared_count == 0:
+            self.logger.debug("所有 active_mxid 已经为 None，跳过清空操作")
+            return config
+        
+        # 使用 DTO 的 with_updates() 方法更新配置
+        new_oak_module = config.oak_module.with_updates(role_bindings=updated_bindings)
+        new_config = config.with_updates(oak_module=new_oak_module)
+        
+        self.logger.debug("已清空 %d 个角色的 active_mxid", cleared_count)
+        return new_config
 
     
     def save_config(self, *, validate: bool = True) -> bool:
@@ -340,34 +446,38 @@ class DeviceConfigManager:
             self.logger.error("当前无可运行配置可保存，请先调用 promote_runnable_if_valid() 晋升")
             raise ConfigValidationError("当前无可运行配置可保存，请先调用 promote_runnable_if_valid() 晋升")
         
-        # 2. 可选兜底校验
+        # 2. 清空 active_mxid（运行时状态不应该被持久化）
+        config_to_save = self._clear_active_mxids(self._runnable_config)
+        self.logger.info("保存前已清空 active_mxid（运行时状态不持久化）")
+        
+        # 3. 可选兜底校验
         if validate:
-            ok_all, errs_all = run_all_validations(self._runnable_config, include_runtime_checks=False)
+            ok_all, errs_all = run_all_validations(config_to_save, include_runtime_checks=False)
             if not ok_all:
                 raise ConfigValidationError("; ".join(errs_all))
 
-        # 3. 确定路径
+        # 4. 确定路径
         if self._config_path is None:
             self._config_path = str(self.DEFAULT_CONFIG_DIR / self.DEFAULT_CONFIG_FILE)
         
         output_path = Path(self._config_path)
         
-        # 4. 确保目录存在
+        # 5. 确保目录存在
         try:
             output_path.parent.mkdir(parents=True, exist_ok=True)
         except OSError as e:
             self.logger.error("创建配置目录失败: %s, path=%s", e, output_path.parent, exc_info=True)
             raise ConfigValidationError(f"创建配置目录失败: {e}")
         
-        # 5. 原子写入
-        json_text = self._runnable_config.to_json(indent=2, include_metadata=False)
+        # 6. 原子写入（使用清空 active_mxid 后的配置）
+        json_text = config_to_save.to_json(indent=2, include_metadata=False)
         try:
             self._atomic_write_json(output_path, json_text)
         except OSError as e:
             self.logger.error("保存配置文件失败: %s, path=%s", e, output_path, exc_info=True)
             raise ConfigValidationError(f"保存配置文件失败: {e}")
         
-        # 6. 更新时间戳
+        # 7. 更新时间戳
         try:
             self._last_modified = output_path.stat().st_mtime
         except OSError:
@@ -402,8 +512,12 @@ class DeviceConfigManager:
             self.logger.error("当前无可运行配置可保存，请先调用 promote_runnable_if_valid() 晋升")
             raise ConfigValidationError("当前无可运行配置可保存，请先调用 promote_runnable_if_valid() 晋升")
 
+        # 清空 active_mxid（运行时状态不应该被持久化）
+        config_to_save = self._clear_active_mxids(self._runnable_config)
+        self.logger.info("保存前已清空 active_mxid（运行时状态不持久化）")
+
         if validate:
-            ok_all, errs_all = run_all_validations(self._runnable_config, include_runtime_checks=False)
+            ok_all, errs_all = run_all_validations(config_to_save, include_runtime_checks=False)
             if not ok_all:
                 raise ConfigValidationError("; ".join(errs_all))
 
@@ -414,7 +528,7 @@ class DeviceConfigManager:
             self.logger.error("创建配置目录失败: %s, path=%s", e, path.parent, exc_info=True)
             raise ConfigValidationError(f"创建配置目录失败: {e}")
 
-        text = self._runnable_config.to_json(indent=2, include_metadata=False)
+        text = config_to_save.to_json(indent=2, include_metadata=False)
         try:
             self._atomic_write_json(path, text)
         except OSError as e:
@@ -489,7 +603,7 @@ class DeviceConfigManager:
         
         Example:
             if manager.is_dirty():
-                print("⚠️ 配置已修改但未晋升")
+                print("配置已修改但未晋升")
         """
         return self._dirty
     
@@ -514,14 +628,29 @@ class DeviceConfigManager:
         """
         online_devices = OAKDeviceDiscovery.discover_devices()
         default_config = DeviceConfigManager.get_default_config(online_devices)
-        default_config, match_result = DeviceConfigManager._match_config_internal(default_config, online_devices)
+        default_config, match_result = DeviceConfigManager._match_config_internal(
+            default_config,
+            online_devices,
+            auto_bind_new_devices=True,
+            require_at_least_one_binding=False
+        )
 
-        # 写入实例状态：草稿与可运行配置对齐，并记录匹配结果
+        # 写入实例状态：草稿配置和匹配结果
         self._config = default_config
-        self._runnable_config = default_config
         self._last_match_result = match_result
-        self._dirty = False
         self._last_modified = time.time()
+        
+        # 晋升为可运行配置（包含完整验证）
+        try:
+            self.promote_runnable_if_valid(
+                include_runtime_checks=True,
+                persist=False
+            )
+            self.logger.info("默认配置已验证并晋升为可运行配置")
+        except ConfigValidationError as e:
+            self.logger.warning("默认配置验证失败: %s，配置已创建为草稿但不可运行", e)
+            # 配置创建成功，但未通过验证，_runnable_config 保持为 None
+        
         try:
             configure_logging(default_config.system_config)
         except Exception as e:
@@ -667,19 +796,22 @@ class DeviceConfigManager:
     @staticmethod
     def _match_config_internal(
         config: DeviceManagerConfigDTO,
-        online_devices: Optional[List[DeviceMetadataDTO]] = None,
+        online_devices: Optional[List[DeviceMetadataDTO]],
         *,
         auto_bind_new_devices: bool = True,
-        validate: bool = True,
-        include_runtime_checks: bool = True,
         require_at_least_one_binding: bool = True,
     ) -> Tuple[DeviceManagerConfigDTO, DeviceMatchResult]:
         """
-        内部匹配配置（供设备配置流程内部调用），支持字段内部验证、自动绑定与一致性校验。
+        内部匹配配置（供设备配置流程内部调用）。
 
-        此方法适合高级流程或自动化流程内部使用，实现逻辑包括：
-          1. 结构/角色绑定预验证；2. 调用 DeviceMatchManager 进行匹配/自动绑定；
-          3. 匹配结果聚合与配置 DTO 更新；4. 最终一致性校验、运行时校验可选。
+        职责：
+        - 设备匹配：基于历史记录和在线设备进行匹配
+        - 更新配置：更新 role_bindings 和 device_metadata
+        - 返回结果：返回更新后的配置和匹配结果
+
+        注意：
+        - 本方法不负责验证，验证由 promote_runnable_if_valid() 统一处理
+        - 本方法不会自动保存，需调用方决定是否写入磁盘
 
         参数说明:
             config : DeviceManagerConfigDTO
@@ -688,26 +820,17 @@ class DeviceConfigManager:
                 当前在线设备元数据列表，必须以列表形式传入，若为 None 则报错。
             auto_bind_new_devices : bool, default=True
                 是否自动绑定历史中未记录的新设备（针对新插入或首次上线设备）。
-            validate : bool, default=True
-                匹配后是否立即做全量一致性校验 (run_all_validations)，推荐上线时保持 True。
-            include_runtime_checks : bool, default=True
-                校验阶段是否启用运行态一致性比对（如 mxid 是否在线等）。
             require_at_least_one_binding : bool, default=True
                 匹配后是否强制至少有一个角色绑定成功，否则 raise 异常。
 
         返回:
             Tuple[DeviceManagerConfigDTO, DeviceMatchResult]
                 匹配结果与更新后的配置对象。
-                - new_config : 新配置（角色绑定经过自动映射与修正、DTO已变更，不自动保存）
+                - new_config : 新配置（角色绑定经过自动映射与修正、DTO已变更）
                 - result : 匹配详细结果 DeviceMatchResult
 
         异常:
-            - ConfigValidationError: 绑定/设备列表不合法或规则不满足时抛出，异常文本可直接用于 CLI/日志显示。
-
-
-        补充说明:
-            - 本方法充分复用 DeviceMatchManager 的逻辑，并在内部实现配置对象不可变更新（with_updates）
-            - 本方法不会自动保存，需调用方决定是否写入磁盘等
+            - ConfigValidationError: 绑定/设备列表不合法或规则不满足时抛出
         """
         # 1. 拆解出所有角色绑定，预做角色集合和内部逻辑合法性校验
         bindings = list(config.oak_module.role_bindings.values())
@@ -726,10 +849,11 @@ class DeviceConfigManager:
             online_devices=online_devices,
         )
         # 3. 执行一次标准匹配，自动更新绑定内容
-        result = matcher.default_match_devices()
+        result = matcher.default_match_devices(online_devices=online_devices)
 
         # 4. 若要求必须有至少一个角色完成绑定，否则认为配置失败
-        if require_at_least_one_binding and result.result_type == MatchResultType.NO_MATCH:
+        from .device_match import MatchResultType as _DeviceMatchResultType
+        if require_at_least_one_binding and result.result_type == _DeviceMatchResultType.NO_MATCH:
             raise ConfigValidationError("匹配失败：至少需要一个角色完成绑定")
 
         # 5. 导出并整理出新的 role_bindings，生成新的配置对象
@@ -737,16 +861,14 @@ class DeviceConfigManager:
         # 以 role 作为字典 key，重组绑定结构，保持类型强一致
         role_bindings = {binding.role: binding for binding in match_bindings}
         # 用 DTO 的 with_updates 方法生成新的 OAKModuleConfigDTO 和 DeviceManagerConfigDTO
-        new_oak_module = config.oak_module.with_updates(role_bindings=role_bindings)
+        device_metadata_map = {d.mxid: d for d in online_devices}
+        new_oak_module = config.oak_module.with_updates(
+            role_bindings=role_bindings,
+            device_metadata=device_metadata_map,
+        )
         new_config = config.with_updates(oak_module=new_oak_module)
 
-        # 6. 可选：最终一致性校验（含字段/跨字段/运行时校验，便于运维/开发查错）
-        if validate:
-            ok_all, errs_all = run_all_validations(new_config, include_runtime_checks=include_runtime_checks)
-            if not ok_all:
-                raise ConfigValidationError("; ".join(errs_all))
-
-        # 返回新配置和匹配结果
+        # 返回新配置和匹配结果（不进行验证，验证由 promote_runnable_if_valid() 统一处理）
         return new_config, result
 
 
@@ -974,7 +1096,7 @@ class DeviceConfigManager:
 
         return list(dict.fromkeys(mxids))
     
-    def get_active_role_bindings(self) -> Dict[DeviceRole, str]:
+    def get_active_role_mxid_map(self) -> Dict[DeviceRole, str]:
         """获取当前激活的设备角色绑定（子任务 5.0）
         
         返回角色到 mxid 的映射字典，供显示模块等外部模块使用。
@@ -986,7 +1108,7 @@ class DeviceConfigManager:
             ConfigValidationError: 当无可运行配置时
             
         Example:
-            bindings = manager.get_active_role_bindings()
+            mxid_map = manager.get_active_role_mxid_map()
             # {DeviceRole.LEFT: "14442C10D13F7FD000", DeviceRole.RIGHT: "14442C10D13F7FD001"}
         """
         if self.get_runnable_config() is None:
@@ -1000,5 +1122,21 @@ class DeviceConfigManager:
                 role_bindings[role] = binding.active_mxid
         
         return role_bindings
+
+    def get_active_role_binding_dtos(self) -> Dict[DeviceRole, DeviceRoleBindingDTO]:
+        if self.get_runnable_config() is None:
+            raise ConfigValidationError("当前无可运行配置，请先创建或加载配置")
+
+        oak_module = self.get_runnable_config().oak_module
+        role_bindings: Dict[DeviceRole, DeviceRoleBindingDTO] = {}
+
+        for role, binding in oak_module.role_bindings.items():
+            if binding.active_mxid:
+                role_bindings[role] = binding
+
+        return role_bindings
+
+    def get_active_role_bindings(self) -> Dict[DeviceRole, str]:
+        return self.get_active_role_mxid_map()
     
 

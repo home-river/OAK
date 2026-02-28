@@ -435,14 +435,63 @@ class RenderPacketPackager:
 
 
     # 外部数据获取接口------------------------------------------------------------------------------------------------
-    def get_packet_by_mxid(self,mx_id:str,timeout:float = 0.01) -> Optional[RenderPacket]:
-        """获取渲染包的外部接口，如果队列为空，则返回None"""
+    def get_packet_by_mxid(self, mx_id: str, timeout: float = 0.01) -> Optional[RenderPacket]:
+        """
+        获取指定设备的渲染包（支持缓存回退）
+        
+        策略：
+        1. 尝试从队列获取新帧（timeout）
+        2. 如果队列为空，检查缓存帧（_latest_packets[mx_id]）
+        3. 如果缓存未过期（age <= cache_max_age_sec），返回缓存帧
+        4. 否则返回 None
+        
+        优势：
+        - 单设备模式下画面稳定、不闪黑
+        - 只消费当前需要的那一路队列
+        - 与 get_packets 的缓存策略保持一致
+        
+        Args:
+            mx_id: 设备ID（MXid）
+            timeout: 队列获取超时时间（秒）
+            
+        Returns:
+            RenderPacket: 渲染包，如果队列为空且缓存过期则返回 None
+        """
         if mx_id not in self.packet_queue:
             self.logger.warning(f"设备ID {mx_id} 不存在于队列中")
             return None
+        
         try:
-            return self.packet_queue[mx_id].get(timeout=timeout)
+            # 尝试获取新帧
+            packet = self.packet_queue[mx_id].get(timeout=timeout)
+            
+            # 更新缓冲区和时间戳
+            now = time.time()
+            self._latest_packets[mx_id] = packet
+            self._packet_timestamps[mx_id] = now
+            
+            return packet
+            
         except Empty:
+            # 尝试使用缓冲帧（缓存回退）
+            cached_packet = self._latest_packets.get(mx_id)
+            
+            if cached_packet is not None:
+                # 检查是否过期
+                cached_at = self._packet_timestamps.get(mx_id, 0.0)
+                age = time.time() - cached_at
+                
+                if age <= self.cache_max_age_sec:
+                    # 未过期，可以使用
+                    return cached_packet
+                else:
+                    # 已过期，清理缓存
+                    self.logger.debug(
+                        f"设备 {mx_id} 的缓存帧已过期 (年龄: {age:.2f}s)，已清理"
+                    )
+                    self._latest_packets[mx_id] = None
+                    self._packet_timestamps[mx_id] = 0.0
+            
             return None
 
 

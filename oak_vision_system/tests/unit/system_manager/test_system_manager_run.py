@@ -69,7 +69,7 @@ class TestSystemManagerRun:
         def run_in_thread():
             """在线程中运行 run() 方法"""
             run_started.set()
-            manager.run()
+            manager.run(force_exit_on_shutdown_failure=False)
             run_finished.set()
         
         # 在新线程中启动 run()
@@ -102,7 +102,7 @@ class TestSystemManagerRun:
         def run_in_thread():
             """在线程中运行 run() 方法"""
             run_started.set()
-            manager.run()
+            manager.run(force_exit_on_shutdown_failure=False)
             run_finished.set()
         
         # 在新线程中启动 run()
@@ -140,6 +140,7 @@ class TestSystemManagerRun:
             shutdown_called.set()
             # 设置 _stop_started 防止重复调用
             manager._stop_started.set()
+            return True
         
         manager.shutdown = mock_shutdown
         
@@ -150,7 +151,7 @@ class TestSystemManagerRun:
         def run_in_thread():
             """在线程中运行 run() 方法"""
             run_started.set()
-            manager.run()
+            manager.run(force_exit_on_shutdown_failure=False)
             run_finished.set()
         
         # 在新线程中启动 run()
@@ -183,7 +184,7 @@ class TestSystemManagerRun:
         def run_in_thread():
             """在线程中运行 run() 方法"""
             run_started.set()
-            manager.run()
+            manager.run(force_exit_on_shutdown_failure=False)
         
         # 在新线程中启动 run()
         thread = threading.Thread(target=run_in_thread, daemon=True)
@@ -214,7 +215,7 @@ class TestSystemManagerRun:
         def run_in_thread():
             """在线程中运行 run() 方法"""
             run_started.set()
-            manager.run()
+            manager.run(force_exit_on_shutdown_failure=False)
         
         # 在新线程中启动 run()
         thread = threading.Thread(target=run_in_thread, daemon=True)
@@ -243,6 +244,7 @@ class TestSystemManagerRun:
         def mock_shutdown():
             """Mock shutdown 方法"""
             shutdown_call_count[0] += 1
+            return True
         
         manager.shutdown = mock_shutdown
         
@@ -252,7 +254,7 @@ class TestSystemManagerRun:
         def run_in_thread():
             """在线程中运行 run() 方法"""
             run_started.set()
-            manager.run()
+            manager.run(force_exit_on_shutdown_failure=False)
         
         # 在新线程中启动 run()
         thread = threading.Thread(target=run_in_thread, daemon=True)
@@ -280,7 +282,7 @@ class TestSystemManagerRun:
         def run_in_thread():
             """在线程中运行 run() 方法"""
             run_started.set()
-            manager.run()
+            manager.run(force_exit_on_shutdown_failure=False)
             run_finished.set()
         
         # 在新线程中启动 run()
@@ -308,7 +310,7 @@ class TestSystemManagerRun:
         def run_in_thread():
             """在线程中运行 run() 方法"""
             run_started.set()
-            manager.run()
+            manager.run(force_exit_on_shutdown_failure=False)
         
         # 在新线程中启动 run()
         thread = threading.Thread(target=run_in_thread, daemon=True)
@@ -359,12 +361,13 @@ class TestSystemManagerRunWithKeyboardInterrupt:
             """Mock shutdown 方法"""
             shutdown_called.set()
             manager._stop_started.set()
+            return True
         
         manager.shutdown = mock_shutdown
         
         # 调用 run() 不应该抛出异常
         try:
-            manager.run()
+            manager.run(force_exit_on_shutdown_failure=False)
         except KeyboardInterrupt:
             pytest.fail("run() 应该捕获 KeyboardInterrupt，不应该向外抛出")
         
@@ -390,17 +393,65 @@ class TestSystemManagerRunWithKeyboardInterrupt:
         def mock_shutdown():
             """Mock shutdown 方法"""
             manager._stop_started.set()
+            return True
         
         manager.shutdown = mock_shutdown
         
         # 调用 run()
-        manager.run()
+        manager.run(force_exit_on_shutdown_failure=False)
         
         # 验证日志记录
         log_messages = [record.message for record in caplog.records]
         assert any("KeyboardInterrupt" in msg for msg in log_messages)
         assert any("Ctrl+C" in msg for msg in log_messages)
         assert any("准备关闭系统" in msg for msg in log_messages)
+    
+    def test_run_sets_shutdown_event_on_keyboard_interrupt(self, manager, caplog):
+        """测试 run() 在 KeyboardInterrupt 时设置 _shutdown_event（新架构）
+        
+        验证：
+        - KeyboardInterrupt 被捕获
+        - _shutdown_event 被设置（状态一致性）
+        - shutdown() 被调用
+        
+        这是新架构的关键改进：确保所有退出路径都设置 _shutdown_event
+        """
+        caplog.set_level(logging.INFO)
+        
+        # 验证初始状态
+        assert not manager._shutdown_event.is_set(), "_shutdown_event 初始应该未设置"
+        
+        # Mock Event.wait 方法抛出 KeyboardInterrupt
+        def mock_wait(timeout=None):
+            """Mock wait 方法，抛出 KeyboardInterrupt"""
+            raise KeyboardInterrupt()
+        
+        manager._shutdown_event.wait = mock_wait
+        
+        # Mock shutdown 方法
+        shutdown_called = threading.Event()
+        
+        def mock_shutdown():
+            """Mock shutdown 方法"""
+            shutdown_called.set()
+            manager._stop_started.set()
+            return True
+        
+        manager.shutdown = mock_shutdown
+        
+        # 调用 run()
+        manager.run(force_exit_on_shutdown_failure=False)
+        
+        # 验证 _shutdown_event 被设置（关键验证）
+        assert manager._shutdown_event.is_set(), \
+            "_shutdown_event 应该在 KeyboardInterrupt 时被设置（状态一致性）"
+        
+        # 验证 shutdown() 被调用
+        assert shutdown_called.is_set(), "shutdown() 应该在 finally 块中被调用"
+        
+        # 验证日志记录
+        log_messages = [record.message for record in caplog.records]
+        assert any("KeyboardInterrupt" in msg or "Ctrl+C" in msg for msg in log_messages)
 
 
 class TestSystemManagerRunIntegration:
@@ -438,7 +489,7 @@ class TestSystemManagerRunIntegration:
         def run_in_thread():
             """在线程中运行 run() 方法"""
             run_started.set()
-            manager.run()
+            manager.run(force_exit_on_shutdown_failure=False)
         
         # 在新线程中启动 run()
         thread = threading.Thread(target=run_in_thread, daemon=True)
@@ -473,7 +524,7 @@ class TestSystemManagerRunIntegration:
         def run_in_thread():
             """在线程中运行 run() 方法"""
             run_started.set()
-            manager.run()
+            manager.run(force_exit_on_shutdown_failure=False)
             run_finished.set()
         
         # 在新线程中启动 run()

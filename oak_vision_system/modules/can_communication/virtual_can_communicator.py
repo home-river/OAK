@@ -153,22 +153,22 @@ class VirtualCANCommunicator(CANCommunicatorBase):
             
             # 输出详细的启动日志
             logger.info("=" * 60)
-            logger.info("🚀 虚拟 CAN 通信器已启动")
+            logger.info("虚拟 CAN 通信器已启动")
             logger.info("=" * 60)
-            logger.info("📋 功能说明:")
+            logger.info("功能说明:")
             logger.info("  • 这是一个虚拟实现，用于开发和测试环境")
             logger.info("  • 会订阅 PERSON_WARNING 事件并记录详细日志")
             logger.info("  • 支持坐标请求模拟，调用真实的决策层接口")
             logger.info("  • 维护统计计数器，帮助验证事件流")
             logger.info("")
-            logger.info("⚠️  真实环境行为说明:")
+            logger.info("真实环境行为说明:")
             logger.info("  • 真实环境下会使用 CANCommunicator 连接实际的 CAN 总线")
             logger.info(f"  • 会连接到 {self.config.can_interface} 接口")
             logger.info(f"  • 使用通道 {self.config.can_channel}，波特率 {self.config.can_bitrate}")
             logger.info("  • 会发送实际的 CAN 消息到硬件设备")
             logger.info("  • 会接收来自硬件的坐标请求消息")
             logger.info("")
-            logger.info("🔧 当前配置:")
+            logger.info("当前配置:")
             logger.info(f"  • CAN 接口: {self.config.can_interface}")
             logger.info(f"  • CAN 通道: {self.config.can_channel}")
             logger.info(f"  • 波特率: {self.config.can_bitrate}")
@@ -227,15 +227,15 @@ class VirtualCANCommunicator(CANCommunicatorBase):
             
             # 输出统计信息日志
             logger.info("=" * 60)
-            logger.info("🛑 虚拟 CAN 通信器已停止")
+            logger.info("虚拟 CAN 通信器已停止")
             logger.info("=" * 60)
-            logger.info("📊 运行统计:")
+            logger.info("运行统计:")
             logger.info(f"  • 警报触发次数: {self.alert_triggered_count}")
             logger.info(f"  • 警报清除次数: {self.alert_cleared_count}")
             logger.info(f"  • 坐标请求次数: {self.coordinate_request_count}")
             logger.info(f"  • 当前警报状态: {'活跃' if self._alert_active else '非活跃'}")
             logger.info("")
-            logger.info("⚠️  真实环境行为说明:")
+            logger.info("真实环境行为说明:")
             logger.info("  • 真实环境下会停止 CAN 总线连接")
             logger.info("  • 会停止警报定时器线程")
             logger.info("  • 会关闭 CAN 消息监听器")
@@ -298,19 +298,19 @@ class VirtualCANCommunicator(CANCommunicatorBase):
                 
                 # 输出详细警告日志
                 logger.warning("=" * 60)
-                logger.warning("🚨 人员警报已触发 (TRIGGERED)")
+                logger.warning("人员警报已触发 (TRIGGERED)")
                 logger.warning("=" * 60)
-                logger.warning(f"📅 事件时间戳: {timestamp}")
-                logger.warning(f"📊 触发次数统计: {self.alert_triggered_count}")
+                logger.warning(f"事件时间戳: {timestamp}")
+                logger.warning(f"触发次数统计: {self.alert_triggered_count}")
                 logger.warning("")
-                logger.warning("⚠️  真实环境行为说明:")
+                logger.warning("真实环境行为说明:")
                 logger.warning("  • 真实环境下会启动 CAN 警报定时器")
                 logger.warning(f"  • 会每隔 {self.config.alert_interval_ms}ms 发送警报帧到 CAN 总线")
                 logger.warning("  • 警报帧会通知外部设备（如机械臂控制器）停止操作")
                 logger.warning("  • 警报帧格式符合 CAN 协议规范")
                 logger.warning("  • 会持续发送直到收到 CLEARED 事件")
                 logger.warning("")
-                logger.warning("🔧 虚拟模拟行为:")
+                logger.warning("虚拟模拟行为:")
                 logger.warning("  • 设置内部警报状态为活跃")
                 logger.warning("  • 增加触发次数统计计数器")
                 logger.warning("  • 记录详细的事件日志")
@@ -323,18 +323,18 @@ class VirtualCANCommunicator(CANCommunicatorBase):
                 
                 # 输出详细信息日志
                 logger.info("=" * 60)
-                logger.info("✅ 人员警报已清除 (CLEARED)")
+                logger.info("人员警报已清除 (CLEARED)")
                 logger.info("=" * 60)
-                logger.info(f"📅 事件时间戳: {timestamp}")
-                logger.info(f"📊 清除次数统计: {self.alert_cleared_count}")
+                logger.info(f"事件时间戳: {timestamp}")
+                logger.info(f"清除次数统计: {self.alert_cleared_count}")
                 logger.info("")
-                logger.info("⚠️  真实环境行为说明:")
+                logger.info("真实环境行为说明:")
                 logger.info("  • 真实环境下会停止 CAN 警报定时器")
                 logger.info("  • 会停止向 CAN 总线发送警报帧")
                 logger.info("  • 外部设备（如机械臂控制器）可以恢复正常操作")
                 logger.info("  • 会清理警报相关的线程和资源")
                 logger.info("")
-                logger.info("🔧 虚拟模拟行为:")
+                logger.info("虚拟模拟行为:")
                 logger.info("  • 设置内部警报状态为非活跃")
                 logger.info("  • 增加清除次数统计计数器")
                 logger.info("  • 记录详细的事件日志")
@@ -377,9 +377,9 @@ class VirtualCANCommunicator(CANCommunicatorBase):
             self.coordinate_request_count += 1
             
             logger.info("=" * 60)
-            logger.info("📍 模拟坐标请求处理")
+            logger.info("模拟坐标请求处理")
             logger.info("=" * 60)
-            logger.info(f"📊 请求次数统计: {self.coordinate_request_count}")
+            logger.info(f"请求次数统计: {self.coordinate_request_count}")
             
             # 调用决策层获取目标坐标
             coords = self.decision_layer.get_target_coords_snapshot()
@@ -387,23 +387,23 @@ class VirtualCANCommunicator(CANCommunicatorBase):
             # 处理返回 None 的情况（兜底坐标 0,0,0）
             if coords is None:
                 x, y, z = 0, 0, 0
-                logger.info("🎯 决策层返回: None（无目标）")
-                logger.info("🔧 使用兜底坐标: (0, 0, 0)")
+                logger.info("决策层返回: None（无目标）")
+                logger.info("使用兜底坐标: (0, 0, 0)")
             else:
                 # 转换坐标为整数（毫米单位）
                 # 假设决策层返回的坐标单位是米，转换为毫米
                 x = int(coords[0] * 1000)  # 米 -> 毫米
                 y = int(coords[1] * 1000)  # 米 -> 毫米
                 z = int(coords[2] * 1000)  # 米 -> 毫米
-                logger.info(f"🎯 决策层返回: ({coords[0]:.3f}, {coords[1]:.3f}, {coords[2]:.3f}) 米")
-                logger.info(f"🔧 转换为整数: ({x}, {y}, {z}) 毫米")
+                logger.info(f"决策层返回: ({coords[0]:.3f}, {coords[1]:.3f}, {coords[2]:.3f}) 米")
+                logger.info(f"转换为整数: ({x}, {y}, {z}) 毫米")
             
             # 计算处理时间
             processing_time = (time.time() - start_time) * 1000  # 转换为毫秒
             
             # 输出详细日志说明真实环境下的行为
             logger.info("")
-            logger.info("⚠️  真实环境行为说明:")
+            logger.info("真实环境行为说明:")
             logger.info("  • 真实环境下会接收来自 CAN 总线的坐标请求消息")
             logger.info("  • 请求消息由外部设备（如机械臂控制器）发送")
             logger.info("  • 会调用相同的决策层接口获取目标坐标")
@@ -411,14 +411,14 @@ class VirtualCANCommunicator(CANCommunicatorBase):
             logger.info(f"  • 会通过 CAN 总线发送响应消息（目标响应时间 < 10ms）")
             logger.info("  • 响应消息包含 x, y, z 坐标（毫米单位）")
             logger.info("")
-            logger.info("🔧 虚拟模拟行为:")
+            logger.info("虚拟模拟行为:")
             logger.info("  • 调用真实的决策层接口")
             logger.info("  • 执行相同的坐标转换逻辑")
             logger.info("  • 记录详细的处理日志")
             logger.info("  • 返回处理后的坐标数据")
             logger.info("")
-            logger.info(f"⏱️  处理时间: {processing_time:.2f}ms")
-            logger.info(f"📤 返回坐标: x={x}, y={y}, z={z} (毫米)")
+            logger.info(f"处理时间: {processing_time:.2f}ms")
+            logger.info(f"返回坐标: x={x}, y={y}, z={z} (毫米)")
             logger.info("=" * 60)
             
             return (x, y, z)
@@ -426,11 +426,11 @@ class VirtualCANCommunicator(CANCommunicatorBase):
         except Exception as e:
             # 异常处理：使用兜底坐标
             logger.error(f"模拟坐标请求处理时发生异常: {e}", exc_info=True)
-            logger.warning("🔧 异常处理: 使用兜底坐标 (0, 0, 0)")
+            logger.warning("异常处理: 使用兜底坐标 (0, 0, 0)")
             
             # 计算处理时间（即使异常也要记录）
             processing_time = (time.time() - start_time) * 1000
-            logger.info(f"⏱️  处理时间: {processing_time:.2f}ms")
+            logger.info(f"处理时间: {processing_time:.2f}ms")
             
             return (0, 0, 0)
     
@@ -487,19 +487,19 @@ class VirtualCANCommunicator(CANCommunicatorBase):
         
         # 输出重置日志
         logger.info("=" * 60)
-        logger.info("🔄 统计信息已重置")
+        logger.info("统计信息已重置")
         logger.info("=" * 60)
-        logger.info("📊 重置前统计:")
+        logger.info("重置前统计:")
         logger.info(f"  • 警报触发次数: {old_triggered}")
         logger.info(f"  • 警报清除次数: {old_cleared}")
         logger.info(f"  • 坐标请求次数: {old_requests}")
         logger.info("")
-        logger.info("📊 重置后统计:")
+        logger.info("重置后统计:")
         logger.info(f"  • 警报触发次数: {self.alert_triggered_count}")
         logger.info(f"  • 警报清除次数: {self.alert_cleared_count}")
         logger.info(f"  • 坐标请求次数: {self.coordinate_request_count}")
         logger.info("")
-        logger.info("ℹ️  注意: 运行状态和警报状态未被重置")
+        logger.info("注意: 运行状态和警报状态未被重置")
         logger.info(f"  • 运行状态: {self._is_running}")
         logger.info(f"  • 警报状态: {self._alert_active}")
         logger.info("=" * 60)
