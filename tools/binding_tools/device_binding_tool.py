@@ -69,6 +69,8 @@ class DeviceBindingTool:
             # 2. 加载配置文件
             if not self.load_config(config_path):
                 return False
+
+            time.sleep(6)
             
             # 3. 发现设备
             self.discovered_devices = self.discover_devices()

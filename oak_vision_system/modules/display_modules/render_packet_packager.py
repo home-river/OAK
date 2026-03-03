@@ -106,6 +106,10 @@ class RenderPacketPackager:
         # 缓存时间戳：记录每个设备缓存帧的时间
         self._packet_timestamps: Dict[str, float] = {device_id: 0.0 for device_id in devices_list}
 
+        # 设备活跃表，用于查询设备是否在线。
+        self._device_last_seen_ts: Dict[str, float] = {device_id: 0.0 for device_id in devices_list}
+        self._device_last_seen_lock = threading.Lock()
+
         # 线程控制事件，指示打包线程的运行状态
         self._running = threading.Event()
         
@@ -141,6 +145,41 @@ class RenderPacketPackager:
         self.logger.info("渲染包打包器已初始化，队列最大长度: %d, 超时时间: %.2f 秒, 缓存最大年龄: %.2f 秒", 
                         queue_maxsize, timeout_sec, cache_max_age_sec)
 
+
+    def is_device_active(
+        self,
+        device_id: str,
+        *,
+        window_sec: float = 1.0,  # 时间窗口大小（秒）
+        now_ts: Optional[float] = None,  # 当前时间戳，默认为None，表示使用当前时间
+    ) -> bool:
+        """
+        判断设备是否活跃（在指定时间窗口内有数据接收）。
+
+        Args:
+            device_id (str): 设备ID。
+            window_sec (float, optional): 时间窗口大小（秒）。默认为1.0秒。
+            now_ts (Optional[float], optional): 当前时间戳。默认为None，表示使用当前时间。
+
+        Returns:
+            bool: 如果设备在指定时间窗口内有数据接收，则返回True；否则返回False。
+        """
+
+        # 如果未提供当前时间戳，则使用当前时间
+        if now_ts is None:
+            now_ts = time.time()
+
+        # 获取设备最后一次接收数据的时间戳
+        with self._device_last_seen_lock:
+            last_seen = self._device_last_seen_ts.get(device_id)
+
+        # 如果设备不存在或最后一次接收数据时间戳为0或小于0，则认为设备不活跃
+        if last_seen is None or last_seen <= 0.0:
+            return False
+
+        # 判断设备是否在指定时间窗口内有数据接收
+        return (now_ts - last_seen) < window_sec
+
     
 
 
@@ -166,6 +205,9 @@ class RenderPacketPackager:
         """
         打包模块接收处理视频帧的回调函数
         """
+        now = time.time()
+        with self._device_last_seen_lock:
+            self._device_last_seen_ts[frame_data.device_id] = now
         new_data = RawDataEvent(datatype=DataType.RAW_FRAME_DATA,video_data=frame_data)
         self.event_queue.put_with_overflow(new_data)
 

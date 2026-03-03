@@ -21,6 +21,7 @@ from oak_vision_system.modules.display_modules.render_packet_packager import (
 from oak_vision_system.modules.display_modules.render_config import (
     STATUS_COLOR_MAP,
     DEFAULT_DETECTION_COLOR,
+    LABEL_ID_TO_NAME,
     BBOX_THICKNESS,
     LABEL_FONT,
     LABEL_FONT_SCALE,
@@ -47,6 +48,7 @@ class DisplayRenderer:
         packager: RenderPacketPackager,
         devices_list: List[str],
         role_bindings: Optional[Dict[DeviceRole, str]] = None,
+        label_map: Optional[Dict[int, str]] = None,
         enable_depth_output: bool = False,
         event_bus = None,
     ) -> None:
@@ -58,6 +60,8 @@ class DisplayRenderer:
             devices_list: 设备ID列表
             role_bindings: 设备角色绑定（role -> mxid 映射），可选参数
                           由外部通过配置管理器获取并传入
+            label_map: 标签映射（label_id -> label_name），可选参数
+                      由外部通过配置管理器获取并传入
             enable_depth_output: 是否启用深度数据处理
             event_bus: 事件总线实例（未使用，保留用于向后兼容）
         """
@@ -65,6 +69,7 @@ class DisplayRenderer:
         self._packager = packager
         self._devices_list = devices_list
         self._role_bindings = role_bindings or {}  # 存储角色绑定
+        self._label_map = label_map or LABEL_ID_TO_NAME  # 存储标签映射
         self._enable_depth_output = enable_depth_output  # 存储深度输出配置
         self._event_bus = event_bus  # 保留用于向后兼容
         
@@ -363,7 +368,8 @@ class DisplayRenderer:
             # 4. 绘制标签（如果启用）
             if self._config.show_labels:
                 label_id = int(labels[i])
-                label_text = f"Label_{label_id}"
+                label_name = self._label_map.get(label_id)
+                label_text = label_name if label_name is not None else f"Label_{label_id}"
                 
                 # 添加置信度
                 if self._config.show_confidence:
@@ -514,7 +520,8 @@ class DisplayRenderer:
             xmin, ymin, xmax, ymax = bbox
             
             label_id = int(labels[i])
-            label_text = f"Label_{label_id}"
+            label_name = self._label_map.get(label_id)
+            label_text = label_name if label_name is not None else f"Label_{label_id}"
             
             # 添加置信度
             if self._config.show_confidence:
@@ -903,11 +910,17 @@ class DisplayRenderer:
             self.logger.warning(f"角色 {device_role} 不存在于 role_bindings 中")
             return
         
+        device_id = self._role_bindings[device_role]
+
+        if not self._packager.is_device_active(device_id, window_sec=3.0):
+            self.logger.warning(f"目标设备当前不活跃，拒绝切换: role={device_role.name}, device_id={device_id}")
+            return
+
         self._display_mode = "single"
         self._selected_device_role = device_role
-        device_mxid = self._role_bindings[device_role]
+        self.logger.info(f"切换到设备角色 {device_role.name}: {device_id}")
+
         
-        self.logger.info(f"切换到设备角色 {device_role.name}: {device_mxid}")
     
     def _switch_to_combined(self) -> None:
         """切换到Combined模式（多设备拼接）"""

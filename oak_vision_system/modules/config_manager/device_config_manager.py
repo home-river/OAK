@@ -1124,6 +1124,17 @@ class DeviceConfigManager:
         return role_bindings
 
     def get_active_role_binding_dtos(self) -> Dict[DeviceRole, DeviceRoleBindingDTO]:
+        """获取当前激活的设备角色绑定（DTO 对象）。
+        
+        仅返回已激活的绑定：当且仅当 `binding.active_mxid` 非空时才会纳入结果。
+        常用于需要读取绑定 DTO 的更多信息（不仅是 mxid）的场景。
+        
+        Returns:
+            Dict[DeviceRole, DeviceRoleBindingDTO]: 角色 -> 绑定 DTO 的映射（仅包含 active 设备）
+        
+        Raises:
+            ConfigValidationError: 当前无可运行配置时抛出
+        """
         if self.get_runnable_config() is None:
             raise ConfigValidationError("当前无可运行配置，请先创建或加载配置")
 
@@ -1137,6 +1148,43 @@ class DeviceConfigManager:
         return role_bindings
 
     def get_active_role_bindings(self) -> Dict[DeviceRole, str]:
+        """获取当前激活的设备角色绑定（mxid 字符串）。
+        
+        Returns:
+            Dict[DeviceRole, str]: 角色 -> active_mxid 的映射（仅包含 active 设备）
+        """
         return self.get_active_role_mxid_map()
+
     
+    def get_label_map(self) -> Dict[int, str]:
+        """获取标签映射配置（label_id -> label_name）
+    
+        将 OAKConfigDTO 中的 label_map (List[str]) 转换为字典格式，
+        用于显示模块等外部模块动态获取标签名称。
+        
+        转换规则：
+        - 列表索引作为 label_id
+        - 列表值作为 label_name
+        - 例如：["durian", "person"] -> {0: "durian", 1: "person"}
+        
+        Returns:
+            Dict[int, str]: 标签 ID 到标签名称的映射字典
+            
+        Raises:
+            ConfigValidationError: 当无可运行配置时
+        """
+        if self._runnable_config is None:
+            raise ConfigValidationError("当前无可运行配置，请先创建或加载配置")
+
+
+        labels = self._runnable_config.oak_module.hardware_config.label_map
+
+        if not labels:
+            self.logger.warning("labels为空，返回空字典")
+            return {}
+
+        labels_dict = {i : label for i, label in enumerate(labels)}
+
+        return labels_dict
+            
 

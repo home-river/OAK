@@ -164,6 +164,7 @@ class TestDisplayRendererKeyHandling(unittest.TestCase):
             "device_002": self._create_test_packet("device_002"),
         }
         self.mock_packager.get_packets.return_value = packets
+        self.mock_packager.is_device_active.return_value = True  # Mock 设备活跃
         mock_wait_key.return_value = ord('1')  # '1' 键
         
         # 调用 render_once()
@@ -202,6 +203,7 @@ class TestDisplayRendererKeyHandling(unittest.TestCase):
             "device_002": self._create_test_packet("device_002"),
         }
         self.mock_packager.get_packets.return_value = packets
+        self.mock_packager.is_device_active.return_value = True  # Mock 设备活跃
         mock_wait_key.return_value = ord('2')  # '2' 键
         
         # 调用 render_once()
@@ -289,6 +291,9 @@ class TestDisplayRendererDeviceSwitching(unittest.TestCase):
         # 初始化
         renderer.initialize()
         
+        # Mock is_device_active 返回 True（设备活跃）
+        self.mock_packager.is_device_active.return_value = True
+        
         # 调用 _switch_to_device()
         with self.assertLogs(level='INFO') as log_context:
             renderer._switch_to_device(DeviceRole.LEFT_CAMERA)
@@ -327,6 +332,71 @@ class TestDisplayRendererDeviceSwitching(unittest.TestCase):
         # 验证记录了警告日志
         log_output = '\n'.join(log_context.output)
         self.assertIn("不存在于 role_bindings 中", log_output)
+    
+    def test_switch_to_device_checks_device_activity(self):
+        """测试 _switch_to_device() 检查设备活跃性（新增需求）"""
+        renderer = DisplayRenderer(
+            config=self.config,
+            packager=self.mock_packager,
+            devices_list=self.devices_list,
+            role_bindings=self.role_bindings,
+        )
+        
+        # 初始化
+        renderer.initialize()
+        
+        # Mock is_device_active 返回 True（设备活跃）
+        self.mock_packager.is_device_active.return_value = True
+        
+        # 调用 _switch_to_device()
+        with self.assertLogs(level='INFO') as log_context:
+            renderer._switch_to_device(DeviceRole.LEFT_CAMERA)
+        
+        # 验证调用了 is_device_active
+        self.mock_packager.is_device_active.assert_called_once_with("device_001", window_sec=3.0)
+        
+        # 验证切换成功
+        self.assertEqual(renderer._display_mode, "single")
+        self.assertEqual(renderer._selected_device_role, DeviceRole.LEFT_CAMERA)
+        
+        # 验证记录了日志
+        log_output = '\n'.join(log_context.output)
+        self.assertIn("切换到设备角色", log_output)
+    
+    def test_switch_to_device_rejects_inactive_device(self):
+        """测试 _switch_to_device() 拒绝切换到不活跃的设备（新增需求）"""
+        renderer = DisplayRenderer(
+            config=self.config,
+            packager=self.mock_packager,
+            devices_list=self.devices_list,
+            role_bindings=self.role_bindings,
+        )
+        
+        # 初始化
+        renderer.initialize()
+        
+        # 记录初始显示模式
+        initial_mode = renderer._display_mode
+        initial_role = renderer._selected_device_role
+        
+        # Mock is_device_active 返回 False（设备不活跃）
+        self.mock_packager.is_device_active.return_value = False
+        
+        # 调用 _switch_to_device()
+        with self.assertLogs(level='WARNING') as log_context:
+            renderer._switch_to_device(DeviceRole.LEFT_CAMERA)
+        
+        # 验证调用了 is_device_active
+        self.mock_packager.is_device_active.assert_called_once_with("device_001", window_sec=3.0)
+        
+        # 验证显示模式未改变
+        self.assertEqual(renderer._display_mode, initial_mode)
+        self.assertEqual(renderer._selected_device_role, initial_role)
+        
+        # 验证记录了警告日志
+        log_output = '\n'.join(log_context.output)
+        self.assertIn("目标设备当前不活跃", log_output)
+        self.assertIn("拒绝切换", log_output)
     
     def test_switch_to_combined_mode(self):
         """测试 _switch_to_combined() 切换到拼接模式（需求 8.3）"""

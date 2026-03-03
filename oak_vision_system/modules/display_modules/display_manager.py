@@ -35,6 +35,7 @@ class DisplayManager:
         config: DisplayConfigDTO,
         devices_list: List[str],
         role_bindings: Optional[Dict[DeviceRole, str]] = None,
+        label_map: Optional [Dict[int, str]] = None,
         enable_depth_output: bool = False,
     ) -> None:
         """初始化显示管理器（子任务 5.1 + 6.1）
@@ -77,6 +78,7 @@ class DisplayManager:
             packager=self._packager,
             devices_list=devices_list,
             role_bindings=role_bindings,  # 传入角色绑定（子任务 5.1）
+            label_map=label_map,
             enable_depth_output=enable_depth_output,  # 传入深度输出配置（子任务 6.1）
             event_bus=self._packager.event_bus,  # 传入事件总线（保留用于向后兼容，当前未使用）
         )

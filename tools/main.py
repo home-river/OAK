@@ -124,11 +124,13 @@ def create_modules(config_manager: DeviceConfigManager, logger: logging.Logger):
             logger.info("  - 创建 DisplayManager...")
             display_config = config_manager.get_display_config()
             role_bindings = config_manager.get_active_role_mxid_map()
+            label_map = config_manager.get_label_map()
 
             display_manager = DisplayManager(
                 config=display_config,
                 devices_list=list(device_metadata.keys()),
                 role_bindings=role_bindings,
+                label_map=label_map,
                 enable_depth_output=bool(getattr(oak_config.hardware_config, "enable_depth_output", False)),
             )
             modules['display'] = display_manager

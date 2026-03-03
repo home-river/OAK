@@ -9,6 +9,7 @@
 """
 
 from oak_vision_system.core.dto.data_processing_dto import DetectionStatusLabel
+from typing import Dict
 import cv2
 
 # ============================================================================
@@ -40,6 +41,8 @@ STATUS_COLOR_MAP = {
 # 默认颜色（用于未知状态或未映射状态）
 # 白色 - 表示状态未知或未定义
 DEFAULT_DETECTION_COLOR = (255, 255, 255)
+
+LABEL_ID_TO_NAME: Dict[int, str] = {0: "Durian", 1: "Person"}
 
 # ============================================================================
 # UI 样式配置
