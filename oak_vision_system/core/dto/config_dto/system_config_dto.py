@@ -33,15 +33,18 @@ class SystemConfigDTO(BaseConfigDTO):
     
     # ========== 日志配置 ==========
     log_level: str = "INFO"  # DEBUG/INFO/WARNING/ERROR/CRITICAL
-    log_to_file: bool = False  # 是否写入日志文件
-    log_file_path: Optional[str] = None  # 日志文件路径
+    log_to_file: bool = True  # 是否写入日志文件
+    log_file_path: Optional[str] = "log"  # 日志文件根目录（不是完整路径）
     log_max_size_mb: int = 100  # 单个日志文件最大大小(MB)
     log_backup_count: int = 7  # 日志文件备份数量
-    log_rotate_mode: str = "time"
-    log_rotate_when: str = "MIDNIGHT"
-    log_rotate_interval: int = 1
-    log_rotate_utc: bool = False
+    log_rotate_mode: str = "time"  # 轮转模式：time(按时间)/size(按大小)，需 log_to_file=True 且 log_file_path 有效
+    log_rotate_when: str = "MIDNIGHT"  # 按时间轮转触发点/单位（TimedRotatingFileHandler.when），如 MIDNIGHT/H/D
+    log_rotate_interval: int = 1  # 按时间轮转间隔：每隔 interval 个 when 单位轮转一次（如 MIDNIGHT+1=每天）
+    log_rotate_utc: bool = False  # 按时间轮转是否使用 UTC 计算轮转时刻（True=UTC，False=本地时区）
     
+
+    # 以下配置暂未接入使用
+
     # ========== 性能配置 ==========
     enable_profiling: bool = False  # 启用性能分析
     max_worker_threads: int = 4  # 最大工作线程数

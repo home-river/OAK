@@ -46,7 +46,7 @@ from .device_discovery import OAKDeviceDiscovery
 from .validators import validate_dto_structure, run_all_validations,validate_against_online_devices
 from .device_match import DeviceMatchManager
 from .config_converter import ConfigConverter
-from oak_vision_system.utils.logging_utils import configure_logging
+
 
 class MatchResultType(Enum):
     """设备匹配结果类型"""
@@ -249,11 +249,6 @@ class DeviceConfigManager:
             except ConfigValidationError as e:
                 self.logger.warning("配置验证失败: %s，配置已创建为草稿但不可运行", e)
                 # 配置创建成功，但未通过验证，_runnable_config 保持为 None
-            
-            try:
-                configure_logging(dto.system_config)
-            except Exception as e:
-                self.logger.error("初始化日志失败: %s", e, exc_info=True)
             self.logger.info("配置已创建: path=%s, format=json", path)
             return True
 
@@ -350,12 +345,6 @@ class DeviceConfigManager:
         except ConfigValidationError as e:
             self.logger.warning("配置验证失败: %s，配置已加载为草稿但不可运行", e)
             # 配置加载成功，但未通过验证，_runnable_config 保持为 None
-        
-        # 11) 配置日志系统
-        try:
-            configure_logging(dto.system_config)
-        except Exception as e:
-            self.logger.error("根据系统配置初始化日志失败: %s", e, exc_info=True)
         
         return True
 
@@ -651,10 +640,6 @@ class DeviceConfigManager:
             self.logger.warning("默认配置验证失败: %s，配置已创建为草稿但不可运行", e)
             # 配置创建成功，但未通过验证，_runnable_config 保持为 None
         
-        try:
-            configure_logging(default_config.system_config)
-        except Exception as e:
-            self.logger.error("初始化日志失败: %s", e, exc_info=True)
         self.logger.info("默认配置已创建")
         return True
 

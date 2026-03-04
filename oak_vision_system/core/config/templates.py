@@ -99,7 +99,7 @@ def template_OAKConfigDTO() -> OAKConfigDTO:
 
         # ===== 深度相关 =====
         enable_depth_output=True,                        # 是否启用深度信息
-        depth_resolution=(640, 480),              # 深度视图分辨率
+        depth_resolution=(640, 400),              # 深度视图分辨率
         depth_min_threshold=400,                # 深度最小阈值（单位:mm）
         depth_max_threshold=6000,               # 深度最大阈值（单位:mm）
         align_depth_to_rgb=True,                  # 将深度图与RGB对齐

@@ -24,6 +24,8 @@ import time
 from pathlib import Path
 from typing import Dict, Optional
 
+from oak_vision_system.core.system_manager.system_manager import SystemManager
+
 # 配置日志
 logging.basicConfig(
     level=logging.INFO,
@@ -190,7 +192,7 @@ def create_modules(config):
     return modules
 
 
-def register_modules(system_manager, modules):
+def register_modules(system_manager: SystemManager, modules):
     """
     注册所有模块到 SystemManager
     
@@ -293,7 +295,8 @@ def run_smoke_test(config_path: str = "assets/test_config/config.json", duration
         def trigger_shutdown():
             time.sleep(duration)
             logger.info(f"\n⏰ {duration} 秒已到，触发系统关闭...")
-            modules['event_bus'].publish("SYSTEM_SHUTDOWN", None)
+            from oak_vision_system.core.system_manager import ShutdownEvent
+            modules['event_bus'].publish("SYSTEM_SHUTDOWN", ShutdownEvent(reason="timer"))
         
         shutdown_timer = threading.Thread(
             target=trigger_shutdown, 

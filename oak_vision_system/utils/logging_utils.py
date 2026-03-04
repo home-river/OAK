@@ -153,7 +153,10 @@ def setup_exception_logger(
     )
 
 
-def configure_logging(system_config: SystemConfigDTO) -> None:
+def configure_logging(
+    system_config: SystemConfigDTO,
+    log_subpath: Optional[str] = None
+) -> None:
         """
         使用系统配置全局初始化日志模块
         
@@ -165,10 +168,22 @@ def configure_logging(system_config: SystemConfigDTO) -> None:
         
         Args:
             system_config: 系统配置对象，包含日志级别、文件路径等配置信息
+            log_subpath: 可选的日志子路径，会拼接到 log_file_path 后
+                         例如: log_subpath="main/detection.log"
+                         如果不提供，默认使用 "app.log"
         
         Note:
             - 此函数会修改全局 root logger，影响整个应用的日志行为
             - 多次调用时，只有第一次会生效，后续调用会被忽略
+        
+        示例:
+            # 使用默认路径
+            configure_logging(config)
+            # → log/app.log
+            
+            # 自定义子路径
+            configure_logging(config, log_subpath="main/detection.log")
+            # → log/main/detection.log
         """
         try:
             global _LOGGING_CONFIGURED
@@ -216,8 +231,17 @@ def configure_logging(system_config: SystemConfigDTO) -> None:
 
                 # 6. 可选：配置文件日志 handler（如果配置中启用了文件日志）
                 if getattr(system_config, "log_to_file", False) and getattr(system_config, "log_file_path", None):
-                    # 6.1 获取并归一化日志文件绝对路径，确保目录存在
-                    path = os.path.abspath(system_config.log_file_path)
+                    # 6.1 拼接根路径和子路径，获取最终的日志文件路径
+                    base_path = system_config.log_file_path
+                    if log_subpath:
+                        # 工具指定了子路径，使用工具指定的
+                        path = os.path.join(base_path, log_subpath)
+                    else:
+                        # 工具没有指定，使用默认文件名
+                        path = os.path.join(base_path, "app.log")
+                    
+                    # 归一化为绝对路径，确保目录存在
+                    path = os.path.abspath(path)
                     path_cmp = os.path.normcase(path)
                     dir_ = os.path.dirname(path)
                     if dir_:

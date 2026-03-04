@@ -59,6 +59,7 @@ class SystemManager:
         self,
         event_bus: Optional[EventBus] = None,
         system_config: Optional[SystemConfigDTO] = None,
+        log_subpath: Optional[str] = None,
         default_stop_timeout: float = 5.0,
         force_exit_grace_period: float = 3.0
     ):
@@ -68,6 +69,9 @@ class SystemManager:
         Args:
             event_bus: 事件总线实例（可选，默认使用全局单例）
             system_config: 系统配置对象（可选，用于日志初始化）
+            log_subpath: 日志子路径（可选，例如 "main/detection.log"）
+                会拼接到 system_config.log_file_path 后作为日志文件路径
+                如果不提供，默认使用 "app.log"
             default_stop_timeout: 默认模块关闭超时时间（秒），默认5.0秒
             force_exit_grace_period: 强制退出宽限期（秒），默认3.0秒
                 当模块停止失败时，等待此时间后强制退出进程。
@@ -87,7 +91,7 @@ class SystemManager:
         # 初始化日志系统（如果提供 system_config）
         if system_config is not None:
             try:
-                configure_logging(system_config)
+                configure_logging(system_config, log_subpath=log_subpath)
             except Exception as e:
                 # 如果日志配置失败，使用默认配置并记录警告
                 logging.basicConfig(level=logging.INFO)

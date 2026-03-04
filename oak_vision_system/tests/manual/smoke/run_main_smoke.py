@@ -1,7 +1,7 @@
 """
 OAK Vision System - 主程序入口（测试版本）
 
-完整的系统启动脚本，包括：
+完整的系统启动冒烟测试脚本，包括：
 - 真实 OAK 设备连接
 - 数据采集模块（Collector）
 - 数据处理模块（DataProcessor）
@@ -27,7 +27,6 @@ from oak_vision_system.modules.data_collector.collector import OAKDataCollector
 from oak_vision_system.modules.data_processing.data_processor import DataProcessor
 from oak_vision_system.modules.display_modules.display_manager import DisplayManager
 from oak_vision_system.modules.can_communication.can_factory import create_can_communicator
-from typing import Optional
 
 
 # ==================== 配置参数 ====================
@@ -39,41 +38,54 @@ CONFIG_PATH = "assets/test_config/config.json"
 # 是否使用虚拟 CAN（测试用）
 USE_VIRTUAL_CAN = True
 
+# 是否启用调试模式
+DEBUG_MODE = True
+
 # 是否禁用显示（无头模式）
 NO_DISPLAY = False
 
-# 注意：日志配置现在由 system_config 和 log_subpath 控制
-# - 日志级别、格式、滚动策略：在配置文件中设置
-# - 日志文件路径：通过 SystemManager 的 log_subpath 参数指定
+# 日志路径
+LOG_FILE_PATH = "test_logs/main_test/oak_vision_system.log"
 
 
-def load_configuration(config_path: str, logger: Optional[logging.Logger] = None):
+def setup_logging():
+    """配置日志系统"""
+    log_level = logging.DEBUG if DEBUG_MODE else logging.INFO
+    
+    logging.basicConfig(
+        level=log_level,
+        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+        handlers=[
+            logging.StreamHandler(sys.stdout),
+            logging.FileHandler(LOG_FILE_PATH, mode='a', encoding="utf-8")
+        ]
+    )
+    
+    logger = logging.getLogger(__name__)
+    logger.info("=" * 60)
+    logger.info("OAK Vision System 启动")
+    logger.info("=" * 60)
+    
+    return logger
+
+
+def load_configuration(config_path: str, logger: logging.Logger):
     """加载系统配置"""
-    if logger:
-        logger.info(f"加载配置文件: {config_path}")
+    logger.info(f"加载配置文件: {config_path}")
     
     # 检查配置文件是否存在
     if not Path(config_path).exists():
-        error_msg = f"配置文件不存在: {config_path}"
-        if logger:
-            logger.error(error_msg)
-        else:
-            print(f"[ERROR] {error_msg}")
+        logger.error(f"配置文件不存在: {config_path}")
         sys.exit(1)
     
     try:
         config_manager = DeviceConfigManager(config_path=config_path, auto_create=False)
         config_manager.load_config(validate=True)
 
-        if logger:
-            logger.info("[OK] 配置加载成功")
+        logger.info("[OK] 配置加载成功")
         return config_manager
     except Exception as e:
-        error_msg = f"[ERR] 配置加载失败: {e}"
-        if logger:
-            logger.error(error_msg, exc_info=True)
-        else:
-            print(error_msg)
+        logger.error(f"[ERR] 配置加载失败: {e}", exc_info=True)
         sys.exit(1)
 
 
@@ -204,35 +216,35 @@ def register_modules(system_manager : SystemManager, modules, logger):
 
 def main():
     """主函数"""
-    # 1. 先加载配置（此时还没有配置日志）
-    config_manager = load_configuration(CONFIG_PATH, logger=None)
-    system_config = config_manager.get_system_config()
+    # 1. 配置日志
+    logger = setup_logging()
     
-    # 2. 创建 SystemManager（自动配置日志）
-    event_bus = get_event_bus()
-    system_manager = SystemManager(
-        event_bus=event_bus,
-        system_config=system_config,
-        log_subpath="main/detection.log",  # 指定日志子路径
-        default_stop_timeout=5.0,
-        force_exit_grace_period=3.0
-    )
-    
-    # 3. 获取 logger（日志已经配置好了）
-    logger = logging.getLogger(__name__)
-    logger.info("=" * 60)
-    logger.info("OAK Vision System 启动")
-    logger.info("=" * 60)
-    
-    # 4. 显示配置信息
+    # 2. 显示配置信息
     logger.info("配置参数:")
     logger.info(f"  - 配置文件: {CONFIG_PATH}")
     logger.info(f"  - 虚拟 CAN: {USE_VIRTUAL_CAN}")
+    logger.info(f"  - 调试模式: {DEBUG_MODE}")
     logger.info(f"  - 无头模式: {NO_DISPLAY}")
     logger.info("")
     
-    # 5. 创建模块
+    # 3. 加载配置
+    config_manager = load_configuration(CONFIG_PATH, logger)
+    
+    # 4. 创建模块
     modules = create_modules(config_manager, logger)
+    
+    # 5. 创建 SystemManager
+    logger.info("创建 SystemManager...")
+    system_config = config_manager.get_system_config()
+    event_bus = get_event_bus()
+    
+    system_manager = SystemManager(
+        event_bus=event_bus,
+        system_config=system_config,
+        default_stop_timeout=5.0,
+        force_exit_grace_period=3.0
+    )
+    logger.info("[OK] SystemManager 创建成功")
     
     # 6. 注册模块
     register_modules(system_manager, modules, logger)

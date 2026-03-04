@@ -2,7 +2,7 @@
   "config_version": "2.0.0",
   "oak_module": {
     "hardware_config": {
-      "model_path": "assets/config/yolov8.blob",
+      "model_path": "assets/test_config/yolov8.blob",
       "label_map": [
         "durian",
         "person"
@@ -172,8 +172,8 @@
   },
   "system_config": {
     "log_level": "INFO",
-    "log_to_file": true,
-    "log_file_path": "log",
+    "log_to_file": false,
+    "log_file_path": null,
     "log_max_size_mb": 100,
     "log_backup_count": 7,
     "log_rotate_mode": "time",
