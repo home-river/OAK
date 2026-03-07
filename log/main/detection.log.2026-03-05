@@ -1,0 +1,393 @@
+2026-03-05 11:24:05 [INFO] oak_vision_system.core.event_bus.event_bus: 订阅事件: event_type=SYSTEM_SHUTDOWN, subscription_id=SYSTEM_SHUTDOWN:2839943894784:1772681045541661100, priority=NORMAL, subscriber_name=_on_shutdown_event
+2026-03-05 11:24:05 [INFO] oak_vision_system.core.system_manager.system_manager: SystemManager 初始化完成: default_stop_timeout=5.0s, force_exit_grace_period=3.0s
+2026-03-05 11:24:05 [INFO] __main__: ============================================================
+2026-03-05 11:24:05 [INFO] __main__: OAK Vision System 启动
+2026-03-05 11:24:05 [INFO] __main__: ============================================================
+2026-03-05 11:24:05 [INFO] __main__: 配置参数:
+2026-03-05 11:24:05 [INFO] __main__:   - 配置文件: assets/test_config/config.json
+2026-03-05 11:24:05 [INFO] __main__:   - 虚拟 CAN: True
+2026-03-05 11:24:05 [INFO] __main__:   - 无头模式: False
+2026-03-05 11:24:05 [INFO] __main__: 
+2026-03-05 11:24:05 [INFO] __main__: 创建模块实例...
+2026-03-05 11:24:05 [INFO] __main__:   - 创建 OAKDataCollector...
+2026-03-05 11:24:05 [INFO] oak_vision_system.modules.data_collector.pipelinemanager: PipelineManager 初始化完成（工厂模式，无状态）
+2026-03-05 11:24:05 [INFO] oak_vision_system.modules.data_collector.collector: 设备可用性检查通过: 2/2 个设备可用
+2026-03-05 11:24:05 [INFO] oak_vision_system.core.event_bus.event_bus: 订阅事件: event_type=backpressure_signal, subscription_id=backpressure_signal:2839952747328:1772681045544811100, priority=NORMAL, subscriber_name=OAKDataCollector._handle_backpressure_signal
+2026-03-05 11:24:05 [INFO] __main__:     [OK] OAKDataCollector 创建成功
+2026-03-05 11:24:05 [INFO] __main__:   - 创建 DataProcessor...
+2026-03-05 11:24:05 [INFO] oak_vision_system.modules.data_processing.decision_layer.decision_layer: 决策层初始化完成: person_labels=[0], d_in=3000.00, d_out=3050.00, T_warn=3.00, T_clear=3.00
+2026-03-05 11:24:05 [INFO] oak_vision_system.core.event_bus.event_bus: 订阅事件: event_type=raw_detection_data, subscription_id=raw_detection_data:2839963448704:1772681045594833700, priority=NORMAL, subscriber_name=DataProcessor._on_detection_data_received
+2026-03-05 11:24:05 [INFO] oak_vision_system.modules.data_processing.data_processor: 已订阅 RAW_DETECTION_DATA 事件
+2026-03-05 11:24:05 [INFO] oak_vision_system.core.backpressure.monitor: 注册队列: data_processor_queue_2839963361360, watermarks=Watermarks(high=8, low=5)
+2026-03-05 11:24:05 [INFO] oak_vision_system.core.backpressure.monitor: BackpressureMonitor started, interval=50ms
+2026-03-05 11:24:05 [INFO] oak_vision_system.core.backpressure.monitor: 背压事件: queue=data_processor_queue_2839963361360 action=BackpressureAction.NORMAL reason=queue_ok usage=0.00 drops=0 level=low state=1
+2026-03-05 11:24:05 [INFO] oak_vision_system.modules.data_processing.data_processor: DataProcessor 初始化完成: devices=2, labels=2, queue_size=10, decision_layer_initialized=True
+2026-03-05 11:24:05 [INFO] __main__:     [OK] DataProcessor 创建成功
+2026-03-05 11:24:05 [INFO] __main__:   - 创建 DisplayManager...
+2026-03-05 11:24:05 [INFO] oak_vision_system.core.event_bus.event_bus: 订阅事件: event_type=raw_frame_data, subscription_id=raw_frame_data:2839963439488:1772681045596821900, priority=NORMAL, subscriber_name=RenderPacketPackager._handle_video_frame
+2026-03-05 11:24:05 [INFO] oak_vision_system.core.event_bus.event_bus: 订阅事件: event_type=processed_data, subscription_id=processed_data:2839952611904:1772681045597332400, priority=NORMAL, subscriber_name=RenderPacketPackager._handle_processed_data
+2026-03-05 11:24:05 [INFO] oak_vision_system.modules.display_modules.render_packet_packager: 渲染包打包器已初始化，队列最大长度: 8, 超时时间: 0.20 秒, 缓存最大年龄: 1.00 秒
+2026-03-05 11:24:05 [INFO] oak_vision_system.modules.display_modules.display_renderer: DisplayRenderer 初始化完成 - 设备数: 2, FPS: 20, 角色绑定数: 2, 深度输出: 启用
+2026-03-05 11:24:05 [INFO] oak_vision_system.modules.display_modules.display_manager: DisplayManager 已初始化，设备数量: 2, enable_display: True, 角色绑定数: 2, 深度输出: 启用
+2026-03-05 11:24:05 [INFO] __main__:     [OK] DisplayManager 创建成功
+2026-03-05 11:24:05 [INFO] __main__:   - 创建 CAN 通信器...
+2026-03-05 11:24:05 [INFO] __main__:     使用虚拟 CAN 模式（enable_can=False）
+2026-03-05 11:24:05 [INFO] oak_vision_system.modules.can_communication.can_factory: 创建 CAN 通信器: enable_can=False, interface=socketcan, channel=can0, bitrate=250000
+2026-03-05 11:24:05 [INFO] oak_vision_system.modules.can_communication.can_factory: enable_can=False，创建虚拟 CAN 通信器 (VirtualCANCommunicator)
+2026-03-05 11:24:05 [INFO] oak_vision_system.modules.can_communication.virtual_can_communicator: VirtualCANCommunicator 已初始化 - 这是一个虚拟实现，用于开发和测试环境。真实环境下会使用 CANCommunicator 进行实际的 CAN 通信。
+2026-03-05 11:24:05 [INFO] oak_vision_system.modules.can_communication.virtual_can_communicator: 配置信息: interface=socketcan, channel=can0, bitrate=250000
+2026-03-05 11:24:05 [INFO] oak_vision_system.modules.can_communication.can_factory: CAN 通信器创建完成: VirtualCANCommunicator
+2026-03-05 11:24:05 [INFO] __main__:     [OK] CAN 通信器创建成功
+2026-03-05 11:24:05 [INFO] __main__: [OK] 所有模块创建完成
+2026-03-05 11:24:05 [INFO] __main__: 注册模块到 SystemManager...
+2026-03-05 11:24:05 [INFO] oak_vision_system.core.system_manager.system_manager: 注册模块: collector (priority=10, state=not_started)
+2026-03-05 11:24:05 [INFO] __main__:   [OK] Collector 已注册（优先级: 10）
+2026-03-05 11:24:05 [INFO] oak_vision_system.core.system_manager.system_manager: 注册模块: processor (priority=30, state=not_started)
+2026-03-05 11:24:05 [INFO] __main__:   [OK] Processor 已注册（优先级: 30）
+2026-03-05 11:24:05 [INFO] oak_vision_system.core.system_manager.system_manager: 注册模块: display (priority=50, state=not_started)
+2026-03-05 11:24:05 [INFO] oak_vision_system.core.system_manager.system_manager: 注册显示模块: display (priority=50, 需要主线程渲染)
+2026-03-05 11:24:05 [INFO] __main__:   [OK] Display 已注册（优先级: 50，主线程渲染）
+2026-03-05 11:24:05 [INFO] oak_vision_system.core.system_manager.system_manager: 注册模块: can (priority=70, state=not_started)
+2026-03-05 11:24:05 [INFO] __main__:   [OK] CAN 已注册（优先级: 70）
+2026-03-05 11:24:05 [INFO] __main__: [OK] 所有模块注册完成
+2026-03-05 11:24:05 [INFO] __main__: ============================================================
+2026-03-05 11:24:05 [INFO] __main__: 启动系统...
+2026-03-05 11:24:05 [INFO] __main__: ============================================================
+2026-03-05 11:24:05 [INFO] oak_vision_system.core.system_manager.system_manager: 开始启动所有模块...
+2026-03-05 11:24:05 [INFO] oak_vision_system.core.system_manager.system_manager: 启动模块: can (priority=70)
+2026-03-05 11:24:05 [INFO] oak_vision_system.modules.can_communication.virtual_can_communicator: 正在启动 VirtualCANCommunicator...
+2026-03-05 11:24:05 [INFO] oak_vision_system.core.event_bus.event_bus: 订阅事件: event_type=person_warning, subscription_id=person_warning:2839963437248:1772681045600854900, priority=NORMAL, subscriber_name=_on_person_warning
+2026-03-05 11:24:05 [INFO] oak_vision_system.modules.can_communication.virtual_can_communicator: ============================================================
+2026-03-05 11:24:05 [INFO] oak_vision_system.modules.can_communication.virtual_can_communicator: 虚拟 CAN 通信器已启动
+2026-03-05 11:24:05 [INFO] oak_vision_system.modules.can_communication.virtual_can_communicator: ============================================================
+2026-03-05 11:24:05 [INFO] oak_vision_system.modules.can_communication.virtual_can_communicator: 功能说明:
+2026-03-05 11:24:05 [INFO] oak_vision_system.modules.can_communication.virtual_can_communicator:   • 这是一个虚拟实现，用于开发和测试环境
+2026-03-05 11:24:05 [INFO] oak_vision_system.modules.can_communication.virtual_can_communicator:   • 会订阅 PERSON_WARNING 事件并记录详细日志
+2026-03-05 11:24:05 [INFO] oak_vision_system.modules.can_communication.virtual_can_communicator:   • 支持坐标请求模拟，调用真实的决策层接口
+2026-03-05 11:24:05 [INFO] oak_vision_system.modules.can_communication.virtual_can_communicator:   • 维护统计计数器，帮助验证事件流
+2026-03-05 11:24:05 [INFO] oak_vision_system.modules.can_communication.virtual_can_communicator: 
+2026-03-05 11:24:05 [INFO] oak_vision_system.modules.can_communication.virtual_can_communicator: 真实环境行为说明:
+2026-03-05 11:24:05 [INFO] oak_vision_system.modules.can_communication.virtual_can_communicator:   • 真实环境下会使用 CANCommunicator 连接实际的 CAN 总线
+2026-03-05 11:24:05 [INFO] oak_vision_system.modules.can_communication.virtual_can_communicator:   • 会连接到 socketcan 接口
+2026-03-05 11:24:05 [INFO] oak_vision_system.modules.can_communication.virtual_can_communicator:   • 使用通道 can0，波特率 250000
+2026-03-05 11:24:05 [INFO] oak_vision_system.modules.can_communication.virtual_can_communicator:   • 会发送实际的 CAN 消息到硬件设备
+2026-03-05 11:24:05 [INFO] oak_vision_system.modules.can_communication.virtual_can_communicator:   • 会接收来自硬件的坐标请求消息
+2026-03-05 11:24:05 [INFO] oak_vision_system.modules.can_communication.virtual_can_communicator: 
+2026-03-05 11:24:05 [INFO] oak_vision_system.modules.can_communication.virtual_can_communicator: 当前配置:
+2026-03-05 11:24:05 [INFO] oak_vision_system.modules.can_communication.virtual_can_communicator:   • CAN 接口: socketcan
+2026-03-05 11:24:05 [INFO] oak_vision_system.modules.can_communication.virtual_can_communicator:   • CAN 通道: can0
+2026-03-05 11:24:05 [INFO] oak_vision_system.modules.can_communication.virtual_can_communicator:   • 波特率: 250000
+2026-03-05 11:24:05 [INFO] oak_vision_system.modules.can_communication.virtual_can_communicator:   • 警报间隔: 500ms
+2026-03-05 11:24:05 [INFO] oak_vision_system.modules.can_communication.virtual_can_communicator:   • 发送超时: 100ms
+2026-03-05 11:24:05 [INFO] oak_vision_system.modules.can_communication.virtual_can_communicator: ============================================================
+2026-03-05 11:24:05 [INFO] oak_vision_system.core.system_manager.system_manager: 模块启动成功: can
+2026-03-05 11:24:05 [INFO] oak_vision_system.core.system_manager.system_manager: 启动模块: display (priority=50)
+2026-03-05 11:24:05 [INFO] oak_vision_system.modules.display_modules.display_manager: 启动 RenderPacketPackager...
+2026-03-05 11:24:05 [INFO] oak_vision_system.modules.display_modules.render_packet_packager: 渲染包打包工作线程已启动
+2026-03-05 11:24:05 [INFO] oak_vision_system.modules.display_modules.display_manager: 初始化 DisplayRenderer（主线程渲染模式）...
+2026-03-05 11:24:05 [INFO] oak_vision_system.modules.display_modules.display_renderer: DisplayRenderer 已初始化
+2026-03-05 11:24:05 [INFO] oak_vision_system.modules.display_modules.display_manager: DisplayManager 已成功启动（主线程渲染模式）
+2026-03-05 11:24:05 [INFO] oak_vision_system.core.system_manager.system_manager: 模块启动成功: display
+2026-03-05 11:24:05 [INFO] oak_vision_system.core.system_manager.system_manager: 启动模块: processor (priority=30)
+2026-03-05 11:24:05 [INFO] oak_vision_system.modules.data_processing.data_processor: DataProcessor 主循环开始
+2026-03-05 11:24:05 [INFO] oak_vision_system.modules.data_processing.data_processor: DataProcessor 线程已启动
+2026-03-05 11:24:05 [INFO] oak_vision_system.core.system_manager.system_manager: 模块启动成功: processor
+2026-03-05 11:24:05 [INFO] oak_vision_system.core.system_manager.system_manager: 启动模块: collector (priority=10)
+2026-03-05 11:24:12 [INFO] oak_vision_system.modules.data_collector.collector: 为设备 left_camera 创建 pipeline...
+2026-03-05 11:24:12 [INFO] oak_vision_system.modules.data_collector.collector: 为设备 left_camera 创建带深度输出的 pipeline
+2026-03-05 11:24:12 [INFO] oak_vision_system.modules.data_collector.pipelinemanager: create_pipeline_new: start (新版风格)
+2026-03-05 11:24:12 [INFO] oak_vision_system.modules.data_collector.pipelinemanager: pipeline创建完成（新版风格）
+2026-03-05 11:24:12 [INFO] oak_vision_system.modules.data_collector.collector: 设备 left_camera 的 pipeline 创建成功
+2026-03-05 11:24:12 [INFO] oak_vision_system.modules.data_collector.collector: 尝试连接设备: MXID=19443010C122201300, USB2模式=True
+2026-03-05 11:24:12 [INFO] oak_vision_system.modules.data_collector.collector: 为设备 right_camera 创建 pipeline...
+2026-03-05 11:24:12 [INFO] oak_vision_system.core.system_manager.system_manager: 模块启动成功: collector
+2026-03-05 11:24:12 [INFO] oak_vision_system.modules.data_collector.collector: 为设备 right_camera 创建带深度输出的 pipeline
+2026-03-05 11:24:12 [INFO] oak_vision_system.core.system_manager.system_manager: 所有模块启动完成，共 4 个模块
+2026-03-05 11:24:12 [INFO] oak_vision_system.modules.data_collector.pipelinemanager: create_pipeline_new: start (新版风格)
+2026-03-05 11:24:12 [INFO] __main__: [OK] 所有模块启动成功
+2026-03-05 11:24:12 [INFO] oak_vision_system.modules.data_collector.pipelinemanager: pipeline创建完成（新版风格）
+2026-03-05 11:24:12 [INFO] __main__: 
+2026-03-05 11:24:12 [INFO] oak_vision_system.modules.data_collector.collector: 设备 right_camera 的 pipeline 创建成功
+2026-03-05 11:24:12 [INFO] __main__: 系统运行中...
+2026-03-05 11:24:12 [INFO] oak_vision_system.modules.data_collector.collector: 尝试连接设备: MXID=19443010F1221E1300, USB2模式=True
+2026-03-05 11:24:12 [INFO] __main__:   - 按 Ctrl+C 退出系统
+2026-03-05 11:24:12 [INFO] __main__:   - 按 'q' 键退出显示
+2026-03-05 11:24:12 [INFO] __main__:   - 按 'f' 键切换全屏
+2026-03-05 11:24:12 [INFO] __main__:   - 按 '1'/'2'/'3' 键切换显示模式
+2026-03-05 11:24:12 [INFO] __main__: 
+2026-03-05 11:24:12 [INFO] oak_vision_system.core.system_manager.system_manager: SystemManager 开始运行，等待退出信号...
+2026-03-05 11:24:12 [INFO] oak_vision_system.core.system_manager.system_manager: 退出方式: Ctrl+C 或 SYSTEM_SHUTDOWN 事件
+2026-03-05 11:24:12 [INFO] oak_vision_system.core.system_manager.system_manager: 检测到显示模块，使用主线程渲染模式
+2026-03-05 11:24:14 [INFO] oak_vision_system.modules.display_modules.display_renderer: 主窗口已创建: OAK Display
+2026-03-05 11:24:14 [INFO] oak_vision_system.modules.display_modules.display_renderer: 窗口尺寸: 小窗=640x360, 全屏=1280x720
+2026-03-05 11:24:23 [INFO] oak_vision_system.modules.display_modules.display_renderer: 切换到全屏模式
+2026-03-05 11:24:25 [INFO] oak_vision_system.modules.display_modules.display_renderer: 切换到窗口模式
+2026-03-05 11:24:26 [INFO] oak_vision_system.modules.display_modules.display_renderer: 切换到全屏模式
+2026-03-05 11:24:27 [INFO] oak_vision_system.modules.display_modules.display_renderer: 切换到设备角色 LEFT_CAMERA: 19443010C122201300
+2026-03-05 11:24:28 [INFO] oak_vision_system.modules.display_modules.display_renderer: 切换到设备角色 RIGHT_CAMERA: 19443010F1221E1300
+2026-03-05 11:24:28 [INFO] oak_vision_system.modules.display_modules.display_renderer: 切换到 Combined 模式
+2026-03-05 11:24:29 [INFO] oak_vision_system.modules.display_modules.display_renderer: 切换到设备角色 LEFT_CAMERA: 19443010C122201300
+2026-03-05 11:24:29 [INFO] oak_vision_system.modules.display_modules.display_renderer: 切换到设备角色 RIGHT_CAMERA: 19443010F1221E1300
+2026-03-05 11:24:29 [INFO] oak_vision_system.modules.display_modules.display_renderer: 切换到 Combined 模式
+2026-03-05 11:24:30 [INFO] oak_vision_system.modules.display_modules.display_renderer: 切换到设备角色 LEFT_CAMERA: 19443010C122201300
+2026-03-05 11:24:31 [INFO] oak_vision_system.modules.display_modules.display_renderer: 切换到设备角色 RIGHT_CAMERA: 19443010F1221E1300
+2026-03-05 11:24:31 [INFO] oak_vision_system.modules.display_modules.display_renderer: 切换到 Combined 模式
+2026-03-05 11:24:32 [INFO] oak_vision_system.modules.display_modules.display_renderer: 切换到设备角色 LEFT_CAMERA: 19443010C122201300
+2026-03-05 11:24:33 [INFO] oak_vision_system.modules.display_modules.display_renderer: 切换到设备角色 RIGHT_CAMERA: 19443010F1221E1300
+2026-03-05 11:24:33 [WARNING] oak_vision_system.modules.data_collector.collector: 启用深度模式但未提供深度数据: device=left_camera
+2026-03-05 11:24:33 [INFO] oak_vision_system.modules.display_modules.display_renderer: 切换到 Combined 模式
+2026-03-05 11:24:34 [INFO] oak_vision_system.modules.display_modules.display_renderer: 切换到设备角色 LEFT_CAMERA: 19443010C122201300
+2026-03-05 11:24:35 [INFO] oak_vision_system.modules.display_modules.display_renderer: 切换到设备角色 RIGHT_CAMERA: 19443010F1221E1300
+2026-03-05 11:24:36 [INFO] oak_vision_system.modules.display_modules.display_renderer: 切换到 Combined 模式
+2026-03-05 11:24:36 [INFO] oak_vision_system.modules.display_modules.display_renderer: 切换到设备角色 LEFT_CAMERA: 19443010C122201300
+2026-03-05 11:24:40 [INFO] oak_vision_system.modules.display_modules.display_renderer: 切换到窗口模式
+2026-03-05 11:24:41 [WARNING] oak_vision_system.modules.data_collector.collector: 启用深度模式但未提供深度数据: device=left_camera
+2026-03-05 11:24:44 [INFO] oak_vision_system.modules.display_modules.display_renderer: 切换到全屏模式
+2026-03-05 11:24:44 [INFO] oak_vision_system.modules.display_modules.display_renderer: 切换到窗口模式
+2026-03-05 11:24:50 [INFO] oak_vision_system.modules.display_modules.display_renderer: 切换到全屏模式
+2026-03-05 11:24:51 [WARNING] oak_vision_system.modules.data_collector.collector: 启用深度模式但未提供深度数据: device=left_camera
+2026-03-05 11:24:51 [INFO] oak_vision_system.modules.display_modules.display_renderer: 切换到设备角色 RIGHT_CAMERA: 19443010F1221E1300
+2026-03-05 11:24:51 [INFO] oak_vision_system.modules.display_modules.display_renderer: 切换到 Combined 模式
+2026-03-05 11:24:53 [INFO] oak_vision_system.modules.display_modules.display_renderer: 用户按下 'q' 键
+2026-03-05 11:24:53 [INFO] oak_vision_system.core.system_manager.system_manager: 显示模块请求退出（用户按下 'q' 键）
+2026-03-05 11:24:53 [INFO] oak_vision_system.core.system_manager.system_manager: 接收到退出信号，准备关闭系统...
+2026-03-05 11:24:53 [INFO] oak_vision_system.core.system_manager.system_manager: 执行统一关闭流程...
+2026-03-05 11:24:53 [INFO] oak_vision_system.core.system_manager.system_manager: 开始关闭系统...
+2026-03-05 11:24:53 [INFO] oak_vision_system.core.system_manager.system_manager: 停止模块: collector (priority=10)
+2026-03-05 11:24:53 [INFO] oak_vision_system.modules.data_collector.collector: 正在停止 OAKDataCollector...
+2026-03-05 11:24:59 [INFO] oak_vision_system.modules.data_collector.collector: OAKDataCollector 已停止
+2026-03-05 11:24:59 [INFO] oak_vision_system.core.system_manager.system_manager: 模块停止成功: collector
+2026-03-05 11:24:59 [INFO] oak_vision_system.core.system_manager.system_manager: 停止模块: processor (priority=30)
+2026-03-05 11:24:59 [INFO] oak_vision_system.modules.data_processing.data_processor: 正在停止 DataProcessor...
+2026-03-05 11:24:59 [INFO] oak_vision_system.modules.data_processing.data_processor: DataProcessor 主循环结束
+2026-03-05 11:24:59 [INFO] oak_vision_system.modules.data_processing.data_processor: DataProcessor 已停止: dropped=0
+2026-03-05 11:24:59 [INFO] oak_vision_system.core.system_manager.system_manager: 模块停止成功: processor
+2026-03-05 11:24:59 [INFO] oak_vision_system.core.system_manager.system_manager: 停止模块: display (priority=50)
+2026-03-05 11:24:59 [INFO] oak_vision_system.modules.display_modules.display_manager: 正在停止 DisplayManager...
+2026-03-05 11:24:59 [INFO] oak_vision_system.modules.display_modules.display_manager: 清理 DisplayRenderer 资源...
+2026-03-05 11:24:59 [INFO] oak_vision_system.modules.display_modules.display_renderer: DisplayRenderer 已清理 - 帧数: 1009, 时长: 53.9s, 平均FPS: 18.7
+2026-03-05 11:24:59 [INFO] oak_vision_system.modules.display_modules.display_manager: 停止 RenderPacketPackager...
+2026-03-05 11:24:59 [INFO] oak_vision_system.modules.display_modules.render_packet_packager: 正在停止 RenderPacketPackager...
+2026-03-05 11:24:59 [INFO] oak_vision_system.core.event_bus.event_bus: 取消订阅: event_type=raw_frame_data, subscription_id=raw_frame_data:2839963439488:1772681045596821900
+2026-03-05 11:24:59 [INFO] oak_vision_system.core.event_bus.event_bus: 取消订阅: event_type=processed_data, subscription_id=processed_data:2839952611904:1772681045597332400
+2026-03-05 11:24:59 [INFO] oak_vision_system.modules.display_modules.render_packet_packager: RenderPacketPackager 已停止 - 渲染包: 1201, 丢弃: 5, 成功率: 99.6%
+2026-03-05 11:24:59 [INFO] oak_vision_system.modules.display_modules.display_manager: DisplayManager 已停止，统计数据: {'packager': {'render_packets': 1201, 'drops': 5}, 'queue_stats': {'19443010C122201300': {'size': 0, 'maxsize': 8, 'usage_ratio': 0.0, 'drop_count': 1}, '19443010F1221E1300': {'size': 0, 'maxsize': 8, 'usage_ratio': 0.0, 'drop_count': 251}}, 'total_queue_drops': 252, 'total_drops': 257, 'renderer': {'frames_rendered': 1009, 'fps': 22.1645202659223, 'fps_history': [0.0, 26.300007789779183, 25.70399575626779, 24.25995719821852, 15.002446573604667, 28.304907422982456, 25.41522461576347, 25.425972378992903, 25.210335368125964, 24.953810190171755, 24.0926373709256, 24.258764535262017, 23.169427276611554, 28.886568812529593, 27.170189801826762, 26.229526113737226, 26.14830638422353, 28.65227047434568, 27.07374406585173, 27.424754627547905, 25.289646153912944, 28.61527943025044, 26.071227597484487, 26.275180302897784, 24.15210577824889, 26.17641902278329, 27.94824576622342, 28.504106913235177, 28.08346088885775, 27.453952301494006, 28.398237111672003, 27.86958908883203, 28.156055407538187, 28.55206182233518, 28.45845045575971, 26.419698842495798, 27.172677168188308, 22.1645202659223], 'avg_fps': 25.511677923023687, 'min_fps': 0.0, 'max_fps': 28.886568812529593, 'runtime_sec': 53.981117963790894}}
+2026-03-05 11:24:59 [INFO] oak_vision_system.modules.display_modules.display_manager: DisplayManager 已成功停止
+2026-03-05 11:24:59 [INFO] oak_vision_system.core.system_manager.system_manager: 模块停止成功: display
+2026-03-05 11:24:59 [INFO] oak_vision_system.core.system_manager.system_manager: 停止模块: can (priority=70)
+2026-03-05 11:24:59 [INFO] oak_vision_system.modules.can_communication.virtual_can_communicator: 正在停止 VirtualCANCommunicator...
+2026-03-05 11:24:59 [INFO] oak_vision_system.core.event_bus.event_bus: 取消订阅: event_type=person_warning, subscription_id=person_warning:2839963437248:1772681045600854900
+2026-03-05 11:24:59 [INFO] oak_vision_system.modules.can_communication.virtual_can_communicator: 已取消 PERSON_WARNING 事件订阅
+2026-03-05 11:24:59 [INFO] oak_vision_system.modules.can_communication.virtual_can_communicator: ============================================================
+2026-03-05 11:24:59 [INFO] oak_vision_system.modules.can_communication.virtual_can_communicator: 虚拟 CAN 通信器已停止
+2026-03-05 11:24:59 [INFO] oak_vision_system.modules.can_communication.virtual_can_communicator: ============================================================
+2026-03-05 11:24:59 [INFO] oak_vision_system.modules.can_communication.virtual_can_communicator: 运行统计:
+2026-03-05 11:24:59 [INFO] oak_vision_system.modules.can_communication.virtual_can_communicator:   • 警报触发次数: 0
+2026-03-05 11:24:59 [INFO] oak_vision_system.modules.can_communication.virtual_can_communicator:   • 警报清除次数: 0
+2026-03-05 11:24:59 [INFO] oak_vision_system.modules.can_communication.virtual_can_communicator:   • 坐标请求次数: 0
+2026-03-05 11:24:59 [INFO] oak_vision_system.modules.can_communication.virtual_can_communicator:   • 当前警报状态: 非活跃
+2026-03-05 11:24:59 [INFO] oak_vision_system.modules.can_communication.virtual_can_communicator: 
+2026-03-05 11:24:59 [INFO] oak_vision_system.modules.can_communication.virtual_can_communicator: 真实环境行为说明:
+2026-03-05 11:24:59 [INFO] oak_vision_system.modules.can_communication.virtual_can_communicator:   • 真实环境下会停止 CAN 总线连接
+2026-03-05 11:24:59 [INFO] oak_vision_system.modules.can_communication.virtual_can_communicator:   • 会停止警报定时器线程
+2026-03-05 11:24:59 [INFO] oak_vision_system.modules.can_communication.virtual_can_communicator:   • 会关闭 CAN 消息监听器
+2026-03-05 11:24:59 [INFO] oak_vision_system.modules.can_communication.virtual_can_communicator:   • 会清理所有 CAN 相关资源
+2026-03-05 11:24:59 [INFO] oak_vision_system.modules.can_communication.virtual_can_communicator:   • 会重置 CAN 接口配置（如果启用了自动配置）
+2026-03-05 11:24:59 [INFO] oak_vision_system.modules.can_communication.virtual_can_communicator: ============================================================
+2026-03-05 11:24:59 [INFO] oak_vision_system.core.system_manager.system_manager: 模块停止成功: can
+2026-03-05 11:24:59 [INFO] oak_vision_system.core.system_manager.system_manager: 关闭事件总线...
+2026-03-05 11:24:59 [INFO] oak_vision_system.core.system_manager.system_manager: 事件总线关闭成功
+2026-03-05 11:24:59 [INFO] oak_vision_system.core.system_manager.system_manager: SystemManager 关闭完成
+2026-03-05 11:24:59 [INFO] __main__: ============================================================
+2026-03-05 11:24:59 [INFO] __main__: 系统已关闭
+2026-03-05 11:24:59 [INFO] __main__: ============================================================
+2026-03-05 11:25:39 [INFO] oak_vision_system.core.event_bus.event_bus: 订阅事件: event_type=SYSTEM_SHUTDOWN, subscription_id=SYSTEM_SHUTDOWN:2179626866880:1772681139936378500, priority=NORMAL, subscriber_name=_on_shutdown_event
+2026-03-05 11:25:39 [INFO] oak_vision_system.core.system_manager.system_manager: SystemManager 初始化完成: default_stop_timeout=5.0s, force_exit_grace_period=3.0s
+2026-03-05 11:25:39 [INFO] __main__: ============================================================
+2026-03-05 11:25:39 [INFO] __main__: OAK Vision System 启动
+2026-03-05 11:25:39 [INFO] __main__: ============================================================
+2026-03-05 11:25:39 [INFO] __main__: 配置参数:
+2026-03-05 11:25:39 [INFO] __main__:   - 配置文件: assets/test_config/config.json
+2026-03-05 11:25:39 [INFO] __main__:   - 虚拟 CAN: True
+2026-03-05 11:25:39 [INFO] __main__:   - 无头模式: False
+2026-03-05 11:25:39 [INFO] __main__: 
+2026-03-05 11:25:39 [INFO] __main__: 创建模块实例...
+2026-03-05 11:25:39 [INFO] __main__:   - 创建 OAKDataCollector...
+2026-03-05 11:25:39 [INFO] oak_vision_system.modules.data_collector.pipelinemanager: PipelineManager 初始化完成（工厂模式，无状态）
+2026-03-05 11:25:39 [INFO] oak_vision_system.modules.data_collector.collector: 设备可用性检查通过: 2/2 个设备可用
+2026-03-05 11:25:39 [INFO] oak_vision_system.core.event_bus.event_bus: 订阅事件: event_type=backpressure_signal, subscription_id=backpressure_signal:2179626822080:1772681139942922300, priority=NORMAL, subscriber_name=OAKDataCollector._handle_backpressure_signal
+2026-03-05 11:25:39 [INFO] __main__:     [OK] OAKDataCollector 创建成功
+2026-03-05 11:25:39 [INFO] __main__:   - 创建 DataProcessor...
+2026-03-05 11:25:39 [INFO] oak_vision_system.modules.data_processing.decision_layer.decision_layer: 决策层初始化完成: person_labels=[0], d_in=3000.00, d_out=3050.00, T_warn=3.00, T_clear=3.00
+2026-03-05 11:25:39 [INFO] oak_vision_system.core.event_bus.event_bus: 订阅事件: event_type=raw_detection_data, subscription_id=raw_detection_data:2179691723904:1772681139945602800, priority=NORMAL, subscriber_name=DataProcessor._on_detection_data_received
+2026-03-05 11:25:39 [INFO] oak_vision_system.modules.data_processing.data_processor: 已订阅 RAW_DETECTION_DATA 事件
+2026-03-05 11:25:39 [INFO] oak_vision_system.core.backpressure.monitor: 注册队列: data_processor_queue_2179691651152, watermarks=Watermarks(high=8, low=5)
+2026-03-05 11:25:39 [INFO] oak_vision_system.core.backpressure.monitor: BackpressureMonitor started, interval=50ms
+2026-03-05 11:25:39 [INFO] oak_vision_system.core.backpressure.monitor: 背压事件: queue=data_processor_queue_2179691651152 action=BackpressureAction.NORMAL reason=queue_ok usage=0.00 drops=0 level=low state=1
+2026-03-05 11:25:39 [INFO] oak_vision_system.modules.data_processing.data_processor: DataProcessor 初始化完成: devices=2, labels=2, queue_size=10, decision_layer_initialized=True
+2026-03-05 11:25:39 [INFO] __main__:     [OK] DataProcessor 创建成功
+2026-03-05 11:25:39 [INFO] __main__:   - 创建 DisplayManager...
+2026-03-05 11:25:39 [INFO] oak_vision_system.core.event_bus.event_bus: 订阅事件: event_type=raw_frame_data, subscription_id=raw_frame_data:2179691712704:1772681139947913900, priority=NORMAL, subscriber_name=RenderPacketPackager._handle_video_frame
+2026-03-05 11:25:39 [INFO] oak_vision_system.core.event_bus.event_bus: 订阅事件: event_type=processed_data, subscription_id=processed_data:2179636231232:1772681139948910600, priority=NORMAL, subscriber_name=RenderPacketPackager._handle_processed_data
+2026-03-05 11:25:39 [INFO] oak_vision_system.modules.display_modules.render_packet_packager: 渲染包打包器已初始化，队列最大长度: 8, 超时时间: 0.20 秒, 缓存最大年龄: 1.00 秒
+2026-03-05 11:25:39 [INFO] oak_vision_system.modules.display_modules.display_renderer: DisplayRenderer 初始化完成 - 设备数: 2, FPS: 20, 角色绑定数: 2, 深度输出: 启用
+2026-03-05 11:25:39 [INFO] oak_vision_system.modules.display_modules.display_manager: DisplayManager 已初始化，设备数量: 2, enable_display: True, 角色绑定数: 2, 深度输出: 启用
+2026-03-05 11:25:39 [INFO] __main__:     [OK] DisplayManager 创建成功
+2026-03-05 11:25:39 [INFO] __main__:   - 创建 CAN 通信器...
+2026-03-05 11:25:39 [INFO] __main__:     使用虚拟 CAN 模式（enable_can=False）
+2026-03-05 11:25:39 [INFO] oak_vision_system.modules.can_communication.can_factory: 创建 CAN 通信器: enable_can=False, interface=socketcan, channel=can0, bitrate=250000
+2026-03-05 11:25:39 [INFO] oak_vision_system.modules.can_communication.can_factory: enable_can=False，创建虚拟 CAN 通信器 (VirtualCANCommunicator)
+2026-03-05 11:25:39 [INFO] oak_vision_system.modules.can_communication.virtual_can_communicator: VirtualCANCommunicator 已初始化 - 这是一个虚拟实现，用于开发和测试环境。真实环境下会使用 CANCommunicator 进行实际的 CAN 通信。
+2026-03-05 11:25:39 [INFO] oak_vision_system.modules.can_communication.virtual_can_communicator: 配置信息: interface=socketcan, channel=can0, bitrate=250000
+2026-03-05 11:25:39 [INFO] oak_vision_system.modules.can_communication.can_factory: CAN 通信器创建完成: VirtualCANCommunicator
+2026-03-05 11:25:39 [INFO] __main__:     [OK] CAN 通信器创建成功
+2026-03-05 11:25:39 [INFO] __main__: [OK] 所有模块创建完成
+2026-03-05 11:25:39 [INFO] __main__: 注册模块到 SystemManager...
+2026-03-05 11:25:39 [INFO] oak_vision_system.core.system_manager.system_manager: 注册模块: collector (priority=10, state=not_started)
+2026-03-05 11:25:39 [INFO] __main__:   [OK] Collector 已注册（优先级: 10）
+2026-03-05 11:25:39 [INFO] oak_vision_system.core.system_manager.system_manager: 注册模块: processor (priority=30, state=not_started)
+2026-03-05 11:25:39 [INFO] __main__:   [OK] Processor 已注册（优先级: 30）
+2026-03-05 11:25:39 [INFO] oak_vision_system.core.system_manager.system_manager: 注册模块: display (priority=50, state=not_started)
+2026-03-05 11:25:39 [INFO] oak_vision_system.core.system_manager.system_manager: 注册显示模块: display (priority=50, 需要主线程渲染)
+2026-03-05 11:25:39 [INFO] __main__:   [OK] Display 已注册（优先级: 50，主线程渲染）
+2026-03-05 11:25:39 [INFO] oak_vision_system.core.system_manager.system_manager: 注册模块: can (priority=70, state=not_started)
+2026-03-05 11:25:39 [INFO] __main__:   [OK] CAN 已注册（优先级: 70）
+2026-03-05 11:25:39 [INFO] __main__: [OK] 所有模块注册完成
+2026-03-05 11:25:39 [INFO] __main__: ============================================================
+2026-03-05 11:25:39 [INFO] __main__: 启动系统...
+2026-03-05 11:25:39 [INFO] __main__: ============================================================
+2026-03-05 11:25:39 [INFO] oak_vision_system.core.system_manager.system_manager: 开始启动所有模块...
+2026-03-05 11:25:39 [INFO] oak_vision_system.core.system_manager.system_manager: 启动模块: can (priority=70)
+2026-03-05 11:25:39 [INFO] oak_vision_system.modules.can_communication.virtual_can_communicator: 正在启动 VirtualCANCommunicator...
+2026-03-05 11:25:39 [INFO] oak_vision_system.core.event_bus.event_bus: 订阅事件: event_type=person_warning, subscription_id=person_warning:2179635947136:1772681139953432900, priority=NORMAL, subscriber_name=_on_person_warning
+2026-03-05 11:25:39 [INFO] oak_vision_system.modules.can_communication.virtual_can_communicator: ============================================================
+2026-03-05 11:25:39 [INFO] oak_vision_system.modules.can_communication.virtual_can_communicator: 虚拟 CAN 通信器已启动
+2026-03-05 11:25:39 [INFO] oak_vision_system.modules.can_communication.virtual_can_communicator: ============================================================
+2026-03-05 11:25:39 [INFO] oak_vision_system.modules.can_communication.virtual_can_communicator: 功能说明:
+2026-03-05 11:25:39 [INFO] oak_vision_system.modules.can_communication.virtual_can_communicator:   • 这是一个虚拟实现，用于开发和测试环境
+2026-03-05 11:25:39 [INFO] oak_vision_system.modules.can_communication.virtual_can_communicator:   • 会订阅 PERSON_WARNING 事件并记录详细日志
+2026-03-05 11:25:39 [INFO] oak_vision_system.modules.can_communication.virtual_can_communicator:   • 支持坐标请求模拟，调用真实的决策层接口
+2026-03-05 11:25:39 [INFO] oak_vision_system.modules.can_communication.virtual_can_communicator:   • 维护统计计数器，帮助验证事件流
+2026-03-05 11:25:39 [INFO] oak_vision_system.modules.can_communication.virtual_can_communicator: 
+2026-03-05 11:25:39 [INFO] oak_vision_system.modules.can_communication.virtual_can_communicator: 真实环境行为说明:
+2026-03-05 11:25:39 [INFO] oak_vision_system.modules.can_communication.virtual_can_communicator:   • 真实环境下会使用 CANCommunicator 连接实际的 CAN 总线
+2026-03-05 11:25:39 [INFO] oak_vision_system.modules.can_communication.virtual_can_communicator:   • 会连接到 socketcan 接口
+2026-03-05 11:25:39 [INFO] oak_vision_system.modules.can_communication.virtual_can_communicator:   • 使用通道 can0，波特率 250000
+2026-03-05 11:25:39 [INFO] oak_vision_system.modules.can_communication.virtual_can_communicator:   • 会发送实际的 CAN 消息到硬件设备
+2026-03-05 11:25:39 [INFO] oak_vision_system.modules.can_communication.virtual_can_communicator:   • 会接收来自硬件的坐标请求消息
+2026-03-05 11:25:39 [INFO] oak_vision_system.modules.can_communication.virtual_can_communicator: 
+2026-03-05 11:25:39 [INFO] oak_vision_system.modules.can_communication.virtual_can_communicator: 当前配置:
+2026-03-05 11:25:39 [INFO] oak_vision_system.modules.can_communication.virtual_can_communicator:   • CAN 接口: socketcan
+2026-03-05 11:25:39 [INFO] oak_vision_system.modules.can_communication.virtual_can_communicator:   • CAN 通道: can0
+2026-03-05 11:25:39 [INFO] oak_vision_system.modules.can_communication.virtual_can_communicator:   • 波特率: 250000
+2026-03-05 11:25:39 [INFO] oak_vision_system.modules.can_communication.virtual_can_communicator:   • 警报间隔: 500ms
+2026-03-05 11:25:39 [INFO] oak_vision_system.modules.can_communication.virtual_can_communicator:   • 发送超时: 100ms
+2026-03-05 11:25:39 [INFO] oak_vision_system.modules.can_communication.virtual_can_communicator: ============================================================
+2026-03-05 11:25:39 [INFO] oak_vision_system.core.system_manager.system_manager: 模块启动成功: can
+2026-03-05 11:25:39 [INFO] oak_vision_system.core.system_manager.system_manager: 启动模块: display (priority=50)
+2026-03-05 11:25:39 [INFO] oak_vision_system.modules.display_modules.display_manager: 启动 RenderPacketPackager...
+2026-03-05 11:25:39 [INFO] oak_vision_system.modules.display_modules.render_packet_packager: 渲染包打包工作线程已启动
+2026-03-05 11:25:39 [INFO] oak_vision_system.modules.display_modules.display_manager: 初始化 DisplayRenderer（主线程渲染模式）...
+2026-03-05 11:25:39 [INFO] oak_vision_system.modules.display_modules.display_renderer: DisplayRenderer 已初始化
+2026-03-05 11:25:39 [INFO] oak_vision_system.modules.display_modules.display_manager: DisplayManager 已成功启动（主线程渲染模式）
+2026-03-05 11:25:39 [INFO] oak_vision_system.core.system_manager.system_manager: 模块启动成功: display
+2026-03-05 11:25:39 [INFO] oak_vision_system.core.system_manager.system_manager: 启动模块: processor (priority=30)
+2026-03-05 11:25:39 [INFO] oak_vision_system.modules.data_processing.data_processor: DataProcessor 主循环开始
+2026-03-05 11:25:39 [INFO] oak_vision_system.modules.data_processing.data_processor: DataProcessor 线程已启动
+2026-03-05 11:25:39 [INFO] oak_vision_system.core.system_manager.system_manager: 模块启动成功: processor
+2026-03-05 11:25:39 [INFO] oak_vision_system.core.system_manager.system_manager: 启动模块: collector (priority=10)
+2026-03-05 11:25:44 [INFO] oak_vision_system.modules.data_collector.collector: 为设备 left_camera 创建 pipeline...
+2026-03-05 11:25:44 [INFO] oak_vision_system.modules.data_collector.collector: 为设备 left_camera 创建带深度输出的 pipeline
+2026-03-05 11:25:44 [INFO] oak_vision_system.modules.data_collector.pipelinemanager: create_pipeline_new: start (新版风格)
+2026-03-05 11:25:45 [INFO] oak_vision_system.modules.data_collector.pipelinemanager: pipeline创建完成（新版风格）
+2026-03-05 11:25:45 [INFO] oak_vision_system.modules.data_collector.collector: 设备 left_camera 的 pipeline 创建成功
+2026-03-05 11:25:45 [INFO] oak_vision_system.modules.data_collector.collector: 尝试连接设备: MXID=19443010C122201300, USB2模式=True
+2026-03-05 11:25:45 [INFO] oak_vision_system.modules.data_collector.collector: 为设备 right_camera 创建 pipeline...
+2026-03-05 11:25:45 [INFO] oak_vision_system.core.system_manager.system_manager: 模块启动成功: collector
+2026-03-05 11:25:45 [INFO] oak_vision_system.modules.data_collector.collector: 为设备 right_camera 创建带深度输出的 pipeline
+2026-03-05 11:25:45 [INFO] oak_vision_system.core.system_manager.system_manager: 所有模块启动完成，共 4 个模块
+2026-03-05 11:25:45 [INFO] oak_vision_system.modules.data_collector.pipelinemanager: create_pipeline_new: start (新版风格)
+2026-03-05 11:25:45 [INFO] __main__: [OK] 所有模块启动成功
+2026-03-05 11:25:45 [INFO] oak_vision_system.modules.data_collector.pipelinemanager: pipeline创建完成（新版风格）
+2026-03-05 11:25:45 [INFO] __main__: 
+2026-03-05 11:25:45 [INFO] oak_vision_system.modules.data_collector.collector: 设备 right_camera 的 pipeline 创建成功
+2026-03-05 11:25:45 [INFO] __main__: 系统运行中...
+2026-03-05 11:25:45 [INFO] oak_vision_system.modules.data_collector.collector: 尝试连接设备: MXID=19443010F1221E1300, USB2模式=True
+2026-03-05 11:25:45 [INFO] __main__:   - 按 Ctrl+C 退出系统
+2026-03-05 11:25:45 [INFO] __main__:   - 按 'q' 键退出显示
+2026-03-05 11:25:45 [INFO] __main__:   - 按 'f' 键切换全屏
+2026-03-05 11:25:45 [INFO] __main__:   - 按 '1'/'2'/'3' 键切换显示模式
+2026-03-05 11:25:45 [INFO] __main__: 
+2026-03-05 11:25:45 [INFO] oak_vision_system.core.system_manager.system_manager: SystemManager 开始运行，等待退出信号...
+2026-03-05 11:25:45 [INFO] oak_vision_system.core.system_manager.system_manager: 退出方式: Ctrl+C 或 SYSTEM_SHUTDOWN 事件
+2026-03-05 11:25:45 [INFO] oak_vision_system.core.system_manager.system_manager: 检测到显示模块，使用主线程渲染模式
+2026-03-05 11:25:47 [INFO] oak_vision_system.modules.display_modules.display_renderer: 主窗口已创建: OAK Display
+2026-03-05 11:25:47 [INFO] oak_vision_system.modules.display_modules.display_renderer: 窗口尺寸: 小窗=960x540, 全屏=1920x1080
+2026-03-05 11:25:54 [INFO] oak_vision_system.modules.display_modules.display_renderer: 切换到全屏模式
+2026-03-05 11:25:56 [INFO] oak_vision_system.modules.display_modules.display_renderer: 切换到设备角色 LEFT_CAMERA: 19443010C122201300
+2026-03-05 11:25:56 [INFO] oak_vision_system.modules.display_modules.display_renderer: 切换到设备角色 RIGHT_CAMERA: 19443010F1221E1300
+2026-03-05 11:25:56 [INFO] oak_vision_system.modules.display_modules.display_renderer: 切换到 Combined 模式
+2026-03-05 11:25:57 [INFO] oak_vision_system.modules.display_modules.display_renderer: 切换到设备角色 LEFT_CAMERA: 19443010C122201300
+2026-03-05 11:26:00 [INFO] oak_vision_system.modules.display_modules.display_renderer: 切换到设备角色 RIGHT_CAMERA: 19443010F1221E1300
+2026-03-05 11:26:02 [WARNING] oak_vision_system.modules.data_collector.collector: 启用深度模式但未提供深度数据: device=right_camera
+2026-03-05 11:26:04 [WARNING] oak_vision_system.modules.data_collector.collector: 启用深度模式但未提供深度数据: device=right_camera
+2026-03-05 11:26:15 [INFO] oak_vision_system.modules.display_modules.display_renderer: 切换到窗口模式
+2026-03-05 11:26:17 [INFO] oak_vision_system.modules.display_modules.display_renderer: 切换到全屏模式
+2026-03-05 11:26:22 [INFO] oak_vision_system.modules.display_modules.display_renderer: 切换到设备角色 RIGHT_CAMERA: 19443010F1221E1300
+2026-03-05 11:26:23 [INFO] oak_vision_system.modules.display_modules.display_renderer: 切换到设备角色 LEFT_CAMERA: 19443010C122201300
+2026-03-05 11:26:23 [INFO] oak_vision_system.modules.display_modules.display_renderer: 切换到 Combined 模式
+2026-03-05 11:26:24 [INFO] oak_vision_system.modules.display_modules.display_renderer: 切换到设备角色 RIGHT_CAMERA: 19443010F1221E1300
+2026-03-05 11:26:27 [INFO] oak_vision_system.modules.display_modules.display_renderer: 切换到 Combined 模式
+2026-03-05 11:26:28 [INFO] oak_vision_system.modules.display_modules.display_renderer: 用户按下 'q' 键
+2026-03-05 11:26:28 [INFO] oak_vision_system.core.system_manager.system_manager: 显示模块请求退出（用户按下 'q' 键）
+2026-03-05 11:26:28 [INFO] oak_vision_system.core.system_manager.system_manager: 接收到退出信号，准备关闭系统...
+2026-03-05 11:26:28 [INFO] oak_vision_system.core.system_manager.system_manager: 执行统一关闭流程...
+2026-03-05 11:26:28 [INFO] oak_vision_system.core.system_manager.system_manager: 开始关闭系统...
+2026-03-05 11:26:28 [INFO] oak_vision_system.core.system_manager.system_manager: 停止模块: collector (priority=10)
+2026-03-05 11:26:28 [INFO] oak_vision_system.modules.data_collector.collector: 正在停止 OAKDataCollector...
+2026-03-05 11:26:33 [INFO] oak_vision_system.modules.data_collector.collector: OAKDataCollector 已停止
+2026-03-05 11:26:33 [INFO] oak_vision_system.core.system_manager.system_manager: 模块停止成功: collector
+2026-03-05 11:26:33 [INFO] oak_vision_system.core.system_manager.system_manager: 停止模块: processor (priority=30)
+2026-03-05 11:26:33 [INFO] oak_vision_system.modules.data_processing.data_processor: 正在停止 DataProcessor...
+2026-03-05 11:26:34 [INFO] oak_vision_system.modules.data_processing.data_processor: DataProcessor 主循环结束
+2026-03-05 11:26:34 [INFO] oak_vision_system.modules.data_processing.data_processor: DataProcessor 已停止: dropped=0
+2026-03-05 11:26:34 [INFO] oak_vision_system.core.system_manager.system_manager: 模块停止成功: processor
+2026-03-05 11:26:34 [INFO] oak_vision_system.core.system_manager.system_manager: 停止模块: display (priority=50)
+2026-03-05 11:26:34 [INFO] oak_vision_system.modules.display_modules.display_manager: 正在停止 DisplayManager...
+2026-03-05 11:26:34 [INFO] oak_vision_system.modules.display_modules.display_manager: 清理 DisplayRenderer 资源...
+2026-03-05 11:26:34 [INFO] oak_vision_system.modules.display_modules.display_renderer: DisplayRenderer 已清理 - 帧数: 1031, 时长: 54.3s, 平均FPS: 19.0
+2026-03-05 11:26:34 [INFO] oak_vision_system.modules.display_modules.display_manager: 停止 RenderPacketPackager...
+2026-03-05 11:26:34 [INFO] oak_vision_system.modules.display_modules.render_packet_packager: 正在停止 RenderPacketPackager...
+2026-03-05 11:26:34 [INFO] oak_vision_system.core.event_bus.event_bus: 取消订阅: event_type=raw_frame_data, subscription_id=raw_frame_data:2179691712704:1772681139947913900
+2026-03-05 11:26:34 [INFO] oak_vision_system.core.event_bus.event_bus: 取消订阅: event_type=processed_data, subscription_id=processed_data:2179636231232:1772681139948910600
+2026-03-05 11:26:34 [INFO] oak_vision_system.modules.display_modules.render_packet_packager: RenderPacketPackager 已停止 - 渲染包: 1258, 丢弃: 6, 成功率: 99.5%
+2026-03-05 11:26:34 [INFO] oak_vision_system.modules.display_modules.display_manager: DisplayManager 已停止，统计数据: {'packager': {'render_packets': 1258, 'drops': 6}, 'queue_stats': {'19443010C122201300': {'size': 0, 'maxsize': 8, 'usage_ratio': 0.0, 'drop_count': 390}, '19443010F1221E1300': {'size': 0, 'maxsize': 8, 'usage_ratio': 0.0, 'drop_count': 46}}, 'total_queue_drops': 436, 'total_drops': 442, 'renderer': {'frames_rendered': 1031, 'fps': 26.267670836456332, 'fps_history': [0.0, 25.242549233245434, 25.3525955573673, 25.3839759197726, 26.11741949207107, 26.14967302185266, 25.773391498076414, 25.34357573022758, 26.098639484566206, 28.349613127474456, 26.538766242694667, 25.337415055737065, 25.227403081826616, 25.63976166163934, 25.411778248724847, 24.459697007101973, 25.75748792175597, 24.381112591016272, 24.585992234955544, 25.266027041966275, 25.090598371586246, 25.369261119689234, 25.13745487392748, 25.38312794299486, 25.654614965279734, 25.217412521666198, 25.182502875304372, 26.332472019369543, 26.156177355214115, 27.246178730812453, 25.090958851526757, 24.575454012130102, 24.6491651733833, 25.436778600595837, 24.869909383203947, 24.261389718048306, 25.938774581299114, 24.568466310135367, 24.325911104344737, 26.267670836456332], 'avg_fps': 24.82927883747601, 'min_fps': 0.0, 'max_fps': 28.349613127474456, 'runtime_sec': 54.308767795562744}}
+2026-03-05 11:26:34 [INFO] oak_vision_system.modules.display_modules.display_manager: DisplayManager 已成功停止
+2026-03-05 11:26:34 [INFO] oak_vision_system.core.system_manager.system_manager: 模块停止成功: display
+2026-03-05 11:26:34 [INFO] oak_vision_system.core.system_manager.system_manager: 停止模块: can (priority=70)
+2026-03-05 11:26:34 [INFO] oak_vision_system.modules.can_communication.virtual_can_communicator: 正在停止 VirtualCANCommunicator...
+2026-03-05 11:26:34 [INFO] oak_vision_system.core.event_bus.event_bus: 取消订阅: event_type=person_warning, subscription_id=person_warning:2179635947136:1772681139953432900
+2026-03-05 11:26:34 [INFO] oak_vision_system.modules.can_communication.virtual_can_communicator: 已取消 PERSON_WARNING 事件订阅
+2026-03-05 11:26:34 [INFO] oak_vision_system.modules.can_communication.virtual_can_communicator: ============================================================
+2026-03-05 11:26:34 [INFO] oak_vision_system.modules.can_communication.virtual_can_communicator: 虚拟 CAN 通信器已停止
+2026-03-05 11:26:34 [INFO] oak_vision_system.modules.can_communication.virtual_can_communicator: ============================================================
+2026-03-05 11:26:34 [INFO] oak_vision_system.modules.can_communication.virtual_can_communicator: 运行统计:
+2026-03-05 11:26:34 [INFO] oak_vision_system.modules.can_communication.virtual_can_communicator:   • 警报触发次数: 0
+2026-03-05 11:26:34 [INFO] oak_vision_system.modules.can_communication.virtual_can_communicator:   • 警报清除次数: 0
+2026-03-05 11:26:34 [INFO] oak_vision_system.modules.can_communication.virtual_can_communicator:   • 坐标请求次数: 0
+2026-03-05 11:26:34 [INFO] oak_vision_system.modules.can_communication.virtual_can_communicator:   • 当前警报状态: 非活跃
+2026-03-05 11:26:34 [INFO] oak_vision_system.modules.can_communication.virtual_can_communicator: 
+2026-03-05 11:26:34 [INFO] oak_vision_system.modules.can_communication.virtual_can_communicator: 真实环境行为说明:
+2026-03-05 11:26:34 [INFO] oak_vision_system.modules.can_communication.virtual_can_communicator:   • 真实环境下会停止 CAN 总线连接
+2026-03-05 11:26:34 [INFO] oak_vision_system.modules.can_communication.virtual_can_communicator:   • 会停止警报定时器线程
+2026-03-05 11:26:34 [INFO] oak_vision_system.modules.can_communication.virtual_can_communicator:   • 会关闭 CAN 消息监听器
+2026-03-05 11:26:34 [INFO] oak_vision_system.modules.can_communication.virtual_can_communicator:   • 会清理所有 CAN 相关资源
+2026-03-05 11:26:34 [INFO] oak_vision_system.modules.can_communication.virtual_can_communicator:   • 会重置 CAN 接口配置（如果启用了自动配置）
+2026-03-05 11:26:34 [INFO] oak_vision_system.modules.can_communication.virtual_can_communicator: ============================================================
+2026-03-05 11:26:34 [INFO] oak_vision_system.core.system_manager.system_manager: 模块停止成功: can
+2026-03-05 11:26:34 [INFO] oak_vision_system.core.system_manager.system_manager: 关闭事件总线...
+2026-03-05 11:26:34 [INFO] oak_vision_system.core.system_manager.system_manager: 事件总线关闭成功
+2026-03-05 11:26:34 [INFO] oak_vision_system.core.system_manager.system_manager: SystemManager 关闭完成
+2026-03-05 11:26:34 [INFO] __main__: ============================================================
+2026-03-05 11:26:34 [INFO] __main__: 系统已关闭
+2026-03-05 11:26:34 [INFO] __main__: ============================================================

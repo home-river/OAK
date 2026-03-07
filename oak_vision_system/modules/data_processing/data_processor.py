@@ -635,3 +635,34 @@ class DataProcessor:
         """重置统计信息"""
         self._queue.reset_drop_count()
         logger.info("DataProcessor 统计信息已重置")
+    
+    def update_transform_matrices(self, new_matrices: Dict[str, np.ndarray]) -> bool:
+        """
+        更新坐标变换矩阵（代理接口）
+        
+        此方法为校准工具提供统一的矩阵更新入口，
+        内部直接调用 CoordinateTransformer 的 update_matrices 方法。
+        
+        Args:
+            new_matrices: 新的变换矩阵字典 {mxid: 4x4 matrix}
+        
+        Returns:
+            bool: 更新成功返回True，失败返回False
+        """
+        return self._transformer.update_matrices(new_matrices)
+
+    def get_target_coords_snapshot(self) -> Optional[np.ndarray]:
+        """线程安全地获取当前待抓取目标坐标副本（代理接口）
+
+        该方法为外部模块提供统一入口，以获取决策层当前选定的全局目标坐标。
+        内部直接调用 `DecisionLayer.get_target_coords_snapshot()`。
+
+        语义：
+        - 返回值为世界坐标系下的坐标（单位：mm），形状为 (3,)
+        - 若当前不存在可用目标，则返回 None
+
+        Returns:
+            Optional[np.ndarray]:
+                目标坐标副本 (3,)；若不存在目标则为 None。
+        """
+        return self.decision_layer.get_target_coords_snapshot()

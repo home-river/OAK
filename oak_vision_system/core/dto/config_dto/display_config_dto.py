@@ -33,8 +33,8 @@ class DisplayConfigDTO(BaseConfigDTO):
     # ========== 窗口配置 ==========
     default_display_mode: str = "rgb"  # "rgb"
     enable_fullscreen: bool = False
-    window_width: int = 1280
-    window_height: int = 720
+    window_width: int = 1920
+    window_height: int = 1080
     window_position_x: int = 0  # 窗口初始位置
     window_position_y: int = 0
     

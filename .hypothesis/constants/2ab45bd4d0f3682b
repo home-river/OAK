@@ -1,0 +1,4 @@
+# file: D:\pythonWork\graspWithVision\OAK\oak_vision_system\modules\data_processing\data_processor.py
+# hypothesis_version: 6.150.2
+
+[0.8, 1.0, 5.0, 'DataProcessor', 'DataProcessor 主循环开始', 'DataProcessor 主循环结束', 'DataProcessor 已在运行中', 'DataProcessor 已完全关闭', 'DataProcessor 未在运行', 'DataProcessor 线程已启动', 'available_space', 'bindings 不能为 None', 'config 不能为 None', 'drop_count', 'is_running', 'maxsize', 'pressure_level', 'queue_stats', 'size', 'usage_ratio', '事件已订阅，跳过重复订阅']

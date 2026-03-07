@@ -104,10 +104,10 @@ class GlobalTargetObject:
     从所有设备的最近可抓取物体中选择距离最近的作为全局目标。
     
     Attributes:
-        coords: 目标坐标，形状 (3,)，单位：米
-        distance: 目标距离，单位：米
+        coords: 目标坐标，形状 (3,)，单位：毫米
+        distance: 目标距离，单位：毫米
         device_id: 目标来源的设备ID
     """
     coords: np.ndarray      # 坐标，形状 (3,)
-    distance: float         # 距离（米）
+    distance: float         # 距离（毫米）
     device_id: str          # 来源设备ID

@@ -79,7 +79,7 @@
     "coordinate_transforms": {
       "left_camera": {
         "role": "left_camera",
-        "translation_x": -50.0,
+        "translation_x": 0.0,
         "translation_y": 0.0,
         "translation_z": 0.0,
         "roll": 0.0,
@@ -90,7 +90,7 @@
       },
       "right_camera": {
         "role": "right_camera",
-        "translation_x": 50.0,
+        "translation_x": 0.0,
         "translation_y": 0.0,
         "translation_z": 0.0,
         "roll": 0.0,
@@ -153,8 +153,8 @@
     "enable_display": true,
     "default_display_mode": "rgb",
     "enable_fullscreen": false,
-    "window_width": 1280,
-    "window_height": 720,
+    "window_width": 1920,
+    "window_height": 1080,
     "window_position_x": 0,
     "window_position_y": 0,
     "target_fps": 20,

@@ -84,11 +84,16 @@ class DisplayRenderer:
         # 状态 2：选中的设备角色（单设备模式下使用）
         self._selected_device_role = DeviceRole.LEFT_CAMERA  # 默认选择左相机
         
-        # 窗口层尺寸配置（任务 3.4）
-        self._window_width = 1280
-        self._window_height = 720  # 16:9
-        self._fullscreen_width = 1920
-        self._fullscreen_height = 1080  # 16:9
+        # 窗口层尺寸配置（任务 3.4 - 使用配置驱动）
+        # 从配置获取全屏尺寸，小窗尺寸为全屏的一半
+        self._fullscreen_width = int(config.window_width)
+        self._fullscreen_height = int(config.window_height)
+        self._window_width = max(640, self._fullscreen_width // 2)
+        self._window_height = max(360, self._fullscreen_height // 2)
+        
+        # 确保偶数对齐（避免某些编码器问题）
+        self._window_width = (self._window_width // 2) * 2
+        self._window_height = (self._window_height // 2) * 2
         
         # 统计信息（需求 13.2）
         self._stats = {
@@ -202,19 +207,14 @@ class DisplayRenderer:
         8. 返回退出信号
         """
         # 1. 根据显示模式选择取包策略（惰性渲染）
+        frame = None
         if self._display_mode == "combined":
             # 拼接模式：获取所有设备的渲染包
             packets = self._packager.get_packets(timeout=0.01)
             
-            if not packets:
-                # 无数据时仍需处理按键
-                key = cv2.waitKey(1) & 0xFF
-                if key == ord('q'):
-                    return True
-                return False
-            
-            # 渲染拼接帧（内部已完成 Stretch Resize 到目标尺寸）
-            frame = self._render_combined_devices(packets)
+            if packets:
+                # 渲染拼接帧（内部已完成 Stretch Resize 到目标尺寸）
+                frame = self._render_combined_devices(packets)
         else:
             # 单设备模式：仅获取当前设备的渲染包（惰性渲染）
             # 根据当前选中的角色（LEFT_CAMERA 或 RIGHT_CAMERA）获取 mxid
@@ -222,17 +222,9 @@ class DisplayRenderer:
                 device_mxid = self._role_bindings[self._selected_device_role]
                 packet = self._packager.get_packet_by_mxid(device_mxid, timeout=0.01)
                 
-                if packet is None:
-                    # 无数据时仍需处理按键
-                    key = cv2.waitKey(1) & 0xFF
-                    if key == ord('q'):
-                        return True
-                    return False
-                
-                # 渲染单设备帧（内部已完成 Stretch Resize 到目标尺寸）
-                frame = self._render_single_device(packet)
-            else:
-                return False
+                if packet is not None:
+                    # 渲染单设备帧（内部已完成 Stretch Resize 到目标尺寸）
+                    frame = self._render_single_device(packet)
         
         if frame is not None:
             # 2. 创建窗口（如果尚未创建）
@@ -248,8 +240,20 @@ class DisplayRenderer:
             
             self._update_fps()
         
-        # 4. 处理键盘输入（任务 3.10）
-        key = cv2.waitKey(1) & 0xFF
+        # 4. 帧率限制和统一按键处理
+        delay_ms = 1
+        if self._target_frame_interval > 0:
+            current_time = time.time()
+            elapsed = current_time - self._last_frame_time
+            remain = self._target_frame_interval - elapsed
+            
+            if remain > 0:
+                delay_ms = max(1, int(remain * 1000))
+            
+            self._last_frame_time = current_time
+        
+        # 5. 统一按键处理（每次循环只调用一次 waitKey）
+        key = cv2.waitKey(delay_ms) & 0xFF
         if key == ord('q'):
             self.logger.info("用户按下 'q' 键")
             return True
@@ -262,17 +266,6 @@ class DisplayRenderer:
         elif key == ord('3'):
             self._switch_to_combined()  # 切换到拼接模式
         
-        # 5. 帧率限制
-        if self._target_frame_interval > 0:
-            current_time = time.time()
-            elapsed = current_time - self._last_frame_time
-            sleep_time = self._target_frame_interval - elapsed
-            
-            if sleep_time > 0:
-                time.sleep(sleep_time)
-            
-            self._last_frame_time = time.time()
-        
         return False
     
     def _create_main_window(self) -> None:
@@ -280,22 +273,25 @@ class DisplayRenderer:
         
         策略：
         1. 创建 WINDOW_NORMAL 类型窗口（可调整大小）
-        2. 不使用 cv2.resizeWindow()（渲染方法内部已完成 resize）
+        2. 使用 cv2.resizeWindow() 强制设置初始窗口尺寸
         3. 根据全屏配置设置窗口属性
         4. 渲染方法返回的帧已经是目标尺寸，可直接 imshow
         """
         cv2.namedWindow(self._main_window_name, cv2.WINDOW_NORMAL)
         
+        # 强制设置窗口初始尺寸（小窗模式）
+        cv2.resizeWindow(self._main_window_name, self._window_width, self._window_height)
+        
         # 设置窗口位置（如果配置了）
-        if self._config.window_position_x or self._config.window_position_y:
-            cv2.moveWindow(
-                self._main_window_name,
-                self._config.window_position_x,
-                self._config.window_position_y
-            )
+        x = self._config.window_position_x
+        y = self._config.window_position_y
+        if x is not None and y is not None:
+            cv2.moveWindow(self._main_window_name, x, y)
         
         # 设置全屏模式
         if self._config.enable_fullscreen:
+            # 先 resize 到全屏尺寸，再设置全屏属性
+            cv2.resizeWindow(self._main_window_name, self._fullscreen_width, self._fullscreen_height)
             cv2.setWindowProperty(
                 self._main_window_name,
                 cv2.WND_PROP_FULLSCREEN,
@@ -307,6 +303,7 @@ class DisplayRenderer:
         
         self._window_created = True
         self.logger.info(f"主窗口已创建: {self._main_window_name}")
+        self.logger.info(f"窗口尺寸: 小窗={self._window_width}x{self._window_height}, 全屏={self._fullscreen_width}x{self._fullscreen_height}")
     
     # ==================== 绘制方法 ====================
     
@@ -659,36 +656,7 @@ class DisplayRenderer:
         
         显示格式："1:Device1 2:Device2 3:Combined F:Fullscreen Q:Quit"
         """
-        # 构建按键提示文本
-        hints = []
-        
-        # 添加设备切换键提示
-        for i, device_id in enumerate(self._devices_list):
-            key_num = i + 1
-            # 尝试从 packager 获取设备别名
-            # 如果有缓存的渲染包，使用其中的设备别名
-            device_name = f"Device{key_num}"
-            
-            # 尝试从最近的渲染包中获取设备别名
-            try:
-                latest_packets = self._packager._latest_packets
-                if device_id in latest_packets:
-                    packet = latest_packets[device_id]
-                    if packet and packet.processed_detections.device_alias:
-                        device_name = packet.processed_detections.device_alias
-            except Exception:
-                pass  # 如果获取失败，使用默认名称
-            
-            hints.append(f"{key_num}:{device_name}")
-        
-        # 添加 Combined 模式键提示
-        hints.append("3:Combined")
-        
-        # 添加全屏和退出键提示
-        hints.append("F:Fullscreen")
-        hints.append("Q:Quit")
-        
-        hint_text = "  ".join(hints)
+        hint_text = "1:Left  2:Right  3:Combined  F:Fullscreen  Q:Quit"
         
         # 计算文本位置（窗口底部居中）
         font_scale = 0.5
@@ -932,7 +900,7 @@ class DisplayRenderer:
         
         策略：
         1. 切换 _is_fullscreen 标志
-        2. 使用 cv2.setWindowProperty 切换窗口属性
+        2. 先 resizeWindow 再 setWindowProperty（稳妥的切换顺序）
         3. 下一帧渲染时，_render_single_device() 或 _render_combined_devices() 
            会根据 _is_fullscreen 选择对应的目标尺寸进行 resize
         """
@@ -942,8 +910,10 @@ class DisplayRenderer:
         # 切换标志
         self._is_fullscreen = not self._is_fullscreen
         
-        # 设置窗口属性
+        # 设置窗口属性（先 resize 再设置属性）
         if self._is_fullscreen:
+            # 切换到全屏：先 resize 到全屏尺寸，再设置全屏属性
+            cv2.resizeWindow(self._main_window_name, self._fullscreen_width, self._fullscreen_height)
             cv2.setWindowProperty(
                 self._main_window_name,
                 cv2.WND_PROP_FULLSCREEN,
@@ -951,14 +921,13 @@ class DisplayRenderer:
             )
             self.logger.info("切换到全屏模式")
         else:
+            # 切换到窗口：先设置 NORMAL 属性，再 resize 到窗口尺寸
             cv2.setWindowProperty(
                 self._main_window_name,
                 cv2.WND_PROP_FULLSCREEN,
                 cv2.WINDOW_NORMAL
             )
+            cv2.resizeWindow(self._main_window_name, self._window_width, self._window_height)
             self.logger.info("切换到窗口模式")
-        
-        # 注意：不需要手动 resize 窗口
-        # 下一帧渲染时会根据 _is_fullscreen 自动选择目标尺寸
     
 

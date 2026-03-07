@@ -16,6 +16,8 @@ from oak_vision_system.core.dto import DeviceDetectionDataDTO, SpatialCoordinate
 
 from typing import Optional,Dict,List
 import numpy as np
+import logging
+from threading import RLock
 
 
 class CoordinateTransfomer:
@@ -48,6 +50,9 @@ class CoordinateTransfomer:
         3. 为每个设备预计算变换矩阵（提升运行时性能）
         """
         self.bindings = bindings
+        
+        # 初始化线程安全锁（用于保护 trans_matrices 的并发访问）
+        self._lock = RLock()
         
         # 使用 mxid 作为 key，calibration 作为 value 的字典
         # 这样可以通过设备ID快速查找对应的校准配置，而不需要通过role查找
@@ -99,7 +104,6 @@ class CoordinateTransfomer:
                 calibration.translation_x, 
                 calibration.translation_y, 
                 calibration.translation_z,
-                right_multiply=True,
             )
             
             # 组合所有变换：先旋转（pitch -> yaw），再平移，最后应用基准变换
@@ -115,7 +119,7 @@ class CoordinateTransfomer:
 
     def transform_coordinates(self, mxid: str, coords_homogeneous: np.ndarray) -> np.ndarray:
         """
-        将齐次坐标从OAK设备坐标系变换到自定义坐标系
+        将齐次坐标从OAK设备坐标系变换到自定义坐标系（线程安全）
         
         Args:
             mxid: 设备ID（用于查找对应的变换矩阵）
@@ -127,95 +131,37 @@ class CoordinateTransfomer:
         if len(coords_homogeneous) == 0:
             return np.empty((0, 3), dtype=np.float32)
         
-        # 直接进行矩阵变换
-        trans_h = coords_homogeneous @ self.trans_matrices[mxid].T
-        return trans_h[:, :3]
-
-
-
-
-
-
-
-
-
-
-
-
-    # ------------暂弃接口-------
-    
-    def assemble_detection(self,detection_data:DeviceDetectionDataDTO,matrics:np.ndarray) -> DeviceDetectionDataDTO:
-        """
-        将坐标变换后的坐标矩阵重新封装成DeviceDetectionDataDTO
-
-        args:
-            detection_data: DeviceDetectionDataDTO，需要被转换的检测数据
-            matrics: np.ndarray，转换后的坐标矩阵
-        """
-        new_detections:list[DetectionDTO] = []
-        # 对nparray迭代时，按行返回
-        for detection, row in zip(detection_data.detections,matrics):
-            new_Coord = SpatialCoordinatesDTO(row[0],row[1],row[2])
-            label, conf, bbox = detection.label, detection.confidence, detection.bbox
-            new_detection = DetectionDTO(label=label,confidence=conf,bbox=bbox,spatial_coordinates=new_Coord)
-            new_detections.append(new_detection)
-
+        # 使用读锁保护矩阵访问
+        with self._lock:
+            trans_matrix = self.trans_matrices[mxid]
         
-
-        return detection_data.with_updates(detections=new_detections)
-
-    def assemble_detection_batch(self,detection_data:DeviceDetectionDataDTO,matrics:np.ndarray) -> list[DetectionDTO]:
-        """
-        将坐标变换后的坐标矩阵重新封装成DetectionDTO列表
-
-        args:
-            detection_data: DeviceDetectionDataDTO，需要被转换的检测数据
-            matrics: np.ndarray，转换后的坐标矩阵
-        """
-        new_detections:list[DetectionDTO] = []
-        for detection, row in zip(detection_data.detections,matrics):
-            new_Coord = SpatialCoordinatesDTO(row[0],row[1],row[2])
-            label, conf, bbox = detection.label, detection.confidence, detection.bbox
-            new_detection = DetectionDTO(label=label,confidence=conf,bbox=bbox,spatial_coordinates=new_Coord)
-            new_detections.append(new_detection)
-
-        return new_detections
-
+        # 在锁外进行计算（避免长时间持有锁）
+        trans_h = coords_homogeneous @ trans_matrix.T
+        return trans_h[:, :3]
     
-    def get_trans_batch(self,mxid: str, detections: list[DetectionDTO]) -> list[DetectionDTO]:
+    def update_matrices(self, new_matrices: Dict[str, np.ndarray]) -> bool:
         """
-        批量将多个点从OAK设备坐标系变换到自定义坐标系
-
-        args:
-            mxid: str，设备ID
-            detections: list[DetectionDTO]，需要被转换的检测数据
-        return:
-            list[DetectionDTO]，转换后的检测数据
+        更新变换矩阵字典（线程安全，原子替换）
+        
+        此方法用于校准工具实时更新坐标变换参数。
+        采用原子替换策略：在锁内一次性替换整个字典引用，
+        确保读线程始终看到完整一致的矩阵状态。
+        
+        Args:
+            new_matrices: 新的变换矩阵字典 {mxid: 4x4 matrix}
+        
+        Returns:
+            bool: 更新成功返回True，失败返回False
         """
-        #将检测数据转换为齐次坐标矩阵
-        points_h = self._matrix_helper(detections)
-        #将齐次坐标矩阵变换到自定义坐标系
-        trans_points = self.transform_points_batch(mxid, points_h)
-        #将齐次坐标矩阵转换为检测数据
-        new_detections = self.assemble_detection_batch(detections, trans_points)
-        #返回转换后的检测数据
-        return new_detections
-
-    
-    def get_trans_detection(self,Detectiondata:DeviceDetectionDataDTO) -> DeviceDetectionDataDTO:
-        """
-        将完整的检测结果进行坐标变换后重新封装
-
-        args:
-            Detectiondata: DeviceDetectionDataDTO，需要被转换的检测数据
-        return:
-            DeviceDetectionDataDTO，转换后的检测数据
-        """
-        #将检测数据转换为齐次坐标矩阵
-        points_h = self._matrix_helper(Detectiondata.detections)
-        #将齐次坐标矩阵变换到自定义坐标系
-        trans_points = self.transform_points_batch(Detectiondata.device_id, points_h)
-        #将齐次坐标矩阵转换为检测数据
-        new_detection = self.assemble_detection(Detectiondata, trans_points)
-        #返回转换后的检测数据
-        return new_detection
+        try:
+            with self._lock:
+                # 原子替换整个字典引用
+                self.trans_matrices = new_matrices
+            
+            logger = logging.getLogger(__name__)
+            logger.info(f"变换矩阵已更新: devices={list(new_matrices.keys())}")
+            return True
+        except Exception as e:
+            logger = logging.getLogger(__name__)
+            logger.error(f"更新变换矩阵失败: {e}", exc_info=True)
+            return False

@@ -1,25 +1,28 @@
 import numpy as np
 from oak_vision_system.core.dto.config_dto import CoordinateTransformConfigDTO
 
-
-def build_oak_to_xyz_homogeneous(*, right_multiply: bool = True) -> np.ndarray:
+"""
+标准左乘体系下的坐标变换组件，包括固有的OAK->右手坐标系的变换矩阵、
+绕三轴的单一旋转矩阵、平移矩阵。
+"""
+def build_oak_to_xyz_homogeneous() -> np.ndarray:
     """
     返回左乘体系下 4*4 的oak手性坐标系到标准右手坐标系的齐次变换矩阵 T，使得
         OAK 原坐标系：z 前, x 右, y 上
         目标坐标系  ：x 前, z 上, y 左
 
     # 实现中旋转矩阵的4*4形式如下：
-    # [[ 0, -1,  0,  0],
-    #  [ 0,  0,  1,  0],
-    #  [ 1,  0,  0,  0],
+    # [[ 0, 0,  1,  0],
+    #  [ -1,  0,  0,  0],
+    #  [ 0,  1,  0,  0],
     #  [ 0,  0,  0,  1]]
     """
 
     R = np.array(
         [
-            [0, -1, 0],
             [0, 0, 1],
-            [1, 0, 0],
+            [-1, 0, 0],
+            [0, 1, 0],
         ],
         dtype=np.float32,
     )
@@ -27,21 +30,17 @@ def build_oak_to_xyz_homogeneous(*, right_multiply: bool = True) -> np.ndarray:
     T = np.eye(4, dtype=np.float32)
     T[:3, :3] = R
     
-    return T if right_multiply else T.T
+    return T 
     
 
 def build_translation_homogeneous(
-    tx: float, ty: float, tz: float, *, right_multiply: bool = True
-) -> np.ndarray:
+    tx: float, ty: float, tz: float) -> np.ndarray:
     """
-    构造左乘体系下仅包含平移的 4x4 齐次变换矩阵,语义为坐标系的位移量。
-    相当于把标准的平移矩阵的平移向量取反。
+    构造左乘体系下仅包含平移的 4x4 齐次变换矩阵。
     """
     T = np.eye(4, dtype=np.float32)
-    if right_multiply:
-        T[3, 0:3] = [-tx, -ty, -tz]
-    else:
-        T[0:3, 3] = [-tx, -ty, -tz]
+    T[:3, 3] = [tx, ty, tz]
+    
     return T
 
 

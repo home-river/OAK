@@ -1,0 +1,4 @@
+# file: D:\pythonWork\graspWithVision\OAK\tools\calibration_tools\core\error_recorder.py
+# hypothesis_version: 6.150.2
+
+[0.0, 'JSON 文件损坏，将创建新文件', 'actual_position', 'durian', 'dx', 'dy', 'dz', 'error', 'error_magnitude', 'error_vector', 'max_error', 'mean_error', 'min_error', 'r', 'record_count', 'reference_position', 'std_error', 'target_type', 'timestamp', 'utf-8', 'w', 'x', 'y', 'z', '未检测到目标，无法记录误差']
