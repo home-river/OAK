@@ -16,6 +16,10 @@ CAN通信模块端到端测试（使用can_controller.py + socketCAN loopback）
 - 需求 2.1, 2.2, 2.3, 2.4, 2.5, 2.6: 坐标请求响应
 - 需求 3.1, 3.2, 3.3, 3.4, 3.5, 3.6: 人员警报
 - 需求 5.5, 10.6: 协议兼容性和性能
+
+can_controller.py 路径配置：
+默认路径：tools/can_controller.py（相对于项目根目录）
+如需修改，请在下方 CAN_CONTROLLER_SCRIPT_PATH 变量中指定
 """
 
 import os
@@ -30,6 +34,13 @@ import signal
 from typing import Optional, List, Dict, Any, Tuple
 from unittest.mock import Mock
 import numpy as np
+
+# ==================== 配置区域 ====================
+# can_controller.py 脚本路径（相对于项目根目录）
+# 默认: tools/can_controller.py
+# 可根据实际情况修改此路径
+CAN_CONTROLLER_SCRIPT_PATH = 'tools/can_controller.py'
+# ==================== 配置区域结束 ====================
 
 # 添加项目根目录到Python路径
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../../../..')))
@@ -109,14 +120,19 @@ class CANControllerProcess:
     def __init__(self, can_channel: str = 'can0'):
         self.can_channel = can_channel
         self.process: Optional[subprocess.Popen] = None
-        self.controller_script = os.path.join(
-            os.path.dirname(__file__), 
-            '../../../../plan/modules/CAN_module/pre_inpimentation/can_controller.py'
-        )
+        
+        # 获取项目根目录（从测试文件向上4级）
+        project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../../..'))
+        
+        # 使用配置的脚本路径
+        self.controller_script = os.path.join(project_root, CAN_CONTROLLER_SCRIPT_PATH)
         
         # 确保脚本路径存在
         if not os.path.exists(self.controller_script):
-            raise FileNotFoundError(f"can_controller.py脚本不存在: {self.controller_script}")
+            raise FileNotFoundError(
+                f"can_controller.py脚本不存在: {self.controller_script}\n"
+                f"请检查路径配置或将脚本放置在: {CAN_CONTROLLER_SCRIPT_PATH}"
+            )
     
     def start(self) -> bool:
         """启动can_controller.py进程"""

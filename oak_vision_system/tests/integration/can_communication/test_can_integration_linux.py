@@ -473,6 +473,14 @@ class TestPersonAlertFlow:
         mock_bus.send = lambda msg, timeout=None: mock_sent_messages.append(msg)
         communicator.bus = mock_bus
         
+        # 手动建立事件订阅（模拟start()中的订阅逻辑）
+        from oak_vision_system.core.event_bus.event_types import EventType
+        communicator._person_warning_subscription_id = mock_event_bus.subscribe(
+            EventType.PERSON_WARNING,
+            communicator._on_person_warning_event,
+            "CANCommunicator"
+        )
+        
         # 验证初始状态
         assert not communicator._alert_active, "初始状态警报应该未激活"
         assert communicator._alert_thread is None, "初始状态线程应该为None"
@@ -527,6 +535,14 @@ class TestPersonAlertFlow:
         mock_sent_messages = []
         mock_bus.send = lambda msg, timeout=None: mock_sent_messages.append(msg)
         communicator.bus = mock_bus
+        
+        # 手动建立事件订阅
+        from oak_vision_system.core.event_bus.event_types import EventType
+        communicator._person_warning_subscription_id = mock_event_bus.subscribe(
+            EventType.PERSON_WARNING,
+            communicator._on_person_warning_event,
+            "CANCommunicator"
+        )
         
         # 先触发警报
         mock_event_bus.publish_person_warning(PersonWarningStatus.TRIGGERED)
@@ -585,6 +601,14 @@ class TestPersonAlertFlow:
         mock_bus = Mock()
         mock_bus.send = capture_alert_with_timestamp
         communicator.bus = mock_bus
+        
+        # 手动建立事件订阅
+        from oak_vision_system.core.event_bus.event_types import EventType
+        communicator._person_warning_subscription_id = mock_event_bus.subscribe(
+            EventType.PERSON_WARNING,
+            communicator._on_person_warning_event,
+            "CANCommunicator"
+        )
         
         # 触发警报
         mock_event_bus.publish_person_warning(PersonWarningStatus.TRIGGERED)
