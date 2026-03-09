@@ -477,7 +477,7 @@ class TestPersonAlertFlow:
         from oak_vision_system.core.event_bus.event_types import EventType
         communicator._person_warning_subscription_id = mock_event_bus.subscribe(
             EventType.PERSON_WARNING,
-            communicator._on_person_warning_event,
+            communicator._on_person_warning,
             "CANCommunicator"
         )
         
@@ -540,7 +540,7 @@ class TestPersonAlertFlow:
         from oak_vision_system.core.event_bus.event_types import EventType
         communicator._person_warning_subscription_id = mock_event_bus.subscribe(
             EventType.PERSON_WARNING,
-            communicator._on_person_warning_event,
+            communicator._on_person_warning,
             "CANCommunicator"
         )
         
@@ -606,7 +606,7 @@ class TestPersonAlertFlow:
         from oak_vision_system.core.event_bus.event_types import EventType
         communicator._person_warning_subscription_id = mock_event_bus.subscribe(
             EventType.PERSON_WARNING,
-            communicator._on_person_warning_event,
+            communicator._on_person_warning,
             "CANCommunicator"
         )
         
