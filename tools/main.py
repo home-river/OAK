@@ -34,7 +34,7 @@ from typing import Optional
 # 固定配置，无需命令行参数
 
 # 配置文件路径（相对于项目根目录）
-CONFIG_PATH = "assets/test_config/config.json"
+CONFIG_PATH = "assets/config/config.json"
 
 # 是否使用虚拟 CAN（测试用）
 USE_VIRTUAL_CAN = True
