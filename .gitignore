@@ -30,5 +30,5 @@ build/
 dist/
 
 # Assets - 模型文件
-assets/**/*.blob
+assets/test*/**/*.blob
 !assets/**/README.md
