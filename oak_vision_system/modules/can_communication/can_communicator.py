@@ -323,90 +323,129 @@ class CANCommunicator(CANCommunicatorBase, can.Listener):
         - 确保所有资源都被正确清理
         - 使用锁保护状态变量，确保线程安全
         """
+        print("\n[DEBUG] ========== 开始 stop() 方法 ==========")  # [DEBUG]
         with self._running_lock:
+            print("[DEBUG] 已获取 _running_lock")  # [DEBUG]
             # 步骤1: 幂等性检查
             if not self._is_running:
                 logger.info("CANCommunicator 未在运行")
+                print("[DEBUG] CANCommunicator 未在运行，直接返回")  # [DEBUG]
                 return True
             
             logger.info("正在停止 CANCommunicator...")
+            print("[DEBUG] 步骤1: 幂等性检查通过")  # [DEBUG]
             
             # 标记为正在停止（防止并发问题）
             success = True
             
             # 步骤2: 停止警报定时器
+            print("[DEBUG] 步骤2: 开始停止警报定时器...")  # [DEBUG]
             try:
                 self._stop_alert_timer()
+                print("[DEBUG] 步骤2: 警报定时器停止完成")  # [DEBUG]
             except Exception as e:
                 logger.error(f"停止警报定时器失败: {e}", exc_info=True)
+                print(f"[DEBUG] 步骤2: 警报定时器停止失败: {e}")  # [DEBUG]
                 success = False
             
             # 步骤3: 取消事件订阅
+            print("[DEBUG] 步骤3: 开始取消事件订阅...")  # [DEBUG]
             if self._person_warning_subscription_id is not None:
                 try:
                     self.event_bus.unsubscribe(self._person_warning_subscription_id)
                     logger.info("已取消PERSON_WARNING事件订阅")
+                    print("[DEBUG] 步骤3: 事件订阅取消完成")  # [DEBUG]
                 except Exception as e:
                     logger.error(f"取消事件订阅失败: {e}", exc_info=True)
+                    print(f"[DEBUG] 步骤3: 事件订阅取消失败: {e}")  # [DEBUG]
                     success = False
                 finally:
                     self._person_warning_subscription_id = None
+            else:
+                print("[DEBUG] 步骤3: 无需取消事件订阅（未订阅）")  # [DEBUG]
             
             # 步骤4: 停止Notifier（带超时）
+            print(f"[DEBUG] 步骤4: 开始停止 Notifier (timeout={timeout}s)...")  # [DEBUG]
             if self.notifier is not None:
                 try:
                     # Notifier.stop() 会等待内部线程结束
                     # 使用 timeout 参数控制等待时间
+                    print(f"[DEBUG] 步骤4: 调用 notifier.stop()，开始时间: {time.time()}")  # [DEBUG]
                     start_time = time.time()
                     self.notifier.stop(timeout=timeout)
                     elapsed = time.time() - start_time
+                    print(f"[DEBUG] 步骤4: notifier.stop() 返回，耗时: {elapsed:.2f}s")  # [DEBUG]
                     
                     # 检查是否超时
                     if elapsed >= timeout:
                         logger.error(f"Notifier 停止超时 ({timeout}s)")
+                        print(f"[DEBUG] 步骤4: Notifier 停止超时")  # [DEBUG]
                         success = False
                     else:
                         logger.info("Notifier已停止")
+                        print(f"[DEBUG] 步骤4: Notifier 正常停止")  # [DEBUG]
                 except Exception as e:
                     logger.error(f"停止Notifier失败: {e}", exc_info=True)
+                    print(f"[DEBUG] 步骤4: 停止 Notifier 异常: {e}")  # [DEBUG]
                     success = False
                 finally:
                     self.notifier = None
+                    print("[DEBUG] 步骤4: notifier 引用已清理")  # [DEBUG]
+            else:
+                print("[DEBUG] 步骤4: notifier 为 None，跳过")  # [DEBUG]
             
             # 步骤5: 关闭Bus
+            print("[DEBUG] 步骤5: 开始关闭 Bus...")  # [DEBUG]
             if self.bus is not None:
                 try:
+                    print(f"[DEBUG] 步骤5: 调用 bus.shutdown()，开始时间: {time.time()}")  # [DEBUG]
                     self.bus.shutdown()
+                    print(f"[DEBUG] 步骤5: bus.shutdown() 返回，时间: {time.time()}")  # [DEBUG]
                     logger.info("CAN总线已关闭")
                 except Exception as e:
                     logger.error(f"关闭CAN总线失败: {e}", exc_info=True)
+                    print(f"[DEBUG] 步骤5: 关闭 Bus 异常: {e}")  # [DEBUG]
                     success = False
                 finally:
                     self.bus = None
+                    print("[DEBUG] 步骤5: bus 引用已清理")  # [DEBUG]
+            else:
+                print("[DEBUG] 步骤5: bus 为 None，跳过")  # [DEBUG]
             
             # 步骤6: 检查enable_auto_configure，调用reset_can_interface()
+            print("[DEBUG] 步骤6: 开始检查接口重置...")  # [DEBUG]
             if self.config.enable_auto_configure:
                 if sys.platform in ['linux', 'linux2']:
                     logger.info("重置CAN接口...")
+                    print("[DEBUG] 步骤6: 调用 reset_can_interface()...")  # [DEBUG]
                     reset_success = reset_can_interface(
                         channel=self.config.can_channel,
                         sudo_password=self.config.sudo_password
                     )
                     if not reset_success:
                         logger.warning("CAN接口重置失败")
+                        print("[DEBUG] 步骤6: 接口重置失败")  # [DEBUG]
                         success = False
+                    else:
+                        print("[DEBUG] 步骤6: 接口重置成功")  # [DEBUG]
                 else:
                     logger.info(f"非Linux系统({sys.platform})，跳过接口重置")
+                    print(f"[DEBUG] 步骤6: 非Linux系统，跳过")  # [DEBUG]
             else:
                 logger.info("自动配置已禁用，跳过接口重置")
+                print("[DEBUG] 步骤6: 自动配置已禁用，跳过")  # [DEBUG]
             
             # 只在成功时清理状态
+            print("[DEBUG] 步骤7: 清理状态...")  # [DEBUG]
             if success:
                 self._is_running = False
                 logger.info("CANCommunicator 已停止")
+                print("[DEBUG] 步骤7: 状态清理完成，stop() 成功")  # [DEBUG]
             else:
                 logger.error("CANCommunicator 停止过程中出现错误")
+                print("[DEBUG] 步骤7: stop() 过程中有错误")  # [DEBUG]
             
+            print("[DEBUG] ========== stop() 方法结束 ==========\n")  # [DEBUG]
             return success
     
     @property
@@ -505,29 +544,41 @@ class CANCommunicator(CANCommunicatorBase, can.Listener):
         
         注意：使用锁保护状态变量，确保线程安全
         """
+        print("    [DEBUG] _stop_alert_timer: 开始")  # [DEBUG]
         with self._alert_lock:
+            print("    [DEBUG] _stop_alert_timer: 已获取 _alert_lock")  # [DEBUG]
             # 如果未在运行，直接返回
             if not self._alert_active:
                 logger.info("警报定时器未在运行")
+                print("    [DEBUG] _stop_alert_timer: 警报未激活，直接返回")  # [DEBUG]
                 return
             
             # 清除警报激活标志
             self._alert_active = False
+            print("    [DEBUG] _stop_alert_timer: 已设置 _alert_active = False")  # [DEBUG]
             
             # 设置停止事件，通知线程退出
             self._alert_stop_event.set()
+            print("    [DEBUG] _stop_alert_timer: 已设置停止事件")  # [DEBUG]
             
             # 等待线程结束（带超时）
             if self._alert_thread is not None:
+                print(f"    [DEBUG] _stop_alert_timer: 等待警报线程结束 (is_alive={self._alert_thread.is_alive()})...")  # [DEBUG]
                 self._alert_thread.join(timeout=1.0)  # 最多等待1秒
+                print(f"    [DEBUG] _stop_alert_timer: join() 返回 (is_alive={self._alert_thread.is_alive()})")  # [DEBUG]
                 if self._alert_thread.is_alive():
                     logger.warning("警报线程未在超时时间内结束")
+                    print("    [DEBUG] _stop_alert_timer: 警报线程仍在运行（超时）")  # [DEBUG]
                 else:
                     logger.debug("警报线程已正常结束")
+                    print("    [DEBUG] _stop_alert_timer: 警报线程已正常结束")  # [DEBUG]
                 self._alert_thread = None
+            else:
+                print("    [DEBUG] _stop_alert_timer: _alert_thread 为 None")  # [DEBUG]
             
             # 记录警报停止和时间戳（需求8.4）
             logger.info(f"警报定时器已停止，时间戳: {time.time()}")
+            print("    [DEBUG] _stop_alert_timer: 完成")  # [DEBUG]
     
     def _alert_loop(self):
         """

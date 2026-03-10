@@ -294,7 +294,9 @@ def main():
     finally:
         # 停止通信器
         print("\n🔌 停止CAN通信器...")
-        communicator.stop()
+        print("[DEBUG] 测试脚本: 调用 communicator.stop()...")  # [DEBUG]
+        result = communicator.stop()
+        print(f"[DEBUG] 测试脚本: communicator.stop() 返回: {result}")  # [DEBUG]
         print("✅ CAN通信器已停止")
     
     print("\n" + "=" * 70)
