@@ -37,7 +37,7 @@ from typing import Optional
 CONFIG_PATH = "assets/config/config.json"
 
 # 是否使用虚拟 CAN（测试用）
-USE_VIRTUAL_CAN = True
+USE_VIRTUAL_CAN = False
 
 # 是否禁用显示（无头模式）
 NO_DISPLAY = False
