@@ -32,27 +32,90 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-class CANCommunicator(CANCommunicatorBase, can.Listener):
+class _CANMessageListener(can.Listener):
+    """
+    私有CAN消息监听器
+    
+    职责：
+    - 接收 Notifier 的 on_message_received(msg) 回调
+    - 将消息转发给 CANCommunicator 进行业务处理
+    - 提供轻量级 stop() 实现，避免重入死锁
+    
+    设计要点：
+    - 仅负责消息转发，不参与资源管理
+    - stop() 方法为空实现，不调用 communicator.stop()
+    - 包含完整的异常保护，防止回调崩溃
+    """
+    
+    def __init__(self, communicator: "CANCommunicator"):
+        """
+        初始化消息监听器
+        
+        Args:
+            communicator: CANCommunicator实例，用于转发消息
+        """
+        super().__init__()
+        self._communicator = communicator
+        logger.debug("_CANMessageListener已初始化")
+    
+    def on_message_received(self, msg: can.Message):
+        """
+        消息到达时的回调（python-can内部线程调用）
+        
+        将消息转发给 CANCommunicator 进行业务处理。
+        
+        Args:
+            msg: 接收到的CAN消息
+            
+        注意：
+        - 此方法在python-can的内部线程中执行
+        - 包含异常保护，防止回调崩溃导致Notifier线程终止
+        - 仅负责转发，不进行业务逻辑处理
+        """
+        try:
+            if self._communicator is not None:
+                self._communicator.on_message_received(msg)
+            else:
+                logger.warning("Communicator引用为None，忽略CAN消息")
+        except Exception as e:
+            # 捕获所有异常，防止回调崩溃影响Notifier线程
+            logger.exception(f"Listener转发CAN消息时发生异常: {e}")
+    
+    def stop(self):
+        """
+        轻量级停止方法
+        
+        注意：
+        - 此方法会被 python-can 的 Notifier.stop() 调用
+        - 必须是轻量级实现，不能调用 communicator.stop()
+        - 不负责资源清理，仅做必要的自身清理
+        """
+        logger.debug("_CANMessageListener.stop() 被调用 - 执行轻量级清理")
+        # 清理 communicator 引用，避免潜在的内存泄漏
+        self._communicator = None
+
+
+class CANCommunicator(CANCommunicatorBase):
     """
     CAN通信管理器
     
-    直接实现can.Listener接口，协调CAN通信的所有组件，包括：
+    协调CAN通信的所有组件，包括：
     - Bus连接管理
-    - 消息监听和处理（实现can.Listener接口）
+    - 消息监听和处理（通过独立的_CANMessageListener）
     - 坐标请求响应处理
     - 人员警报定时发送
     - 事件总线订阅
     
     职责：
     - 管理CAN总线连接生命周期
-    - 接收并处理CAN消息（on_message_received回调）
+    - 接收并处理CAN消息（通过内部业务处理方法）
     - 处理坐标请求并调用决策层
     - 订阅事件总线，处理人员警报
     - 提供统一的对外接口
     
     设计说明：
-    - 直接继承can.Listener，消除了CANMessageListener的循环引用
-    - 在python-can的内部线程中执行on_message_received回调
+    - 使用独立的_CANMessageListener处理消息监听，避免重入死锁
+    - 在python-can的内部线程中执行消息处理回调
     - 所有回调方法都包含异常保护，防止线程崩溃
     """
     
@@ -91,11 +154,12 @@ class CANCommunicator(CANCommunicatorBase, can.Listener):
         
         # 调用基类初始化
         CANCommunicatorBase.__init__(self, config, decision_layer, event_bus)
-        can.Listener.__init__(self)  # 显式初始化can.Listener基类
+        # 注意：不再调用 can.Listener.__init__(self)，因为不再直接继承
         
         # CAN总线组件
         self.bus: Optional[can.Bus] = None
         self.notifier: Optional[can.Notifier] = None
+        self._listener: Optional[_CANMessageListener] = None
         
         # 运行状态管理
         self._is_running = False
@@ -223,7 +287,7 @@ class CANCommunicator(CANCommunicatorBase, can.Listener):
         流程：
         1. 检查enable_auto_configure，调用configure_can_interface()
         2. 创建can.Bus对象
-        3. 创建can.Notifier实例（使用self作为Listener）
+        3. 创建独立的_CANMessageListener和can.Notifier实例
         4. 订阅Event_Bus的PERSON_WARNING事件
         5. 记录启动日志
         6. 处理连接失败异常
@@ -266,10 +330,13 @@ class CANCommunicator(CANCommunicatorBase, can.Listener):
                     bitrate=self.config.can_bitrate
                 )
                 
-                # 步骤3: 创建can.Notifier实例（使用self作为Listener）
+                # 步骤3: 创建独立的消息监听器和Notifier实例
+                # 创建独立的_CANMessageListener来处理消息监听
+                self._listener = _CANMessageListener(self)
+                
                 # Notifier会自动创建内部线程来监听CAN总线
-                # 直接传入self，因为CANCommunicator已经实现了can.Listener接口
-                self.notifier = can.Notifier(self.bus, [self])
+                # 使用独立的listener，避免重入死锁问题
+                self.notifier = can.Notifier(self.bus, [self._listener])
                 
                 # 步骤4: 订阅Event_Bus的PERSON_WARNING事件
                 from oak_vision_system.core.event_bus.event_types import EventType
@@ -314,12 +381,13 @@ class CANCommunicator(CANCommunicatorBase, can.Listener):
         2. 停止警报定时器
         3. 取消事件订阅
         4. 停止Notifier（带超时）
-        5. 关闭Bus
-        6. 检查enable_auto_configure，调用reset_can_interface()
-        7. 记录停止日志
+        5. 清理listener引用
+        6. 关闭Bus
+        7. 检查enable_auto_configure，调用reset_can_interface()
+        8. 记录停止日志
         
         注意：
-        - 调用顺序很重要：定时器 → 事件 → Notifier → Bus → 接口
+        - 调用顺序很重要：定时器 → 事件 → Notifier → listener → Bus → 接口
         - 确保所有资源都被正确清理
         - 使用锁保护状态变量，确保线程安全
         """
@@ -393,6 +461,11 @@ class CANCommunicator(CANCommunicatorBase, can.Listener):
                     print("[DEBUG] 步骤4: notifier 引用已清理")  # [DEBUG]
             else:
                 print("[DEBUG] 步骤4: notifier 为 None，跳过")  # [DEBUG]
+            
+            # 清理 listener 引用
+            print("[DEBUG] 步骤4.5: 清理 listener 引用...")  # [DEBUG]
+            self._listener = None
+            print("[DEBUG] 步骤4.5: listener 引用已清理")  # [DEBUG]
             
             # 步骤5: 关闭Bus
             print("[DEBUG] 步骤5: 开始关闭 Bus...")  # [DEBUG]
