@@ -218,18 +218,40 @@ def main():
     print("=" * 70)
     
     print("\n📝 使用说明:")
-    print("   1. 确保CAN接口已配置（can0或vcan0）")
+    print("   1. 选择CAN接口配置方式:")
+    print("      - 自动配置: 脚本会自动设置CAN接口 (需要sudo权限)")
+    print("      - 手动配置: 需要您预先配置好CAN接口")
     print("   2. 在另一个终端启动: python tools/can_controller.py")
     print("   3. 在can_controller终端观察接收到的消息")
     print("   4. 按照提示进行测试")
+    print("\n💡 手动配置CAN接口的命令:")
+    print("   # 对于真实CAN接口:")
+    print("   sudo ip link set can0 type can bitrate 250000")
+    print("   sudo ip link set up can0")
+    print("   # 对于虚拟CAN接口 (测试用):")
+    print("   sudo modprobe vcan")
+    print("   sudo ip link add dev vcan0 type vcan")
+    print("   sudo ip link set up vcan0")
     
     # 配置参数
     print("\n⚙️  配置参数:")
     can_channel = input("   CAN接口 (默认: can0): ").strip() or 'can0'
     
+    # 询问是否启用自动配置
+    auto_config_input = input("   是否启用自动配置CAN接口? (y/N): ").strip().lower()
+    enable_auto_configure = auto_config_input in ['y', 'yes', '是']
+    
+    sudo_password = None
+    if enable_auto_configure:
+        sudo_password = input("   请输入sudo密码 (用于配置CAN接口): ").strip()
+        if not sudo_password:
+            print("   ⚠️  未提供sudo密码，将禁用自动配置")
+            enable_auto_configure = False
+    
     print(f"\n   使用接口: {can_channel}")
     print(f"   波特率: 250000")
     print(f"   警报间隔: 100ms")
+    print(f"   自动配置: {'启用' if enable_auto_configure else '禁用'}")
     
     # 创建配置
     can_config = CANConfigDTO(
@@ -237,8 +259,8 @@ def main():
         can_interface='socketcan',
         can_channel=can_channel,
         can_bitrate=250000,
-        enable_auto_configure=False,  # 假设接口已配置
-        sudo_password=None,
+        enable_auto_configure=enable_auto_configure,
+        sudo_password=sudo_password,
         alert_interval_ms=100,
         send_timeout_ms=50,
         receive_timeout_ms=10
