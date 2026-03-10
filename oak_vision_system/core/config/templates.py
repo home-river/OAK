@@ -163,8 +163,8 @@ def template_DisplayConfigDTO() -> DisplayConfigDTO:
         # ===== 窗口配置 =====
         default_display_mode="rgb",          # 窗口显示模式: rgb
         enable_fullscreen=False,             # 是否全屏
-        window_width=1280,                   # 窗口宽度
-        window_height=720,                   # 窗口高度
+        window_width=1920,                   # 窗口宽度
+        window_height=1080,                   # 窗口高度
         window_position_x=0,                 # 窗口位置 X
         window_position_y=0,                 # 窗口位置 Y
 

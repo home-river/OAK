@@ -99,24 +99,28 @@ ALLOWED_CAN_BITRATES: tuple[int, ...] = (
 @dataclass(frozen=True)
 class CANConfigDTO(BaseConfigDTO):
     """CAN通信模块配置"""
-    
+
+    # ==================== 已用上（can_communication 模块已消费） ====================
     # 基本配置
     enable_can: bool = False   # CAN通信开关：False=虚拟模式（用于开发和测试），True=真实模式（连接硬件CAN总线）
     can_interface: str = 'socketcan'
     can_channel: str = 'can0'
     can_bitrate: int = 250000
-    
-    # 通信超时配置（协议层）
-    send_timeout_ms: int = 100
-    receive_timeout_ms: int = 10
-    
+
     # 接口管理配置
     enable_auto_configure: bool = True    # 是否自动配置CAN接口（Linux系统）
     sudo_password: Optional[str] = "orangepi"   # sudo密码（用于自动配置）
-    
+
+    # 通信超时配置（协议层）
+    send_timeout_ms: int = 100
+
     # 警报配置
     alert_interval_ms: int = 500    # 警报发送间隔（毫秒）
-    
+
+    # ==================== 未用上（当前 can_communication 模块尚未消费/预留） ====================
+    # 通信超时配置（协议层）
+    receive_timeout_ms: int = 10
+
     # 帧 ID 配置（直接采用 DTO）
     frame_ids: FrameIdConfigDTO = field(default_factory=FrameIdConfigDTO)
     

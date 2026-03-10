@@ -2,7 +2,7 @@
   "config_version": "2.0.0",
   "oak_module": {
     "hardware_config": {
-      "model_path": "assets/test_config/yolov8.blob",
+      "model_path": "assets/config/yolov8.blob",
       "label_map": [
         "durian",
         "person"
@@ -153,8 +153,8 @@
     "enable_display": true,
     "default_display_mode": "rgb",
     "enable_fullscreen": false,
-    "window_width": 1280,
-    "window_height": 720,
+    "window_width": 1920,
+    "window_height": 1080,
     "window_position_x": 0,
     "window_position_y": 0,
     "target_fps": 20,
