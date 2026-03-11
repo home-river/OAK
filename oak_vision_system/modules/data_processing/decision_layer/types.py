@@ -84,7 +84,12 @@ class DeviceState:
     # 人员相关状态
     person_warning_state: PersonWarningState = PersonWarningState.SAFE
     person_distance: Optional[float] = None
-    person_last_seen_time: Optional[float] = None
+
+    person_last_update_time: Optional[float] = None     #状态机更新时间戳
+    person_last_seen_time: Optional[float] = None       #person检测更新时间戳
+
+    person_present:bool = False
+
     t_in: float = 0.0   # 危险持续时间
     t_out: float = 0.0  # 离开危险区持续时间
     

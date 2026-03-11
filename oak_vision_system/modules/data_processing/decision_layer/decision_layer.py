@@ -231,6 +231,9 @@ class DecisionLayer:
         """
         # 1. 处理空输入
         if len(filtered_coords) == 0:
+            empty_coords = np.empty((0, 3),dtype = np.float32)
+            self._process_person(device_id, empty_coords)
+            self._process_object(device_id, empty_coords)
             return []
         
         # 2. 创建掩码分流
@@ -257,83 +260,126 @@ class DecisionLayer:
         device_state: DeviceState,
         min_distance: float,
         current_time: float,
-        device_id: str
+        device_id: str,
+        person_detected: bool
     ) -> PersonWarningState:
         """
-        更新人员警告状态机
-        
-        实现状态机转换逻辑：
-        - SAFE -> PENDING: 人员距离 < d_in
-        - PENDING -> ALARM: 危险持续时间 >= T_warn（发布 TRIGGERED 事件）
-        - PENDING -> SAFE: 人员距离 >= d_out
-        - ALARM -> SAFE: 离开危险区持续时间 >= T_clear（发布 CLEARED 事件）
-        
-        同时处理宽限期逻辑：当人员未检测到但距离最后看到时间 <= grace_time 时，
-        保持当前状态。
-        
-        Args:
-            device_state: 设备状态对象
-            min_distance: 最近人员距离（毫米）
-            current_time: 当前时间戳（秒）
-            device_id: 设备ID（用于事件发布）
-        
-        Returns:
-            更新后的人员警告状态
+        更新人员告警状态机。
         """
+        # 记录进入函数前的旧状态，后面根据旧状态决定如何转移
         old_state = device_state.person_warning_state
+
+        # 取出人员告警相关配置
+        # 例如：d_in / d_out / T_warn / T_clear
         config = self._config.person_warning
-        
-        # 计算时间增量（使用实际时间差）
-        if device_state.person_last_seen_time is not None:
-            time_delta = current_time - device_state.person_last_seen_time
-        else:
+
+        # 计算距离上一次“状态机更新”过去了多久
+        # 注意这里用的是 person_last_update_time，
+        # 不是 person_last_seen_time
+        # 否则“没人时也推进状态机”的场景会把语义搞混
+        if device_state.person_last_update_time is None:
+            # 第一次进入状态机，没有上次时间，增量记为 0
             time_delta = 0.0
-        
-        # 更新最后看到时间和距离
-        device_state.person_last_seen_time = current_time
+        else:
+            # 正常情况下，用当前时间减去上次更新时间
+            # max(0.0, ...) 是防御性写法，避免时钟异常导致负数
+            time_delta = max(0.0, current_time - device_state.person_last_update_time)
+
+        # 无论这一帧有没有检测到人，
+        # 只要状态机被调用了，就更新“上次状态机更新时间”
+        device_state.person_last_update_time = current_time
+
+        # 记录当前帧是否检测到人
+        device_state.person_present = person_detected
+
+        # 记录当前帧输入给状态机的最近 person 距离
+        # 若当前无人，通常这里会传入 inf
         device_state.person_distance = min_distance
-        
-        # 状态机转换逻辑
+
+        # 只有真的检测到了 person，才更新“最后一次见到人”的时间
+        # 这样 person_last_seen_time 才能保持语义纯净：
+        # 它表示“最后一次真实检测到人”，而不是“最后一次推进状态机”
+        if person_detected:
+            device_state.person_last_seen_time = current_time
+
+        # ---------------------------
+        # 状态 1：SAFE（当前安全，无告警）
+        # ---------------------------
         if old_state == PersonWarningState.SAFE:
-            # SAFE -> PENDING: 距离 < d_in
+            # 如果最近 person 已经进入危险区（距离 < d_in）
+            # 不立即报警，而是先进入 PENDING 观察态
             if min_distance < config.d_in:
                 device_state.person_warning_state = PersonWarningState.PENDING
-                device_state.t_in = 0.0  # 重置危险持续时间
+
+                # 刚进入观察态，危险累计时间清零重新开始
+                device_state.t_in = 0.0
+
+                # 清警累计时间也清零
                 device_state.t_out = 0.0
-        
+
+        # ---------------------------
+        # 状态 2：PENDING（已接近/进入危险区，等待确认）
+        # ---------------------------
         elif old_state == PersonWarningState.PENDING:
+            # 如果当前已经回到安全区（>= d_out）
+            # 说明这次危险未持续成立，直接退回 SAFE
             if min_distance >= config.d_out:
-                # PENDING -> SAFE: 距离 >= d_out
                 device_state.person_warning_state = PersonWarningState.SAFE
                 device_state.t_in = 0.0
                 device_state.t_out = 0.0
+
+            # 如果仍然处于危险区内（< d_in）
+            # 则继续累计“危险持续时间”
             elif min_distance < config.d_in:
-                # 继续累计危险持续时间（使用实际时间差）
                 device_state.t_in += time_delta
-                
-                # PENDING -> ALARM: t_in >= T_warn
+
+                # 一旦危险持续时间达到告警阈值 T_warn
+                # 就正式转为 ALARM 并发布触发事件
                 if device_state.t_in >= config.T_warn:
                     device_state.person_warning_state = PersonWarningState.ALARM
+
+                    # 进入告警态时，清警累计时间重新置零
                     device_state.t_out = 0.0
-                    # 发布警告触发事件
+
+                    # 对外发布“告警触发”事件
                     self._publish_warning_event(PersonWarningStatus.TRIGGERED, device_id)
-        
+
+            # 如果当前距离落在迟滞区间：
+            # d_in <= min_distance < d_out
+            # 则保持 PENDING，不前进、不后退
+            # 这样可以减少边界抖动导致的误触发
+            # （这里没有写 else，等价于“什么都不做”）
+
+        # ---------------------------
+        # 状态 3：ALARM（已经处于告警中）
+        # ---------------------------
         elif old_state == PersonWarningState.ALARM:
+            # 如果当前已经满足“安全条件”
+            # 包括两种情况：
+            # 1）person 回到安全区（>= d_out）
+            # 2）当前无人，此时 min_distance 通常是 inf，也满足 >= d_out
             if min_distance >= config.d_out:
-                # 开始累计离开危险区时间（使用实际时间差）
+                # 开始累计“安全持续时间”
                 device_state.t_out += time_delta
-                
-                # ALARM -> SAFE: t_out >= T_clear
+
+                # 连续安全时间达到 T_clear 后，解除告警
                 if device_state.t_out >= config.T_clear:
                     device_state.person_warning_state = PersonWarningState.SAFE
+
+                    # 回到安全态后，把累计计时都清零
                     device_state.t_in = 0.0
                     device_state.t_out = 0.0
-                    # 发布警告清除事件
+
+                    # 对外发布“告警解除”事件
                     self._publish_warning_event(PersonWarningStatus.CLEARED, device_id)
+
             else:
-                # 距离 < d_out，重置 t_out
+                # 只要当前还没有真正回到安全区，
+                # 就不能继续累计清警时间
+                # 必须保证 T_clear 是“连续安全时长”
                 device_state.t_out = 0.0
-        
+
+        # 返回更新后的最新状态
         return device_state.person_warning_state
     
     def _publish_warning_event(
@@ -404,12 +450,16 @@ class DecisionLayer:
         device_state = self._device_states[device_id]
         current_time = time.time()
         
-        # 2. 处理空输入（人员消失）- 关键修复：仍需更新状态机
+        # 2. 处理空输入（人员消失
         if len(person_coords) == 0:
             # 人员消失，使用无穷大距离更新状态机
             # 这样状态机可以正确处理人员消失的情况，清除警报
             self._update_person_state_machine(
-                device_state, float('inf'), current_time, device_id
+                device_state, 
+                float('inf'), 
+                current_time, 
+                device_id, 
+                person_detected=False,
             )
             return np.array([], dtype=np.int32)
         
@@ -423,7 +473,11 @@ class DecisionLayer:
         
         # 5. 更新状态机（内部会在状态转换时发布事件）
         new_state = self._update_person_state_machine(
-            device_state, min_distance, current_time, device_id
+            device_state, 
+            min_distance, 
+            current_time, 
+            device_id, 
+            person_detected=True,
         )
         
         # 6. 分配状态值（向量化）
