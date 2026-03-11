@@ -136,7 +136,7 @@
     "person_timeout_seconds": 5.0
   },
   "can_config": {
-    "enable_can": false,
+    "enable_can": true,
     "can_interface": "socketcan",
     "can_channel": "can0",
     "can_bitrate": 250000,
