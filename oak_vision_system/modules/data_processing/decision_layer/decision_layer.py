@@ -380,9 +380,9 @@ class DecisionLayer:
         处理人员类数据
         
         实现人员处理逻辑：
-        1. 处理空输入
-        2. 使用向量化操作计算欧几里得距离
-        3. 获取或创建设备状态
+        1. 获取或创建设备状态
+        2. 处理空输入（人员消失）- 仍需更新状态机
+        3. 使用向量化操作计算欧几里得距离
         4. 找到最近人员距离
         5. 调用 _update_person_state_machine() 更新状态（内部会发布事件）
         6. 使用 np.where 向量化分配状态值
@@ -397,21 +397,26 @@ class DecisionLayer:
             值为 DetectionStatusLabel.HUMAN_SAFE (100) 或 
             DetectionStatusLabel.HUMAN_DANGEROUS (101)
         """
-        # 1. 处理空输入
-        if len(person_coords) == 0:
-            return np.array([], dtype=np.int32)
-        
-        # 2. 计算距离（向量化）
-        # 欧几里得距离：sqrt(x² + y² + z²)
-        # 注意：输入坐标单位是毫米，直接计算即可
-        distances = np.sqrt(np.sum(person_coords**2, axis=1))
-        
-        # 3. 获取或创建设备状态
+        # 1. 获取或创建设备状态
         if device_id not in self._device_states:
             self._device_states[device_id] = DeviceState()
         
         device_state = self._device_states[device_id]
         current_time = time.time()
+        
+        # 2. 处理空输入（人员消失）- 关键修复：仍需更新状态机
+        if len(person_coords) == 0:
+            # 人员消失，使用无穷大距离更新状态机
+            # 这样状态机可以正确处理人员消失的情况，清除警报
+            self._update_person_state_machine(
+                device_state, float('inf'), current_time, device_id
+            )
+            return np.array([], dtype=np.int32)
+        
+        # 3. 计算距离（向量化）
+        # 欧几里得距离：sqrt(x² + y² + z²)
+        # 注意：输入坐标单位是毫米，直接计算即可
+        distances = np.sqrt(np.sum(person_coords**2, axis=1))
         
         # 4. 找到最近的人员
         min_distance = np.min(distances)

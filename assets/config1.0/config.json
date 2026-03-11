@@ -108,7 +108,7 @@
     },
     "decision_layer_config": {
       "person_label_ids": [
-        0
+        1
       ],
       "person_warning": {
         "d_in": 3000.0,

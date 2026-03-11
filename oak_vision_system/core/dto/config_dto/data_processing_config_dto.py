@@ -248,7 +248,7 @@ class DecisionLayerConfigDTO(BaseConfigDTO):
     """
     
     # 标签映射
-    person_label_ids: List[int] = field(default_factory=lambda: [0])
+    person_label_ids: List[int] = field(default_factory=lambda: [1])
     
     # 人员警告配置
     person_warning: PersonWarningConfigDTO = field(default_factory=PersonWarningConfigDTO)
