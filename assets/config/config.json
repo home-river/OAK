@@ -172,8 +172,8 @@
   },
   "system_config": {
     "log_level": "INFO",
-    "log_to_file": false,
-    "log_file_path": null,
+    "log_to_file": true,
+    "log_file_path": "log",
     "log_max_size_mb": 100,
     "log_backup_count": 7,
     "log_rotate_mode": "time",

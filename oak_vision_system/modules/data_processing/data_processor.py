@@ -407,6 +407,14 @@ class DataProcessor:
         
         # 处理空输入（创建空 DTO 并发布事件）
         if not detections or len(detections) == 0:
+
+            decision_results = self.decision_layer.decide(
+                device_id=device_id,
+                filtered_coords= np.empty((0, 3), dtype = np.float32),
+                filtered_labels=np.empty((0,), dtype = np.int32)
+            )
+
+
             processed_data = self._create_empty_output(
                 device_id=device_id,
                 frame_id=frame_id,

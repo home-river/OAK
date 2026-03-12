@@ -46,6 +46,8 @@ NO_DISPLAY = False
 # - 日志级别、格式、滚动策略：在配置文件中设置
 # - 日志文件路径：通过 SystemManager 的 log_subpath 参数指定
 
+LOG_SUBPATH = "main/detection.log"
+
 
 def load_configuration(config_path: str, logger: Optional[logging.Logger] = None):
     """加载系统配置"""
@@ -213,7 +215,7 @@ def main():
     system_manager = SystemManager(
         event_bus=event_bus,
         system_config=system_config,
-        log_subpath="main/detection.log",  # 指定日志子路径
+        log_subpath=LOG_SUBPATH,  # 指定日志子路径
         default_stop_timeout=5.0,
         force_exit_grace_period=3.0
     )

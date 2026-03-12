@@ -399,6 +399,42 @@ class OAKDataCollector:
             )
             return None
 
+    def _create_empty_detection_data(
+        self,
+        device_binding: DeviceRoleBindingDTO,
+        frame_id: Optional[int] = None
+    ) -> Optional[DeviceDetectionDataDTO]:
+        """
+        创建空的检测数据DTO，保证数据流的稳定性。
+        """
+
+        # 获取设备ID
+        device_id = device_binding.active_mxid
+        if device_id is None:
+            self.logger.error("设备ID为空，无法组装检测数据: %s", device_binding.role)
+            return None
+        
+        # 使用传入的frame_id，如果未提供则使用计数器（向后兼容）
+        if frame_id is None:
+            role_key = device_binding.role.value
+            frame_id = self._frame_counters.get(role_key, 0)
+        
+        # 获取设备别名（使用角色枚举的value）
+        device_alias = device_binding.role.value
+        
+        # 转换检测结果列表
+        detections_list: List[DetectionDTO] = []
+
+        # 创建 DeviceDetectionDataDTO
+        device_detection_dto = DeviceDetectionDataDTO(
+            device_id=device_id,
+            frame_id=frame_id,
+            device_alias=device_alias,
+            detections=detections_list
+        )
+        
+        return device_detection_dto
+
     def _create_pipeline_for_device(self, device_binding: DeviceRoleBindingDTO) -> dai.Pipeline:
         """
         为指定设备创建 pipeline（根据配置选择创建方式）
@@ -560,8 +596,14 @@ class OAKDataCollector:
                             device_binding, det_frame,
                             frame_id=current_frame_id
                         )
-                        if detection_dto is not None:
-                            self._publish_data(detection_dto)        
+                    else:
+                        detection_dto = self._create_empty_detection_data(
+                            device_binding, det_frame,
+                            frame_id=current_frame_id
+                        )
+
+                    if detection_dto is not None:
+                        self._publish_data(detection_dto)        
                 
 
                 
