@@ -598,7 +598,7 @@ class OAKDataCollector:
                         )
                     else:
                         detection_dto = self._create_empty_detection_data(
-                            device_binding, det_frame,
+                            device_binding,
                             frame_id=current_frame_id
                         )
 
