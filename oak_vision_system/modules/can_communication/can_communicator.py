@@ -577,7 +577,6 @@ class CANCommunicator(CANCommunicatorBase):
         注意：使用锁保护状态变量，确保线程安全
         """
 
-        logger.warning(f"[DEBUG] _stop_alert_timer 被调用: _alert_active={self._alert_active}")
         with self._alert_lock:
             # 如果未在运行，直接返回
             if not self._alert_active:
