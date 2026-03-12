@@ -32,3 +32,6 @@ dist/
 # Assets - 模型文件
 assets/test*/**/*.blob
 !assets/**/README.md
+
+logs/
+*.log
