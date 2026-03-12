@@ -263,8 +263,17 @@ class DecisionLayer:
         device_id: str,
         person_detected: bool
     ) -> PersonWarningState:
-        """
-        更新人员告警状态机。
+        """更新人员告警状态机（按帧推进）。
+
+        Args:
+            device_state: 当前设备的人员告警状态（含计时器与时间戳）。
+            min_distance: 本帧最近人员距离（单位：mm）。若本帧未检测到人员，建议传入 ``inf``。
+            current_time: 本次推进的时间戳（单位：秒，通常为 ``time.time()``）。
+            device_id: 设备ID（用于发布告警事件）。
+            person_detected: 本帧是否检测到人员目标。
+
+        Returns:
+            PersonWarningState: 更新后的人员告警状态。
         """
         # 记录进入函数前的旧状态，后面根据旧状态决定如何转移
         old_state = device_state.person_warning_state
@@ -364,6 +373,12 @@ class DecisionLayer:
 
                 # 连续安全时间达到 T_clear 后，解除告警
                 if device_state.t_out >= config.T_clear:
+
+                    logger.warning(
+                        f"[DEBUG] 决策层准备发布 CLEARED 事件: device_id={device_id}, "
+                        f"t_out={device_state.t_out:.2f}s, T_clear={config.T_clear}s"
+                    )
+
                     device_state.person_warning_state = PersonWarningState.SAFE
 
                     # 回到安全态后，把累计计时都清零
@@ -450,7 +465,7 @@ class DecisionLayer:
         device_state = self._device_states[device_id]
         current_time = time.time()
         
-        # 2. 处理空输入（人员消失
+        # 2. 处理空输入（人员消失）- 关键修复：仍需更新状态机
         if len(person_coords) == 0:
             # 人员消失，使用无穷大距离更新状态机
             # 这样状态机可以正确处理人员消失的情况，清除警报

@@ -72,12 +72,12 @@ class DeviceState:
     
     Attributes:
         person_warning_state: 人员警告状态机的当前状态
-        person_distance: 最近人员的距离（米）
+        person_distance: 最近人员的距离（毫米）
         person_last_seen_time: 最后一次检测到人员的时间戳
         t_in: 危险持续时间（秒），用于 PENDING -> ALARM 转换
         t_out: 离开危险区持续时间（秒），用于 ALARM -> SAFE 转换
         nearest_object_coords: 最近可抓取物体的坐标，形状 (3,)
-        nearest_object_distance: 最近可抓取物体的距离（米）
+        nearest_object_distance: 最近可抓取物体的距离（毫米）
         last_update_time: 最后更新时间戳（用于状态过期检查）
     """
     
