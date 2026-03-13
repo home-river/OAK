@@ -33,5 +33,3 @@ dist/
 assets/test*/**/*.blob
 !assets/**/README.md
 
-logs/
-*.log
